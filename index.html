@@ -7,6 +7,7 @@
 <body>
 
 <script src="three.js/build/three.min.js"></script>
+<script src="jquery-2.1.1.min.js"></script>
 <script>
 var main = function () {
   var scene = new THREE.Scene();
@@ -20,8 +21,11 @@ var main = function () {
   var camera = new THREE.PerspectiveCamera( fov, aspect, near, far );
   camera.position.set( 0, 0, 50 );
 
-  var renderer = new THREE.WebGLRenderer();
-  renderer.setSize( width, height );
+   //
+   var renderer = new THREE.WebGLRenderer();
+   renderer.setSize( width, height );
+   renderer.setClearColor(0x000000, 1);
+   renderer.autoClear = false;
   document.body.appendChild( renderer.domElement );
 
   var directionalLight = new THREE.DirectionalLight( 0xffffff );
@@ -46,12 +50,6 @@ var main = function () {
      //skinnedMesh.geometry.dynamic = true;
 
 
-     console.log(skinnedMesh);
-     console.log(skinnedMesh.bones);
-
-     for(var bone in skinnedMesh.bones) {
-       console.log("aaa");
-     }
      scene.add(skinnedMesh);
 
      console.log(skinnedMesh.bones);
@@ -62,13 +60,53 @@ var main = function () {
 });
 
 
+   camera2d = new THREE.OrthographicCamera(0, width, 0, height, 0.001, 10000);
+   scene2d = new THREE.Scene();
+
+   var texture = THREE.ImageUtils.loadTexture("images/marker.png");
+   console.log("texture", texture);
+
+     var material = new THREE.SpriteMaterial({map: texture, color: 0xFFFFFF});
+     var sprite;
+//     var w = texture.image.width, h = texture.image.height;
+
+   sprite = new THREE.Sprite(material);
+     //sprite.position.set(0.5, 0.5, 1);
+   sprite.position.set(0, 0, 1);
+     sprite.scale.set(20.0, 20.0, 1);
+     scene.add(sprite);
+/*
+     sprite = new THREE.Sprite(material);
+     sprite.position.set(w, h, -1);
+     sprite.scale.set(w, -h, 1);
+     scene2d.add(sprite);
+*/
+
+
+
+
+
+
 
   ( function renderLoop () {
-    requestAnimationFrame( renderLoop );
+     requestAnimationFrame( renderLoop );
 
      if (aaa) {
        var m = aaa.skeleton.bones[1];
        m.rotation.set(m.rotation.x+0.1, m.rotation.y, m.rotation.z, m.rotation.order);
+
+       m = aaa.skeleton.bones[3];
+
+       var vector = new THREE.Vector3();
+       vector.setFromMatrixPosition(m.matrixWorld);
+       //console.log(vector);
+
+       //p = to2d(vector, camera)
+
+
+
+       //console.log(p);
+       sprite.position.set(vector.x, vector.y, 10);
        //console.log(m);
        //m.update();
        //m.makeRotationX(10);
@@ -78,11 +116,19 @@ var main = function () {
       mesh.rotation.y + .01,
       mesh.rotation.z + .01
     );*/
-    renderer.render( scene, camera );
-  } )();
-};
 
- window.addEventListener( 'DOMContentLoaded', main, false );
+
+
+     renderer.clear();
+     //
+
+     renderer.render( scene, camera );
+     renderer.render( scene2d, camera2d );
+  } )();
+
+}; // function main
+
+ window.addEventListener('DOMContentLoaded', main, false);
 </script>
 
 </body>
