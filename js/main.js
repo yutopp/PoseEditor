@@ -80,8 +80,8 @@ var main = function () {
     human_model = skinnedMesh
 
     //
-    var texture = THREE.ImageUtils.loadTexture("images/marker.png");
     for(var bone in skinnedMesh.skeleton.bones) {
+      var texture = THREE.ImageUtils.loadTexture("images/marker.png");
       var material = new THREE.SpriteMaterial({map: texture, color: 0xFFFFFF});
       var sprite = new THREE.Sprite(material);
       sprite.scale.set(32.0, 32.0, 1);
@@ -91,18 +91,28 @@ var main = function () {
     }
 
     //
+    var i = 0;
     for(var bone in skinnedMesh.skeleton.bones) {
       var sphere_geo = new THREE.SphereGeometry(4, 4, 4);
-      var sphere = new THREE.Mesh(sphere_geo, new THREE.MeshNormalMaterial());
+      var material = new THREE.MeshBasicMaterial({color: 0xFFFFFF});
+      var sphere = new THREE.Mesh(sphere_geo, material);
+      sphere.userData = {
+        joint_index: i
+      };
 
+      sphere.visible = false;
       joint_spheres.push(sphere);
       scene.add(sphere);
+
+      i = i + 1;
     }
 
 
     //animate(skinnedMesh);
   });
 
+
+  //
   var bone_ray = function(e) {
     var mouse_x = e.clientX - $(renderer.domElement).position().left;
     var mouse_y = e.clientY - $(renderer.domElement).position().top;
@@ -113,10 +123,25 @@ var main = function () {
     var ray = new THREE.Raycaster(camera.position, pos.sub(camera.position).normalize());
 
     var objs = ray.intersectObjects(joint_spheres);
-    console.log(objs)
+
+    // reset
+    for(var index in joint_spheres) {
+      joint_markers[index].material.color.setRGB(1, 1, 1);
+    }
+
+    // select
+    for(var index in objs) {
+      var obj = objs[index].object;
+      console.log(obj);
+
+      var joint_index = obj.userData.joint_index;
+      console.log(joint_index)
+      joint_markers[joint_index].material.color.setRGB(1, 0, 0);
+      break;
+    }
   };
 
-  renderer.domElement.addEventListener('mousemove', bone_ray, false);
+  renderer.domElement.addEventListener('mousedown', bone_ray, false);
 
 
   (function render_loop() {
