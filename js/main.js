@@ -10,6 +10,11 @@ var main = function () {
   var camera = new THREE.PerspectiveCamera( fov, aspect, near, far );
   camera.position.set( 0, 0, 50 );
 
+  //
+  var controls = new THREE.OrbitControls( camera );
+  controls.damping = 0.2;
+  //controls.addEventListener('change', render);
+
   var camera2d = new THREE.OrthographicCamera(0, width, 0, height, 0.001, 10000);
   var scene2d = new THREE.Scene();
 
@@ -50,7 +55,8 @@ var main = function () {
 
   //
   var human_model = null;
-  var bone_markers = []
+  var joint_markers = [];
+  var joint_spheres = [];
 
   //
   var loader = new THREE.JSONLoader();
@@ -80,19 +86,37 @@ var main = function () {
       var sprite = new THREE.Sprite(material);
       sprite.scale.set(32.0, 32.0, 1);
 
-      bone_markers.push(sprite);
+      joint_markers.push(sprite);
       scene2d.add(sprite);
     }
 
+    //
+    for(var bone in skinnedMesh.skeleton.bones) {
+      var sphere_geo = new THREE.SphereGeometry(4, 4, 4);
+      var sphere = new THREE.Mesh(sphere_geo, new THREE.MeshNormalMaterial());
 
+      joint_spheres.push(sphere);
+      scene.add(sphere);
+    }
 
 
     //animate(skinnedMesh);
   });
 
+  var bone_ray = function(e) {
+    var mouse_x = e.clientX - $(renderer.domElement).position().left;
+    var mouse_y = e.clientY - $(renderer.domElement).position().top;
 
+    var pos = screenToWorld(new THREE.Vector3(mouse_x, mouse_y, 0));
+    console.log(pos);
 
+    var ray = new THREE.Raycaster(camera.position, pos.sub(camera.position).normalize());
 
+    var objs = ray.intersectObjects(joint_spheres);
+    console.log(objs)
+  };
+
+  renderer.domElement.addEventListener('mousemove', bone_ray, false);
 
 
   (function render_loop() {
@@ -109,7 +133,19 @@ var main = function () {
         b_pos.setFromMatrixPosition(b.matrixWorld);
 
         var screen_b_pos = worldToScreen(b_pos);
-        bone_markers[i].position.set(screen_b_pos.x, screen_b_pos.y, -1);
+        joint_markers[i].position.set(screen_b_pos.x, screen_b_pos.y, -1);
+
+        i = i + 1;
+      }
+
+
+      i = 0;
+      for(var bone in human_model.skeleton.bones) {
+        var b = human_model.skeleton.bones[i];
+        var b_pos = new THREE.Vector3();
+        b_pos.setFromMatrixPosition(b.matrixWorld);
+
+        joint_spheres[i].position.set(b_pos.x, b_pos.y, b_pos.z);
 
         i = i + 1;
       }
