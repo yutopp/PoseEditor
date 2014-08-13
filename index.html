@@ -1,135 +1,14 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>get started with three.js</title>
-</head>
-<body>
+    <head>
+        <meta charset="utf-8">
+        <title>bone editor</title>
+    </head>
+    <body>
 
-<script src="three.js/build/three.min.js"></script>
-<script src="jquery-2.1.1.min.js"></script>
-<script>
-var main = function () {
-  var scene = new THREE.Scene();
+        <script src="three.js/build/three.min.js"></script>
+        <script src="jquery-2.1.1.min.js"></script>
+        <script src="js/main.js"></script>
 
-  var width  = 600;
-  var height = 400;
-  var fov    = 60;
-  var aspect = width / height;
-  var near   = 1;
-  var far    = 1000;
-  var camera = new THREE.PerspectiveCamera( fov, aspect, near, far );
-  camera.position.set( 0, 0, 50 );
-
-   //
-   var renderer = new THREE.WebGLRenderer();
-   renderer.setSize( width, height );
-   renderer.setClearColor(0x000000, 1);
-   renderer.autoClear = false;
-  document.body.appendChild( renderer.domElement );
-
-  var directionalLight = new THREE.DirectionalLight( 0xffffff );
-  directionalLight.position.set( 0, 0.7, 0.7 );
-  scene.add( directionalLight );
-
-
-   var aaa = null;
-
-   var loader = new THREE.JSONLoader();
-   loader.load('models/body_try2.js', function (geometry, materials) {
-     console.log("geometory", geometry);
-
-     var material = new THREE.MeshLambertMaterial({color: 0xF0C8C9, skinning: true});
-
-     var skinnedMesh = new THREE.SkinnedMesh(geometry, material);
-
-     console.log("skinnedMesh", skinnedMesh);
-     console.log("skinnedMesh.bones", skinnedMesh.skeleton.bones);
-     //skinnedMesh.position.y = 50;
-     skinnedMesh.scale.set(4, 4, 4);
-     //skinnedMesh.geometry.dynamic = true;
-
-
-     scene.add(skinnedMesh);
-
-     console.log(skinnedMesh.bones);
-
-     aaa = skinnedMesh
-
-    //animate(skinnedMesh);
-});
-
-
-   camera2d = new THREE.OrthographicCamera(0, width, 0, height, 0.001, 10000);
-   scene2d = new THREE.Scene();
-
-   var texture = THREE.ImageUtils.loadTexture("images/marker.png");
-   console.log("texture", texture);
-
-     var material = new THREE.SpriteMaterial({map: texture, color: 0xFFFFFF});
-     var sprite;
-//     var w = texture.image.width, h = texture.image.height;
-
-   sprite = new THREE.Sprite(material);
-     //sprite.position.set(0.5, 0.5, 1);
-   sprite.position.set(0, 0, 1);
-     sprite.scale.set(20.0, 20.0, 1);
-     scene.add(sprite);
-/*
-     sprite = new THREE.Sprite(material);
-     sprite.position.set(w, h, -1);
-     sprite.scale.set(w, -h, 1);
-     scene2d.add(sprite);
-*/
-
-
-
-
-
-
-
-  ( function renderLoop () {
-     requestAnimationFrame( renderLoop );
-
-     if (aaa) {
-       var m = aaa.skeleton.bones[1];
-       m.rotation.set(m.rotation.x+0.1, m.rotation.y, m.rotation.z, m.rotation.order);
-
-       m = aaa.skeleton.bones[3];
-
-       var vector = new THREE.Vector3();
-       vector.setFromMatrixPosition(m.matrixWorld);
-       //console.log(vector);
-
-       //p = to2d(vector, camera)
-
-
-
-       //console.log(p);
-       sprite.position.set(vector.x, vector.y, 10);
-       //console.log(m);
-       //m.update();
-       //m.makeRotationX(10);
-     }
-/*    mesh.rotation.set(
-      0,
-      mesh.rotation.y + .01,
-      mesh.rotation.z + .01
-    );*/
-
-
-
-     renderer.clear();
-     //
-
-     renderer.render( scene, camera );
-     renderer.render( scene2d, camera2d );
-  } )();
-
-}; // function main
-
- window.addEventListener('DOMContentLoaded', main, false);
-</script>
-
-</body>
+    </body>
 </html>
