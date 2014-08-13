@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>get started with three.js</title>
+</head>
+<body>
+
+<script src="three.js/build/three.min.js"></script>
+<script>
+var main = function () {
+  var scene = new THREE.Scene();
+
+  var width  = 600;
+  var height = 400;
+  var fov    = 60;
+  var aspect = width / height;
+  var near   = 1;
+  var far    = 1000;
+  var camera = new THREE.PerspectiveCamera( fov, aspect, near, far );
+  camera.position.set( 0, 0, 50 );
+
+  var renderer = new THREE.WebGLRenderer();
+  renderer.setSize( width, height );
+  document.body.appendChild( renderer.domElement );
+
+  var directionalLight = new THREE.DirectionalLight( 0xffffff );
+  directionalLight.position.set( 0, 0.7, 0.7 );
+  scene.add( directionalLight );
+
+
+   var aaa = null;
+
+   var loader = new THREE.JSONLoader();
+   loader.load('models/body_try2.js', function (geometry, materials) {
+     console.log("geometory", geometry);
+
+     var material = new THREE.MeshLambertMaterial({color: 0xF0C8C9, skinning: true});
+
+     var skinnedMesh = new THREE.SkinnedMesh(geometry, material);
+
+     console.log("skinnedMesh", skinnedMesh);
+     console.log("skinnedMesh.bones", skinnedMesh.skeleton.bones);
+     //skinnedMesh.position.y = 50;
+     skinnedMesh.scale.set(4, 4, 4);
+     //skinnedMesh.geometry.dynamic = true;
+
+
+     console.log(skinnedMesh);
+     console.log(skinnedMesh.bones);
+
+     for(var bone in skinnedMesh.bones) {
+       console.log("aaa");
+     }
+     scene.add(skinnedMesh);
+
+     console.log(skinnedMesh.bones);
+
+     aaa = skinnedMesh
+
+    //animate(skinnedMesh);
+});
+
+
+
+  ( function renderLoop () {
+    requestAnimationFrame( renderLoop );
+
+     if (aaa) {
+       var m = aaa.skeleton.bones[1];
+       m.rotation.set(m.rotation.x+0.1, m.rotation.y, m.rotation.z, m.rotation.order);
+       //console.log(m);
+       //m.update();
+       //m.makeRotationX(10);
+     }
+/*    mesh.rotation.set(
+      0,
+      mesh.rotation.y + .01,
+      mesh.rotation.z + .01
+    );*/
+    renderer.render( scene, camera );
+  } )();
+};
+
+ window.addEventListener( 'DOMContentLoaded', main, false );
+</script>
+
+</body>
+</html>
