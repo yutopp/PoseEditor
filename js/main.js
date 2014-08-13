@@ -48,12 +48,11 @@ var main = function () {
   directionalLight.position.set( 0, 0.7, 0.7 );
   scene.add( directionalLight );
 
-
-  var aaa = null;
-
-
+  //
+  var human_model = null;
   var bone_markers = []
 
+  //
   var loader = new THREE.JSONLoader();
   loader.load('models/body_try2.js', function (geometry, materials) {
     console.log("geometory", geometry);
@@ -72,10 +71,7 @@ var main = function () {
     scene.add(skinnedMesh);
 
 
-    aaa = skinnedMesh
-
-
-
+    human_model = skinnedMesh
 
     //
     var texture = THREE.ImageUtils.loadTexture("images/marker.png");
@@ -99,16 +95,16 @@ var main = function () {
 
 
 
-  ( function renderLoop () {
-    requestAnimationFrame( renderLoop );
+  (function render_loop() {
+    requestAnimationFrame(render_loop);
 
-    if (aaa) {
-      var m = aaa.skeleton.bones[1];
-      m.rotation.set(m.rotation.x+0.1, m.rotation.y, m.rotation.z, m.rotation.order);
+    if (human_model) {
+      //var m = aaa.skeleton.bones[1];
+      //m.rotation.set(m.rotation.x+0.1, m.rotation.y, m.rotation.z, m.rotation.order);
 
       var i = 0;
-      for(var bone in aaa.skeleton.bones) {
-        var b = aaa.skeleton.bones[i];
+      for(var bone in human_model.skeleton.bones) {
+        var b = human_model.skeleton.bones[i];
         var b_pos = new THREE.Vector3();
         b_pos.setFromMatrixPosition(b.matrixWorld);
 
@@ -121,12 +117,12 @@ var main = function () {
 
     //
     renderer.clear();
+
     //
-
-    renderer.render( scene, camera );
-    renderer.render( scene2d, camera2d );
-  } )();
-
+    renderer.render(scene, camera);
+    renderer.render(scene2d, camera2d);
+  })();
 }; // function main
 
-window.addEventListener('DOMContentLoaded', main, false);
+// dispatch main function
+$(main);
