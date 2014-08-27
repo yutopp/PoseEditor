@@ -3,14 +3,24 @@
     <head>
         <meta charset="utf-8">
         <title>bone editor</title>
+
+        <script src="bower_components/three.js/three.min.js" type="text/javascript"></script>
+        <script src="build/bonedit.js" type="text/javascript"></script>
+        <script src="ext/TransformControls.js" type="text/javascript"></script>
+        <script src="ext/OrbitControls.js" type="text/javascript"></script>
+
+        <script src="http://code.jquery.com/jquery-2.1.1.js" type="text/javascript"></script>
     </head>
     <body>
+        <div id="aaa"></div>
 
-        <script src="three.js/build/three.min.js"></script>
-        <script src="three.js/examples/js/controls/TransformControls.js"></script>
-        <script src="three.js/examples/js/controls/OrbitControls.js"></script>
-        <script src="jquery-2.1.1.min.js"></script>
-        <script src="js/main.js"></script>
 
+
+        <script type="text/javascript">
+         $(function() {
+           var editor = new Bonedit.Editor();
+           console.log("out of ts");
+         });
+        </script>
     </body>
 </html>

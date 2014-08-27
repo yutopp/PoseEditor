@@ -1,0 +1,22 @@
+{
+  "name": "bonedit",
+  "version": "0.0.0",
+  "authors": [
+    "yutopp <yutopp@gmail.com>"
+  ],
+  "keywords": [
+    "bone",
+    "edit"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "three.js": "*"
+  }
+}

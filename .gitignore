@@ -1,2 +1,3 @@
-three.js
-jquery*
+build/*
+typings/*
+bower_components/*
