@@ -4,13 +4,6 @@
 
 module Bonedit {
     export class Editor {
-        private width: number;
-        private height: number;
-        private fov: number;
-        private aspect: number;
-        private near: number;
-        private far: number;
-
         constructor() {
             this.width  = 600;
             this.height = 400;
@@ -30,12 +23,17 @@ module Bonedit {
             this.directionalLight.position.set(0, 0.7, 0.7);
             this.scene.add(this.directionalLight);
 
+            this.anbientLight = new THREE.AmbientLight(0xaaaaaa);
+            this.scene.add(this.anbientLight);
+
             //
             this.scene2d = new THREE.Scene();
             this.camera2d = new THREE.OrthographicCamera(0, this.width, 0, this.height, 0.001, 10000);
 
             //
-            this.renderer = new THREE.WebGLRenderer();
+            this.renderer = new THREE.WebGLRenderer({
+                preserveDrawingBuffer: true
+            });
             this.renderer.setSize(this.width, this.height);
             this.renderer.setClearColor(0x000000, 1);
             this.renderer.autoClear = false;
@@ -55,11 +53,6 @@ module Bonedit {
             //this.controls.enabled = true;
             //this.controls.addEventListener('change', render);
 
-            console.log("initialized");
-
-
-
-
             //
             this.setupModel();
 
@@ -70,8 +63,35 @@ module Bonedit {
             this.renderLoop();
         }
 
+        public toDataUrl(type: string = 'png') {
+            switch(type) {
+            case "png":
+                return this.renderer.domElement.toDataURL("image/png");
+
+            case "jpeg":
+                return this.renderer.domElement.toDataURL("image/jpeg");
+
+            case "json":
+                if ( this.model != null ) {
+                    var obj = this.model.jointData();
+                    return "data: text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
+
+                } else {
+                    throw new Error("Model was not loaded");
+                }
+
+            default:
+                throw new Error("File format '" + type + "' is not supported");
+            }
+        }
+
+        public loadJointDataFromString(data: string) {
+            var joint_data = <{ [key: number]: any; }>JSON.parse(data);
+            this.model.loadJointData(joint_data);
+        }
+
         private setupModel() {
-            this.model = new Model("", this.scene, this.scene2d);
+            this.model = new Model('models/body_try2.js', this.scene, this.scene2d);
         }
 
         private onTransformCtrl() {
@@ -117,21 +137,18 @@ module Bonedit {
 
             // reset color of markers
             this.model.joint_markers.forEach((marker) => {
-                marker.material.color.setRGB(1.0, 1.0, 1.0);
+                marker.material.color.setHex(this.model.normalColor);
             });
-
-            console.log(conf_objs.length);
 
             this.selectedSphere = null;
             if ( conf_objs.length > 0 ) {
                 var conf_obj = conf_objs[0];
 
                 this.selectedSphere = conf_obj.object;
-                console.log(this.selectedSphere);
 
                 //
                 var index = this.selectedSphere.userData.jointIndex;
-                this.model.joint_markers[index].material.color.setRGB(1, 0, 0);
+                this.model.joint_markers[index].material.color.setHex(this.model.selectedColor);
             }
 
             if ( this.selectedSphere == null ) {
@@ -216,6 +233,14 @@ module Bonedit {
 
 
         //
+        private width: number;
+        private height: number;
+        private fov: number;
+        private aspect: number;
+        private near: number;
+        private far: number;
+
+        //
         private model: Model = null;
 
         //
@@ -226,7 +251,7 @@ module Bonedit {
         private camera: THREE.Camera;
         private projector: THREE.Projector;
         private directionalLight: THREE.DirectionalLight;
-
+        private anbientLight: THREE.AmbientLight;
         private transformCtrl: THREE.TransformControls;
         private controls: THREE.OrbitControls;
 
@@ -247,7 +272,7 @@ module Bonedit {
         constructor(path: string, main_scene: THREE.Scene, scene2d: THREE.Scene) {
             //
             var loader = new THREE.JSONLoader();
-            loader.load('models/body_try2.js', (geometry, materials/*unused*/) => {
+            loader.load(path, (geometry, materials/*unused*/) => {
                 // TODO: change this
                 var material = new THREE.MeshLambertMaterial({
                     color: 0xffffff,
@@ -259,8 +284,6 @@ module Bonedit {
                 this.mesh.scale.set(4, 4, 4);
                 main_scene.add(this.mesh);
 
-                console.log("skinnedMesh", this.mesh);
-                console.log("skinnedMesh.bones", this.mesh.skeleton.bones);
                 //skinnedMesh.position.y = 50;
 
                 //
@@ -271,9 +294,9 @@ module Bonedit {
                 // load textures
                 var texture = THREE.ImageUtils.loadTexture("images/marker.png");
                 this.mesh.skeleton.bones.forEach((bone, index) => {
-                    var material = new THREE.SpriteMaterial({map: texture, color: 0xffffff});
+                    var material = new THREE.SpriteMaterial({map: texture, color: this.normalColor});
                     var sprite = new THREE.Sprite(material);
-                    sprite.scale.set(32.0, 32.0, 1);
+                    sprite.scale.set(16.0, 16.0, 1);
 
                     this.joint_markers.push(sprite);
                     this.scene2d.add(sprite);
@@ -295,8 +318,6 @@ module Bonedit {
                 });
 
                 this.ready = true;
-
-                console.log("loaded");
             });
 
             //
@@ -312,8 +333,37 @@ module Bonedit {
             return this.ready;
         }
 
+        jointData() {
+            var joint_data: { [key: number]: any; } = {};
+            this.mesh.skeleton.bones.forEach((bone, index) => {
+                joint_data[index] = {rotation: bone.quaternion};
+            });
+
+            return joint_data;
+        }
+
+        loadJointData(joint_data: { [key: number]: any; }) {
+            for( var key in  joint_data ) {
+                var raw_q = joint_data[key];
+                var rot = raw_q['rotation'];
+                var x = <number>rot['_x'];
+                var y = <number>rot['_y'];
+                var z = <number>rot['_z'];
+                var w = <number>rot['_w'];
+
+                this.mesh.skeleton.bones[key].quaternion.x = x;
+                this.mesh.skeleton.bones[key].quaternion.y = y;
+                this.mesh.skeleton.bones[key].quaternion.z = z;
+                this.mesh.skeleton.bones[key].quaternion.w = w;
+            }
+        }
+
         //
         private ready: boolean = false;
+
+        //
+        selectedColor = 0xff0000;
+        normalColor = 0x0000ff;
 
         //
         scene: THREE.Scene;
