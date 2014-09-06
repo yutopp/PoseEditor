@@ -4,7 +4,7 @@
 
 module Bonedit {
     export class Editor {
-        constructor() {
+        constructor(mesh_path: string, marker_path: string) {
             this.width  = 600;
             this.height = 400;
             this.fov    = 60;
@@ -54,7 +54,7 @@ module Bonedit {
             //this.controls.addEventListener('change', render);
 
             //
-            this.setupModel();
+            this.setupModel(mesh_path, marker_path);
 
             //
             this.renderer.domElement.addEventListener('mousedown', (e) => this.boneRay(e), false);
@@ -90,8 +90,8 @@ module Bonedit {
             this.model.loadJointData(joint_data);
         }
 
-        private setupModel() {
-            this.model = new Model('models/body_try2.js', this.scene, this.scene2d);
+        private setupModel(mesh_path: string, marker_path: string) {
+            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d);
         }
 
         private onTransformCtrl() {
@@ -269,10 +269,10 @@ module Bonedit {
     //
     class Model
     {
-        constructor(path: string, main_scene: THREE.Scene, scene2d: THREE.Scene) {
+        constructor(mesh_path: string, marker_path: string, main_scene: THREE.Scene, scene2d: THREE.Scene) {
             //
             var loader = new THREE.JSONLoader();
-            loader.load(path, (geometry, materials/*unused*/) => {
+            loader.load(mesh_path, (geometry, materials/*unused*/) => {
                 // TODO: change this
                 var material = new THREE.MeshLambertMaterial({
                     color: 0xffffff,
@@ -292,7 +292,7 @@ module Bonedit {
                 });
 
                 // load textures
-                var texture = THREE.ImageUtils.loadTexture("images/marker.png");
+                var texture = THREE.ImageUtils.loadTexture(marker_path);
                 this.mesh.skeleton.bones.forEach((bone, index) => {
                     var material = new THREE.SpriteMaterial({map: texture, color: this.normalColor});
                     var sprite = new THREE.Sprite(material);

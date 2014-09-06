@@ -4,7 +4,7 @@
 var Bonedit;
 (function (Bonedit) {
     var Editor = (function () {
-        function Editor() {
+        function Editor(mesh_path, marker_path) {
             var _this = this;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
@@ -86,7 +86,7 @@ var Bonedit;
             //this.controls.enabled = true;
             //this.controls.addEventListener('change', render);
             //
-            this.setupModel();
+            this.setupModel(mesh_path, marker_path);
 
             //
             this.renderer.domElement.addEventListener('mousedown', function (e) {
@@ -123,8 +123,8 @@ var Bonedit;
             this.model.loadJointData(joint_data);
         };
 
-        Editor.prototype.setupModel = function () {
-            this.model = new Model('models/body_try2.js', this.scene, this.scene2d);
+        Editor.prototype.setupModel = function (mesh_path, marker_path) {
+            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d);
         };
 
         Editor.prototype.onTransformCtrl = function () {
@@ -240,7 +240,7 @@ var Bonedit;
 
     //
     var Model = (function () {
-        function Model(path, main_scene, scene2d) {
+        function Model(mesh_path, marker_path, main_scene, scene2d) {
             var _this = this;
             //
             this.ready = false;
@@ -254,7 +254,7 @@ var Bonedit;
             this.joint_spheres = [];
             //
             var loader = new THREE.JSONLoader();
-            loader.load(path, function (geometry, materials /*unused*/ ) {
+            loader.load(mesh_path, function (geometry, materials /*unused*/ ) {
                 // TODO: change this
                 var material = new THREE.MeshLambertMaterial({
                     color: 0xffffff,
@@ -273,7 +273,7 @@ var Bonedit;
                 });
 
                 // load textures
-                var texture = THREE.ImageUtils.loadTexture("images/marker.png");
+                var texture = THREE.ImageUtils.loadTexture(marker_path);
                 _this.mesh.skeleton.bones.forEach(function (bone, index) {
                     var material = new THREE.SpriteMaterial({ map: texture, color: _this.normalColor });
                     var sprite = new THREE.Sprite(material);

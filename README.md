@@ -1,5 +1,21 @@
 # Pose Editor
 
+(under construction...)
+
+## How to install
+```
+bower install poseeditor
+```
+
+Please include these files.
+```
+#{bower_components}/poseeditor/build/poseeditor.js
+#{bower_components}/poseeditor/ext/OrbitControls.js
+#{bower_components}/poseeditor/ext/TransformControls.js
+```
+For detail to `index.html`.
+
+
 ## Requirement
 + bower
 + tsd (TypeScript Definition manager)
