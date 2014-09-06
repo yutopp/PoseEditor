@@ -4,6 +4,7 @@
   "authors": [
     "yutopp <yutopp@gmail.com>"
   ],
+  "main": index.js,
   "keywords": [
     "pose",
     "bone",

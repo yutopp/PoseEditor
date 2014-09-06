@@ -12,7 +12,7 @@
 ```
 bower install
 tsd update
-tsc --noImplicitAny --outDir build/ src/*
+tsc --noImplicitAny --out build/index.js src/*
 ./s.sh
 ```
 Then, access `http://localhost:30000/`!
