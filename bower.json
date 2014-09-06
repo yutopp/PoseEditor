@@ -4,7 +4,7 @@
   "authors": [
     "yutopp <yutopp@gmail.com>"
   ],
-  "main": "index.js",
+  "main": "build/poseeditor.js",
   "keywords": [
     "pose",
     "bone",
@@ -21,7 +21,8 @@
     "js",
     "typing",
     "*.sh",
-    "*.json"
+    "*.json",
+    "index.html"
   ],
   "dependencies": {
     "three.js": "*"

@@ -12,7 +12,7 @@
 ```
 bower install
 tsd update
-tsc --noImplicitAny --out build/index.js src/*
+tsc --noImplicitAny --out build/poseeditor.js src/*
 ./s.sh
 ```
 Then, access `http://localhost:30000/`!
