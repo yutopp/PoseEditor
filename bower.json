@@ -1,10 +1,11 @@
 {
-  "name": "bonedit",
+  "name": "poseeditor",
   "version": "0.0.0",
   "authors": [
     "yutopp <yutopp@gmail.com>"
   ],
   "keywords": [
+    "pose",
     "bone",
     "edit"
   ],
@@ -14,7 +15,12 @@
     "node_modules",
     "bower_components",
     "test",
-    "tests"
+    "tests",
+    "src",
+    "js",
+    "typing",
+    "*.sh",
+    "*.json"
   ],
   "dependencies": {
     "three.js": "*"
