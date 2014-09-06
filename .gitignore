@@ -1,3 +1,4 @@
 build/*
 typings/*
 bower_components/*
+js/*
