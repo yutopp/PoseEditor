@@ -33,6 +33,6 @@ These files are licensed under the [MIT license](https://raw.githubusercontent.c
 
 --
 
-The file `models/body_try2.js` is based on the model that is hosted on [Blender�ǥ�ǥ�󥰡ʿ͡�](http://cg.xyamu.net/Blender/entry189.html).
+The file `models/body_try2.js` is based on the model that is hosted on [Blenderでモデリング（人）](http://cg.xyamu.net/Blender/entry189.html).
 
 It was converted to Three.js model data by using a Blender Plugin.
