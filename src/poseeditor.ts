@@ -4,7 +4,9 @@
 
 module PoseEditor {
     export class Config {
-        enableBackgroundAlpha: boolean;
+        enableBackgroundAlpha: boolean = false;
+        backgroundColorHex: number = 0x777777;
+        backgroundAlpha: number = 1.0;
     }
 
     export class Editor {
@@ -38,17 +40,16 @@ module PoseEditor {
                 preserveDrawingBuffer: true
             };
             if (config) {
-                if (config.enableBackgroundAlpha) {
-                    prop_for_renderer.alpha = config.enableBackgroundAlpha;
-                }
+                prop_for_renderer.alpha = config.enableBackgroundAlpha;
             }
-
 
             //
             this.renderer = new THREE.WebGLRenderer(prop_for_renderer);
             this.renderer.setSize(this.width, this.height);
-            //this.renderer.setClearColor(0xffffff, 1);
             this.renderer.autoClear = false;
+            if (config) {
+                this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
+            }
 
             //
             var parent_dom = document.getElementById(parent_dom_id);

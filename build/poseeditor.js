@@ -5,6 +5,9 @@ var PoseEditor;
 (function (PoseEditor) {
     var Config = (function () {
         function Config() {
+            this.enableBackgroundAlpha = false;
+            this.backgroundColorHex = 0x777777;
+            this.backgroundAlpha = 1.0;
         }
         return Config;
     })();
@@ -69,17 +72,16 @@ var PoseEditor;
                 preserveDrawingBuffer: true
             };
             if (config) {
-                if (config.enableBackgroundAlpha) {
-                    prop_for_renderer.alpha = config.enableBackgroundAlpha;
-                }
+                prop_for_renderer.alpha = config.enableBackgroundAlpha;
             }
 
             //
             this.renderer = new THREE.WebGLRenderer(prop_for_renderer);
             this.renderer.setSize(this.width, this.height);
-
-            //this.renderer.setClearColor(0xffffff, 1);
             this.renderer.autoClear = false;
+            if (config) {
+                this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
+            }
 
             //
             var parent_dom = document.getElementById(parent_dom_id);
