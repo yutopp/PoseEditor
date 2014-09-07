@@ -62,8 +62,8 @@ var PoseEditor;
             this.directionalLight.position.set(0, 0.7, 0.7);
             this.scene.add(this.directionalLight);
 
-            this.anbientLight = new THREE.AmbientLight(0xaaaaaa);
-            this.scene.add(this.anbientLight);
+            this.ambientLight = new THREE.AmbientLight(0xaaaaaa);
+            this.scene.add(this.ambientLight);
 
             //
             this.scene2d = new THREE.Scene();
@@ -94,9 +94,7 @@ var PoseEditor;
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
             this.transformCtrl.detach();
-            this.transformCtrl.addEventListener('change', function () {
-                return _this.onTransformCtrl();
-            });
+            this.transformCtrl.addEventListener('change', this.onTransformCtrl.bind(this));
             this.scene.add(this.transformCtrl);
 
             //
@@ -109,9 +107,7 @@ var PoseEditor;
             this.setupModel(mesh_path, marker_path, callback);
 
             //
-            this.renderer.domElement.addEventListener('mousedown', function (e) {
-                return _this.boneRay(e);
-            }, false);
+            this.renderer.domElement.addEventListener('mousedown', this.boneRay.bind(this), false);
 
             //
             this.renderLoop();
@@ -414,12 +410,9 @@ var PoseEditor;
         };
 
         Model.prototype.jointData = function () {
-            var joint_data = {};
-            this.mesh.skeleton.bones.forEach(function (bone, index) {
-                joint_data[index] = { rotation: bone.quaternion };
+            return this.mesh.skeleton.bones.map(function (bone) {
+                return { rotation: bone.quaternion };
             });
-
-            return joint_data;
         };
 
         Model.prototype.loadJointData = function (joint_data) {
