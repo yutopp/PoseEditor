@@ -119,10 +119,10 @@ var PoseEditor;
             if (typeof type === "undefined") { type = 'png'; }
             switch (type) {
                 case "png":
-                    return this.toDataURL("image/png");
+                    return this.makeDataUrl("image/png");
 
                 case "jpeg":
-                    return this.toDataURL("image/jpeg");
+                    return this.makeDataUrl("image/jpeg");
 
                 case "json":
                     if (this.model != null) {
@@ -154,7 +154,7 @@ var PoseEditor;
             this.model.toggleMarker();
         };
 
-        Editor.prototype.toDataURL = function (type) {
+        Editor.prototype.makeDataUrl = function (type) {
             //
             var vis = this.model.getMarkerVisibility();
             this.model.setMarkerVisibility(false);

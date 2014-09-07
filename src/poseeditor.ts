@@ -83,10 +83,10 @@ module PoseEditor {
         public toDataUrl(type: string = 'png') {
             switch(type) {
             case "png":
-                return this.toDataURL("image/png");
+                return this.makeDataUrl("image/png");
 
             case "jpeg":
-                return this.toDataURL("image/jpeg");
+                return this.makeDataUrl("image/jpeg");
 
             case "json":
                 if ( this.model != null ) {
@@ -120,7 +120,7 @@ module PoseEditor {
             this.model.toggleMarker();
         }
 
-        private toDataURL(type: string): string {
+        private makeDataUrl(type: string): string {
             //
             var vis = this.model.getMarkerVisibility();
             this.model.setMarkerVisibility(false);
