@@ -29,8 +29,8 @@ module PoseEditor {
             this.directionalLight.position.set(0, 0.7, 0.7);
             this.scene.add(this.directionalLight);
 
-            this.anbientLight = new THREE.AmbientLight(0xaaaaaa);
-            this.scene.add(this.anbientLight);
+            this.ambientLight = new THREE.AmbientLight(0xaaaaaa);
+            this.scene.add(this.ambientLight);
 
             //
             this.scene2d = new THREE.Scene();
@@ -338,7 +338,7 @@ module PoseEditor {
         private camera: THREE.Camera;
         private projector: THREE.Projector;
         private directionalLight: THREE.DirectionalLight;
-        private anbientLight: THREE.AmbientLight;
+        private ambientLight: THREE.AmbientLight;
         private transformCtrl: THREE.TransformControls;
         private controls: THREE.OrbitControls;
 
