@@ -1,0 +1,5 @@
+build/*.js
+!build/poseeditor.js
+typings/*
+bower_components/*
+js/*
