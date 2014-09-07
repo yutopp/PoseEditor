@@ -1,0 +1,20 @@
+{
+  "name": "poseeditor_gh_pages",
+  "version": "0.0.0",
+  "homepage": "http://yutopp.github.io/PoseEditor/",
+  "authors": [
+    "yutopp <yutopp@gmail.com>"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "three.js": "*",
+    "poseeditor": "*"
+  }
+}

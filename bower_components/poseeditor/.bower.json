@@ -1,0 +1,41 @@
+{
+  "name": "poseeditor",
+  "authors": [
+    "yutopp <yutopp@gmail.com>"
+  ],
+  "main": "build/poseeditor.js",
+  "keywords": [
+    "pose",
+    "bone",
+    "edit"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests",
+    "src",
+    "js",
+    "typing",
+    "*.sh",
+    "*.json",
+    "*.d.ts",
+    "index.html"
+  ],
+  "dependencies": {
+    "three.js": "*"
+  },
+  "homepage": "https://github.com/yutopp/PoseEditor",
+  "_release": "76088ea38b",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "76088ea38bc998b69db3928c9eb31637485b5dfd"
+  },
+  "_source": "git://github.com/yutopp/PoseEditor.git",
+  "_target": "*",
+  "_originalSource": "poseeditor",
+  "_direct": true
+}

@@ -1,0 +1,31 @@
+{
+  "name": "poseeditor",
+  "version": "0.0.0",
+  "authors": [
+    "yutopp <yutopp@gmail.com>"
+  ],
+  "main": "build/poseeditor.js",
+  "keywords": [
+    "pose",
+    "bone",
+    "edit"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests",
+    "src",
+    "js",
+    "typing",
+    "*.sh",
+    "*.json",
+    "*.d.ts",
+    "index.html"
+  ],
+  "dependencies": {
+    "three.js": "*"
+  }
+}
