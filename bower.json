@@ -22,6 +22,7 @@
     "typing",
     "*.sh",
     "*.json",
+    "*.d.ts",
     "index.html"
   ],
   "dependencies": {

@@ -5,16 +5,14 @@
         <title>bone editor</title>
 
         <script src="bower_components/three.js/three.min.js" type="text/javascript"></script>
-        <script src="build/bonedit.js" type="text/javascript"></script>
+        <script src="build/poseeditor.js" type="text/javascript"></script>
         <script src="ext/TransformControls.js" type="text/javascript"></script>
         <script src="ext/OrbitControls.js" type="text/javascript"></script>
 
         <script src="http://code.jquery.com/jquery-2.1.1.js" type="text/javascript"></script>
     </head>
     <body>
-        <div id="aaa"></div>
-
-        <textarea id="jointData">{"0":{"rotation":{"_x":0.6822696325990977,"_y":-0.185752127203646,"_z":-0.18576452277611752,"_w":0.6822725538596538}},"1":{"rotation":{"_x":2.11758e-22,"_y":7.54979e-8,"_z":-1,"_w":7.54979e-8}},"2":{"rotation":{"_x":-8.17275e-7,"_y":-1.07068e-13,"_z":-2.34479e-13,"_w":1}},"3":{"rotation":{"_x":5.29881e-7,"_y":7.85681e-14,"_z":1.56319e-13,"_w":1}},"4":{"rotation":{"_x":-0.5,"_y":-0.5,"_z":0.5,"_w":0.5}},"5":{"rotation":{"_x":1.87678e-14,"_y":-4.17233e-7,"_z":-3.05165e-8,"_w":1}},"6":{"rotation":{"_x":-0.6395963342302636,"_y":8.80039490824705e-13,"_z":6.943424214298581e-13,"_w":0.7687109529850663}},"7":{"rotation":{"_x":-0.6259868059451112,"_y":0.0216994272400195,"_z":0.017424159522474232,"_w":0.7793369311825459}},"8":{"rotation":{"_x":-0.5,"_y":0.5,"_z":-0.5,"_w":0.5}},"9":{"rotation":{"_x":6.23945e-15,"_y":4.72869e-7,"_z":6.23031e-8,"_w":1}},"10":{"rotation":{"_x":0.6571119002094387,"_y":-5.545899115733522e-13,"_z":4.820162317744349e-13,"_w":0.7537930422888902}},"11":{"rotation":{"_x":0.667027938219604,"_y":-0.02073050142207008,"_z":0.01856661788310225,"_w":0.7445127645955283}},"12":{"rotation":{"_x":-0.70705,"_y":0.70705,"_z":-0.00892874,"_w":0.0089285}},"13":{"rotation":{"_x":-0.0197262,"_y":0.0197268,"_z":0.706832,"_w":0.706832}},"14":{"rotation":{"_x":0.432029,"_y":-0.00765309,"_z":0.0095325,"_w":0.901777}},"15":{"rotation":{"_x":0.26969,"_y":-0.00670567,"_z":0.00177007,"_w":0.962922}},"16":{"rotation":{"_x":0.855433,"_y":-0.51776,"_z":-0.0108028,"_w":0.00653829}},"17":{"rotation":{"_x":0.3797888810307562,"_y":-0.1931448803846663,"_z":-0.4673542937633728,"_w":0.7746195357254668}},"18":{"rotation":{"_x":-0.432041,"_y":0.00694586,"_z":-0.00523139,"_w":0.901812}},"19":{"rotation":{"_x":-0.00150613,"_y":0.26977,"_z":0.962709,"_w":0.0203317}}}</textarea>
+        <div id="for_pose"></div>
 
         <script type="text/javascript">
          var editor = null;
@@ -46,20 +44,37 @@
            // basic example
            if ( editor != null ) {
              var dom = document.getElementById("jointData");
-             editor.loadJointDataFromString(dom.innerHTML);
+             editor.loadJointDataFromString(dom.value);
+           }
+         }
+
+         function toggleMarker() {
+           // basic example
+           if ( editor != null ) {
+             editor.toggleMarker();
            }
          }
 
          $(function() {
-           editor = new Bonedit.Editor("models/body_try2.js", "images/marker.png");
+           var config = new PoseEditor.Config();
+           //config.enableBackgroundAlpha = true;
+
+           editor = new PoseEditor.Editor("for_pose", "models/body_try2.js", "images/marker.png", config);
          });
         </script>
+
+        <textarea id="jointData">{"0":{"rotation":{"_x":0.6822696325990977,"_y":-0.185752127203646,"_z":-0.18576452277611752,"_w":0.6822725538596538}},"1":{"rotation":{"_x":2.11758e-22,"_y":7.54979e-8,"_z":-1,"_w":7.54979e-8}},"2":{"rotation":{"_x":-8.17275e-7,"_y":-1.07068e-13,"_z":-2.34479e-13,"_w":1}},"3":{"rotation":{"_x":5.29881e-7,"_y":7.85681e-14,"_z":1.56319e-13,"_w":1}},"4":{"rotation":{"_x":-0.5,"_y":-0.5,"_z":0.5,"_w":0.5}},"5":{"rotation":{"_x":1.87678e-14,"_y":-4.17233e-7,"_z":-3.05165e-8,"_w":1}},"6":{"rotation":{"_x":-0.6395963342302636,"_y":8.80039490824705e-13,"_z":6.943424214298581e-13,"_w":0.7687109529850663}},"7":{"rotation":{"_x":-0.6259868059451112,"_y":0.0216994272400195,"_z":0.017424159522474232,"_w":0.7793369311825459}},"8":{"rotation":{"_x":-0.5,"_y":0.5,"_z":-0.5,"_w":0.5}},"9":{"rotation":{"_x":6.23945e-15,"_y":4.72869e-7,"_z":6.23031e-8,"_w":1}},"10":{"rotation":{"_x":0.6571119002094387,"_y":-5.545899115733522e-13,"_z":4.820162317744349e-13,"_w":0.7537930422888902}},"11":{"rotation":{"_x":0.667027938219604,"_y":-0.02073050142207008,"_z":0.01856661788310225,"_w":0.7445127645955283}},"12":{"rotation":{"_x":-0.70705,"_y":0.70705,"_z":-0.00892874,"_w":0.0089285}},"13":{"rotation":{"_x":-0.0197262,"_y":0.0197268,"_z":0.706832,"_w":0.706832}},"14":{"rotation":{"_x":0.432029,"_y":-0.00765309,"_z":0.0095325,"_w":0.901777}},"15":{"rotation":{"_x":0.26969,"_y":-0.00670567,"_z":0.00177007,"_w":0.962922}},"16":{"rotation":{"_x":0.855433,"_y":-0.51776,"_z":-0.0108028,"_w":0.00653829}},"17":{"rotation":{"_x":0.3797888810307562,"_y":-0.1931448803846663,"_z":-0.4673542937633728,"_w":0.7746195357254668}},"18":{"rotation":{"_x":-0.432041,"_y":0.00694586,"_z":-0.00523139,"_w":0.901812}},"19":{"rotation":{"_x":-0.00150613,"_y":0.26977,"_z":0.962709,"_w":0.0203317}}}</textarea>
+        <input type="button" value="ポーズのロード" onClick="loadJointData()">
+
+        <br>
 
         <label><input type="radio" name="format" value="png" checked>PNG</label>
         <label><input type="radio" name="format" value="jpeg">JPEG</label>
         <label><input type="radio" name="format" value="json">JSON</label>
-
         <input type="button" value="ダウンロード" onClick="downloadImage()">
-        <input type="button" value="ロード" onClick="loadJointData()" >
+
+        <br>
+
+        <label><input type="checkbox" id="toggle_marker" onClick="toggleMarker()" checked>マーカー</label>
     </body>
 </html>

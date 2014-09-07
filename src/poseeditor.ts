@@ -2,9 +2,13 @@
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="../ext/OrbitControls.d.ts"/>
 
-module Bonedit {
+module PoseEditor {
+    export class Config {
+        enableBackgroundAlpha: boolean;
+    }
+
     export class Editor {
-        constructor(mesh_path: string, marker_path: string) {
+        constructor(parent_dom_id: string, mesh_path: string, marker_path: string, config: Config = null) {
             this.width  = 600;
             this.height = 400;
             this.fov    = 60;
@@ -15,7 +19,7 @@ module Bonedit {
             //
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
-            this.camera.position.set(0, 0, 50);
+            this.camera.position.set(0, 20, 45);
 
             this.projector = new THREE.Projector();
 
@@ -30,14 +34,26 @@ module Bonedit {
             this.scene2d = new THREE.Scene();
             this.camera2d = new THREE.OrthographicCamera(0, this.width, 0, this.height, 0.001, 10000);
 
-            //
-            this.renderer = new THREE.WebGLRenderer({
+            var prop_for_renderer: any = {
                 preserveDrawingBuffer: true
-            });
+            };
+            if (config) {
+                if (config.enableBackgroundAlpha) {
+                    prop_for_renderer.alpha = config.enableBackgroundAlpha;
+                }
+            }
+
+
+            //
+            this.renderer = new THREE.WebGLRenderer(prop_for_renderer);
             this.renderer.setSize(this.width, this.height);
-            this.renderer.setClearColor(0x000000, 1);
+            //this.renderer.setClearColor(0xffffff, 1);
             this.renderer.autoClear = false;
-            document.body.appendChild(this.renderer.domElement);
+
+            //
+            var parent_dom = document.getElementById(parent_dom_id);
+            var target_dom = parent_dom ? parent_dom : document.body;
+            target_dom.appendChild(this.renderer.domElement);
 
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
@@ -48,7 +64,7 @@ module Bonedit {
             this.scene.add(this.transformCtrl);
 
             //
-            this.controls = new THREE.OrbitControls(this.camera);
+            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.damping = 0.2;
             //this.controls.enabled = true;
             //this.controls.addEventListener('change', render);
@@ -66,10 +82,10 @@ module Bonedit {
         public toDataUrl(type: string = 'png') {
             switch(type) {
             case "png":
-                return this.renderer.domElement.toDataURL("image/png");
+                return this.toDataURL("image/png");
 
             case "jpeg":
-                return this.renderer.domElement.toDataURL("image/jpeg");
+                return this.toDataURL("image/jpeg");
 
             case "json":
                 if ( this.model != null ) {
@@ -81,6 +97,7 @@ module Bonedit {
                 }
 
             default:
+
                 throw new Error("File format '" + type + "' is not supported");
             }
         }
@@ -88,6 +105,40 @@ module Bonedit {
         public loadJointDataFromString(data: string) {
             var joint_data = <{ [key: number]: any; }>JSON.parse(data);
             this.model.loadJointData(joint_data);
+        }
+
+        public hideMarker() {
+            this.model.hideMarker();
+        }
+
+        public showMarker() {
+            this.model.showMarker();
+        }
+
+        public toggleMarker() {
+            this.model.toggleMarker();
+        }
+
+        private toDataURL(type: string): string {
+            //
+            var vis = this.model.getMarkerVisibility();
+            this.model.setMarkerVisibility(false);
+
+            var ss = this.selectedSphere;
+            this.transformCtrl.detach();
+
+            //
+            this.render();
+
+            var data = this.renderer.domElement.toDataURL(type);
+
+            //
+            this.model.setMarkerVisibility(vis);
+            if ( ss ) {
+                this.transformCtrl.attach(ss);
+            }
+
+            return data;
         }
 
         private setupModel(mesh_path: string, marker_path: string) {
@@ -225,12 +276,15 @@ module Bonedit {
                 });
             }
 
+            this.render();
+        }
+
+        private render() {
             this.renderer.clear();
 
             this.renderer.render(this.scene, this.camera);
             this.renderer.render(this.scene2d, this.camera2d);
         }
-
 
         //
         private width: number;
@@ -358,8 +412,36 @@ module Bonedit {
             }
         }
 
+        hideMarker() {
+            this.showingMarker = false;
+            this.setMarkerVisibility(this.showingMarker);
+        }
+
+        showMarker() {
+            this.showingMarker = true;
+            this.setMarkerVisibility(this.showingMarker);
+        }
+
+        toggleMarker() {
+            this.showingMarker = !this.showingMarker;
+            this.setMarkerVisibility(this.showingMarker);
+        }
+
+        setMarkerVisibility(showing: boolean) {
+            this.joint_markers.forEach((marker) => {
+                marker.visible = showing;
+            });
+        }
+
+        getMarkerVisibility(): boolean {
+            return this.showingMarker;
+        }
+
         //
         private ready: boolean = false;
+
+        //
+        private showingMarker: boolean = true;
 
         //
         selectedColor = 0xff0000;

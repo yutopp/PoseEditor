@@ -1,10 +1,18 @@
 /// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="../ext/OrbitControls.d.ts"/>
-var Bonedit;
-(function (Bonedit) {
+var PoseEditor;
+(function (PoseEditor) {
+    var Config = (function () {
+        function Config() {
+        }
+        return Config;
+    })();
+    PoseEditor.Config = Config;
+
     var Editor = (function () {
-        function Editor(mesh_path, marker_path) {
+        function Editor(parent_dom_id, mesh_path, marker_path, config) {
+            if (typeof config === "undefined") { config = null; }
             var _this = this;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
@@ -24,10 +32,7 @@ var Bonedit;
                     });
                 }
 
-                _this.renderer.clear();
-
-                _this.renderer.render(_this.scene, _this.camera);
-                _this.renderer.render(_this.scene2d, _this.camera2d);
+                _this.render();
             };
             //
             this.model = null;
@@ -45,7 +50,7 @@ var Bonedit;
             //
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
-            this.camera.position.set(0, 0, 50);
+            this.camera.position.set(0, 20, 45);
 
             this.projector = new THREE.Projector();
 
@@ -60,14 +65,26 @@ var Bonedit;
             this.scene2d = new THREE.Scene();
             this.camera2d = new THREE.OrthographicCamera(0, this.width, 0, this.height, 0.001, 10000);
 
-            //
-            this.renderer = new THREE.WebGLRenderer({
+            var prop_for_renderer = {
                 preserveDrawingBuffer: true
-            });
+            };
+            if (config) {
+                if (config.enableBackgroundAlpha) {
+                    prop_for_renderer.alpha = config.enableBackgroundAlpha;
+                }
+            }
+
+            //
+            this.renderer = new THREE.WebGLRenderer(prop_for_renderer);
             this.renderer.setSize(this.width, this.height);
-            this.renderer.setClearColor(0x000000, 1);
+
+            //this.renderer.setClearColor(0xffffff, 1);
             this.renderer.autoClear = false;
-            document.body.appendChild(this.renderer.domElement);
+
+            //
+            var parent_dom = document.getElementById(parent_dom_id);
+            var target_dom = parent_dom ? parent_dom : document.body;
+            target_dom.appendChild(this.renderer.domElement);
 
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
@@ -80,7 +97,7 @@ var Bonedit;
             this.scene.add(this.transformCtrl);
 
             //
-            this.controls = new THREE.OrbitControls(this.camera);
+            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.damping = 0.2;
 
             //this.controls.enabled = true;
@@ -100,10 +117,10 @@ var Bonedit;
             if (typeof type === "undefined") { type = 'png'; }
             switch (type) {
                 case "png":
-                    return this.renderer.domElement.toDataURL("image/png");
+                    return this.toDataURL("image/png");
 
                 case "jpeg":
-                    return this.renderer.domElement.toDataURL("image/jpeg");
+                    return this.toDataURL("image/jpeg");
 
                 case "json":
                     if (this.model != null) {
@@ -121,6 +138,40 @@ var Bonedit;
         Editor.prototype.loadJointDataFromString = function (data) {
             var joint_data = JSON.parse(data);
             this.model.loadJointData(joint_data);
+        };
+
+        Editor.prototype.hideMarker = function () {
+            this.model.hideMarker();
+        };
+
+        Editor.prototype.showMarker = function () {
+            this.model.showMarker();
+        };
+
+        Editor.prototype.toggleMarker = function () {
+            this.model.toggleMarker();
+        };
+
+        Editor.prototype.toDataURL = function (type) {
+            //
+            var vis = this.model.getMarkerVisibility();
+            this.model.setMarkerVisibility(false);
+
+            var ss = this.selectedSphere;
+            this.transformCtrl.detach();
+
+            //
+            this.render();
+
+            var data = this.renderer.domElement.toDataURL(type);
+
+            //
+            this.model.setMarkerVisibility(vis);
+            if (ss) {
+                this.transformCtrl.attach(ss);
+            }
+
+            return data;
         };
 
         Editor.prototype.setupModel = function (mesh_path, marker_path) {
@@ -234,9 +285,16 @@ var Bonedit;
 
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         };
+
+        Editor.prototype.render = function () {
+            this.renderer.clear();
+
+            this.renderer.render(this.scene, this.camera);
+            this.renderer.render(this.scene2d, this.camera2d);
+        };
         return Editor;
     })();
-    Bonedit.Editor = Editor;
+    PoseEditor.Editor = Editor;
 
     //
     var Model = (function () {
@@ -244,6 +302,8 @@ var Bonedit;
             var _this = this;
             //
             this.ready = false;
+            //
+            this.showingMarker = true;
             //
             this.selectedColor = 0xff0000;
             this.normalColor = 0x0000ff;
@@ -337,6 +397,31 @@ var Bonedit;
                 this.mesh.skeleton.bones[key].quaternion.w = w;
             }
         };
+
+        Model.prototype.hideMarker = function () {
+            this.showingMarker = false;
+            this.setMarkerVisibility(this.showingMarker);
+        };
+
+        Model.prototype.showMarker = function () {
+            this.showingMarker = true;
+            this.setMarkerVisibility(this.showingMarker);
+        };
+
+        Model.prototype.toggleMarker = function () {
+            this.showingMarker = !this.showingMarker;
+            this.setMarkerVisibility(this.showingMarker);
+        };
+
+        Model.prototype.setMarkerVisibility = function (showing) {
+            this.joint_markers.forEach(function (marker) {
+                marker.visible = showing;
+            });
+        };
+
+        Model.prototype.getMarkerVisibility = function () {
+            return this.showingMarker;
+        };
         return Model;
     })();
-})(Bonedit || (Bonedit = {}));
+})(PoseEditor || (PoseEditor = {}));
