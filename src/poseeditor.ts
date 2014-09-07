@@ -61,7 +61,7 @@ module PoseEditor {
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
             this.transformCtrl.detach();
-            this.transformCtrl.addEventListener('change', () => this.onTransformCtrl());
+            this.transformCtrl.addEventListener('change', this.onTransformCtrl.bind(this));
             this.scene.add(this.transformCtrl);
 
             //
@@ -74,7 +74,7 @@ module PoseEditor {
             this.setupModel(mesh_path, marker_path, callback);
 
             //
-            this.renderer.domElement.addEventListener('mousedown', (e) => this.boneRay(e), false);
+            this.renderer.domElement.addEventListener('mousedown', this.boneRay.bind(this), false);
 
             //
             this.renderLoop();
@@ -424,13 +424,10 @@ module PoseEditor {
             return this.ready;
         }
 
-        jointData() {
-            var joint_data: { [key: number]: any; } = {};
-            this.mesh.skeleton.bones.forEach((bone, index) => {
-                joint_data[index] = {rotation: bone.quaternion};
+        jointData(): { [key: number]: any; } {
+            return this.mesh.skeleton.bones.map((bone) => {
+                return {rotation: bone.quaternion};
             });
-
-            return joint_data;
         }
 
         loadJointData(joint_data: { [key: number]: any; }) {
