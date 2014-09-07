@@ -14,8 +14,9 @@ var PoseEditor;
     PoseEditor.Config = Config;
 
     var Editor = (function () {
-        function Editor(parent_dom_id, mesh_path, marker_path, config) {
+        function Editor(parent_dom_id, mesh_path, marker_path, config, callback) {
             if (typeof config === "undefined") { config = null; }
+            if (typeof callback === "undefined") { callback = null; }
             var _this = this;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
@@ -105,7 +106,7 @@ var PoseEditor;
             //this.controls.enabled = true;
             //this.controls.addEventListener('change', render);
             //
-            this.setupModel(mesh_path, marker_path);
+            this.setupModel(mesh_path, marker_path, callback);
 
             //
             this.renderer.domElement.addEventListener('mousedown', function (e) {
@@ -119,27 +120,60 @@ var PoseEditor;
             if (typeof type === "undefined") { type = 'png'; }
             switch (type) {
                 case "png":
-                    return this.toDataURL("image/png");
+                    return this.makeDataUrl("image/png");
 
                 case "jpeg":
-                    return this.toDataURL("image/jpeg");
+                    return this.makeDataUrl("image/jpeg");
 
                 case "json":
-                    if (this.model != null) {
-                        var obj = this.model.jointData();
-                        return "data: text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
-                    } else {
-                        throw new Error("Model was not loaded");
-                    }
+                    return "data: text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.getSceneInfo()));
 
                 default:
                     throw new Error("File format '" + type + "' is not supported");
             }
         };
 
-        Editor.prototype.loadJointDataFromString = function (data) {
-            var joint_data = JSON.parse(data);
-            this.model.loadJointData(joint_data);
+        Editor.prototype.getSceneInfo = function () {
+            if (this.model != null) {
+                var model_obj = this.model.jointData();
+
+                var obj = {
+                    'camera': {
+                        'position': this.camera.position,
+                        'quaternion': this.camera.quaternion
+                    },
+                    'model': model_obj
+                };
+                return obj;
+            } else {
+                throw new Error("Model was not loaded");
+            }
+        };
+
+        Editor.prototype.setClearColor = function (color_hex, alpha) {
+            this.renderer.setClearColor(color_hex, alpha);
+        };
+
+        Editor.prototype.loadSceneDataFromString = function (data) {
+            var obj = JSON.parse(data);
+
+            var camera_data = obj.camera;
+             {
+                var pos = camera_data.position;
+                this.camera.position.x = pos.x;
+                this.camera.position.y = pos.y;
+                this.camera.position.z = pos.z;
+            }
+             {
+                var q = camera_data.quaternion;
+                this.camera.quaternion.x = q._x;
+                this.camera.quaternion.y = q._y;
+                this.camera.quaternion.z = q._z;
+                this.camera.quaternion.w = q._w;
+            }
+
+            //
+            this.model.loadJointData(obj.model);
         };
 
         Editor.prototype.hideMarker = function () {
@@ -154,7 +188,7 @@ var PoseEditor;
             this.model.toggleMarker();
         };
 
-        Editor.prototype.toDataURL = function (type) {
+        Editor.prototype.makeDataUrl = function (type) {
             //
             var vis = this.model.getMarkerVisibility();
             this.model.setMarkerVisibility(false);
@@ -176,8 +210,8 @@ var PoseEditor;
             return data;
         };
 
-        Editor.prototype.setupModel = function (mesh_path, marker_path) {
-            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d);
+        Editor.prototype.setupModel = function (mesh_path, marker_path, callback) {
+            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d, callback);
         };
 
         Editor.prototype.onTransformCtrl = function () {
@@ -300,7 +334,7 @@ var PoseEditor;
 
     //
     var Model = (function () {
-        function Model(mesh_path, marker_path, main_scene, scene2d) {
+        function Model(mesh_path, marker_path, main_scene, scene2d, callback) {
             var _this = this;
             //
             this.ready = false;
@@ -358,6 +392,10 @@ var PoseEditor;
                     sphere.visible = false;
                     _this.joint_spheres.push(sphere);
                     _this.scene.add(sphere);
+
+                    if (callback !== null) {
+                        callback();
+                    }
                 });
 
                 _this.ready = true;
@@ -387,16 +425,12 @@ var PoseEditor;
         Model.prototype.loadJointData = function (joint_data) {
             for (var key in joint_data) {
                 var raw_q = joint_data[key];
-                var rot = raw_q['rotation'];
-                var x = rot['_x'];
-                var y = rot['_y'];
-                var z = rot['_z'];
-                var w = rot['_w'];
+                var rot = raw_q.rotation;
 
-                this.mesh.skeleton.bones[key].quaternion.x = x;
-                this.mesh.skeleton.bones[key].quaternion.y = y;
-                this.mesh.skeleton.bones[key].quaternion.z = z;
-                this.mesh.skeleton.bones[key].quaternion.w = w;
+                this.mesh.skeleton.bones[key].quaternion.x = rot._x;
+                this.mesh.skeleton.bones[key].quaternion.y = rot._y;
+                this.mesh.skeleton.bones[key].quaternion.z = rot._z;
+                this.mesh.skeleton.bones[key].quaternion.w = rot._w;
             }
         };
 
