@@ -20,7 +20,6 @@ For detail to `index.html`.
 + bower
 + tsd (TypeScript Definition manager)
 + tsc (TypeScript Compiler)
-+ ruby(optional)
 
 
 ## Testing
