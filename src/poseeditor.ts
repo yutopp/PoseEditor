@@ -10,7 +10,7 @@ module PoseEditor {
     }
 
     export class Editor {
-        constructor(parent_dom_id: string, mesh_path: string, marker_path: string, config: Config = null) {
+        constructor(parent_dom_id: string, mesh_path: string, marker_path: string, config: Config = null, callback: () => void = null) {
             this.width  = 600;
             this.height = 400;
             this.fov    = 60;
@@ -71,7 +71,7 @@ module PoseEditor {
             //this.controls.addEventListener('change', render);
 
             //
-            this.setupModel(mesh_path, marker_path);
+            this.setupModel(mesh_path, marker_path, callback);
 
             //
             this.renderer.domElement.addEventListener('mousedown', (e) => this.boneRay(e), false);
@@ -89,13 +89,7 @@ module PoseEditor {
                 return this.makeDataUrl("image/jpeg");
 
             case "json":
-                if ( this.model != null ) {
-                    var obj = this.model.jointData();
-                    return "data: text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
-
-                } else {
-                    throw new Error("Model was not loaded");
-                }
+                return "data: text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.getSceneInfo()));
 
             default:
 
@@ -103,9 +97,47 @@ module PoseEditor {
             }
         }
 
-        public loadJointDataFromString(data: string) {
-            var joint_data = <{ [key: number]: any; }>JSON.parse(data);
-            this.model.loadJointData(joint_data);
+        public getSceneInfo(): any {
+            if ( this.model != null ) {
+                var model_obj = this.model.jointData();
+
+                var obj = {
+                    'camera': {
+                        'position': this.camera.position,
+                        'quaternion': this.camera.quaternion
+                    },
+                    'model': model_obj
+                };
+                return obj;
+            } else {
+                throw new Error("Model was not loaded");
+            }
+        }
+
+        public setClearColor(color_hex: number, alpha: number) {
+            this.renderer.setClearColor(color_hex, alpha);
+        }
+
+        public loadSceneDataFromString(data: string) {
+            var obj = JSON.parse(data);
+
+            var camera_data = obj.camera;
+            {
+                var pos = camera_data.position;
+                this.camera.position.x = <number>pos.x;
+                this.camera.position.y = <number>pos.y;
+                this.camera.position.z = <number>pos.z;
+            }
+            {
+                var q = camera_data.quaternion;
+                this.camera.quaternion.x = <number>q._x;
+                this.camera.quaternion.y = <number>q._y;
+                this.camera.quaternion.z = <number>q._z;
+                this.camera.quaternion.w = <number>q._w;
+            }
+
+            //
+            this.model.loadJointData(<{ [key: number]: any; }>obj.model);
         }
 
         public hideMarker() {
@@ -142,8 +174,8 @@ module PoseEditor {
             return data;
         }
 
-        private setupModel(mesh_path: string, marker_path: string) {
-            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d);
+        private setupModel(mesh_path: string, marker_path: string, callback: () => void) {
+            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d, callback);
         }
 
         private onTransformCtrl() {
@@ -324,7 +356,7 @@ module PoseEditor {
     //
     class Model
     {
-        constructor(mesh_path: string, marker_path: string, main_scene: THREE.Scene, scene2d: THREE.Scene) {
+        constructor(mesh_path: string, marker_path: string, main_scene: THREE.Scene, scene2d: THREE.Scene, callback: () => void) {
             //
             var loader = new THREE.JSONLoader();
             loader.load(mesh_path, (geometry, materials/*unused*/) => {
@@ -370,6 +402,10 @@ module PoseEditor {
                     sphere.visible = false;
                     this.joint_spheres.push(sphere);
                     this.scene.add(sphere);
+
+                    if ( callback !== null ) {
+                        callback();
+                    }
                 });
 
                 this.ready = true;
@@ -400,16 +436,12 @@ module PoseEditor {
         loadJointData(joint_data: { [key: number]: any; }) {
             for( var key in  joint_data ) {
                 var raw_q = joint_data[key];
-                var rot = raw_q['rotation'];
-                var x = <number>rot['_x'];
-                var y = <number>rot['_y'];
-                var z = <number>rot['_z'];
-                var w = <number>rot['_w'];
+                var rot = raw_q.rotation;
 
-                this.mesh.skeleton.bones[key].quaternion.x = x;
-                this.mesh.skeleton.bones[key].quaternion.y = y;
-                this.mesh.skeleton.bones[key].quaternion.z = z;
-                this.mesh.skeleton.bones[key].quaternion.w = w;
+                this.mesh.skeleton.bones[key].quaternion.x = <number>rot._x;
+                this.mesh.skeleton.bones[key].quaternion.y = <number>rot._y;
+                this.mesh.skeleton.bones[key].quaternion.z = <number>rot._z;
+                this.mesh.skeleton.bones[key].quaternion.w = <number>rot._w;
             }
         }
 
