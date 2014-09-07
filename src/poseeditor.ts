@@ -424,13 +424,10 @@ module PoseEditor {
             return this.ready;
         }
 
-        jointData() {
-            var joint_data: { [key: number]: any; } = {};
-            this.mesh.skeleton.bones.forEach((bone, index) => {
-                joint_data[index] = {rotation: bone.quaternion};
+        jointData(): { [key: number]: any; } {
+            return this.mesh.skeleton.bones.map((bone) => {
+                return {rotation: bone.quaternion};
             });
-
-            return joint_data;
         }
 
         loadJointData(joint_data: { [key: number]: any; }) {
