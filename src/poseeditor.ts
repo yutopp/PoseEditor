@@ -1,4 +1,5 @@
 /// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../typings/jquery/jquery.d.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="../ext/OrbitControls.d.ts"/>
 
@@ -136,7 +137,7 @@ module PoseEditor {
                 this.camera.quaternion.w = <number>q._w;
             }
 
-            //
+            //threejs/three.d.ts
             this.model.loadJointData(<{ [key: number]: any; }>obj.model);
         }
 
@@ -357,63 +358,106 @@ module PoseEditor {
     class Model
     {
         constructor(mesh_path: string, marker_path: string, main_scene: THREE.Scene, scene2d: THREE.Scene, callback: () => void) {
-            //
-            var loader = new THREE.JSONLoader();
-            loader.load(mesh_path, (geometry, materials/*unused*/) => {
-                // TODO: change this
-                var material = new THREE.MeshLambertMaterial({
-                    color: 0xffffff,
-                    skinning: true
-                });
+            $.ajax({
+                dataType: 'JSON',
+                type: "GET",
+                url: mesh_path
+            }).done((data: any) => {
+                console.log("finished to load");
 
-                //
-                this.mesh = new THREE.SkinnedMesh(geometry, material);
-                this.mesh.scale.set(4, 4, 4);
-                main_scene.add(this.mesh);
+                // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
 
-                //skinnedMesh.position.y = 50;
+                if ( data.metadata.type === undefined ) { // 3.0
+			        data.metadata.type = 'Geometry';
+		        }
 
-                //
-                this.mesh.skeleton.bones.forEach((bone) => {
-                    bone.matrixWorldNeedsUpdate = true;
-                });
+                if ( data.metadata.type.toLowerCase() === 'geometry' ) {
+			        var loader = new THREE.JSONLoader();
+			        var result: any = loader.parse( data, null );
 
-                // load textures
-                var texture = THREE.ImageUtils.loadTexture(marker_path);
-                this.mesh.skeleton.bones.forEach((bone, index) => {
-                    var material = new THREE.SpriteMaterial({map: texture, color: this.normalColor});
-                    var sprite = new THREE.Sprite(material);
-                    sprite.scale.set(16.0, 16.0, 1);
+			        var geometry = result.geometry;
+			        var material: any;
+			        if ( result.materials !== undefined ) {
+				        if ( result.materials.length > 1 ) {
+                            material = new THREE.MeshFaceMaterial( result.materials );
+				        } else {
+					        material = result.materials[ 0 ];
+				        }
+			        } else {
+				        material = new THREE.MeshPhongMaterial();
+			        }
 
-                    this.joint_markers.push(sprite);
-                    this.scene2d.add(sprite);
-                });
+			        geometry.sourceType = "ascii";
+			        //geometry.sourceFile = file.name;
 
-                // make sphere objects
-                this.mesh.skeleton.bones.forEach((bone, index) => {
-                    var sphere_geo = new THREE.SphereGeometry(3, 20, 20);
-                    var material = new THREE.MeshBasicMaterial({wireframe: true});
-                    var sphere = new THREE.Mesh(sphere_geo, material);
-                    sphere.matrixWorldNeedsUpdate = true;
-                    sphere.userData = {
-                        jointIndex: index
-                    };
+			        var mesh: any;
+				    mesh = new THREE.SkinnedMesh( geometry, material );
 
-                    sphere.visible = false;
-                    this.joint_spheres.push(sphere);
-                    this.scene.add(sphere);
+			        this.setupMesh(mesh, marker_path, main_scene, scene2d, callback);
 
-                    if ( callback !== null ) {
-                        callback();
-                    }
-                });
+		        } else {
+                    alert("" + data.metadata.type + " is not supported");
+		        }
 
-                this.ready = true;
+            }).fail((a, b, c) => {
+                console.error( "error", a, b, c );
             });
 
             //
             this.scene = main_scene;
             this.scene2d = scene2d;
+        }
+
+        private setupMesh(
+            mesh: THREE.SkinnedMesh,
+            marker_path: string,
+            main_scene: THREE.Scene,
+            scene2d: THREE.Scene,
+            callback: () => void
+        ) {
+            //
+            this.mesh = mesh;
+            this.mesh.scale.set(3, 3, 3);
+            this.mesh.position.y = -24;
+
+            main_scene.add(this.mesh);
+
+            //
+            this.mesh.skeleton.bones.forEach((bone) => {
+                bone.matrixWorldNeedsUpdate = true;
+            });
+
+            // load textures(marker)
+            var texture = THREE.ImageUtils.loadTexture(marker_path);
+            this.mesh.skeleton.bones.forEach((bone, index) => {
+                var material = new THREE.SpriteMaterial({map: texture, color: this.normalColor});
+                var sprite = new THREE.Sprite(material);
+                sprite.scale.set(12.0, 12.0, 1);
+
+                this.joint_markers.push(sprite);
+                this.scene2d.add(sprite);
+            });
+
+            // make sphere objects
+            this.mesh.skeleton.bones.forEach((bone, index) => {
+                var sphere_geo = new THREE.SphereGeometry(3, 20, 20);
+                var material = new THREE.MeshBasicMaterial({wireframe: true});
+                var sphere = new THREE.Mesh(sphere_geo, material);
+                sphere.matrixWorldNeedsUpdate = true;
+                sphere.userData = {
+                    jointIndex: index
+                };
+
+                sphere.visible = false;
+                this.joint_spheres.push(sphere);
+                this.scene.add(sphere);
+
+                if ( callback !== null ) {
+                    callback();
+                }
+            });
+
+            this.ready = true;
         }
 
         destruct(): void {

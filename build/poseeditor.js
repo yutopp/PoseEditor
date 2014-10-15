@@ -1,4 +1,5 @@
 /// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../typings/jquery/jquery.d.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="../ext/OrbitControls.d.ts"/>
 var PoseEditor;
@@ -168,7 +169,7 @@ var PoseEditor;
                 this.camera.quaternion.w = q._w;
             }
 
-            //
+            //threejs/three.d.ts
             this.model.loadJointData(obj.model);
         };
 
@@ -344,63 +345,99 @@ var PoseEditor;
             //
             this.joint_markers = [];
             this.joint_spheres = [];
-            //
-            var loader = new THREE.JSONLoader();
-            loader.load(mesh_path, function (geometry, materials /*unused*/ ) {
-                // TODO: change this
-                var material = new THREE.MeshLambertMaterial({
-                    color: 0xffffff,
-                    skinning: true
-                });
+            $.ajax({
+                dataType: 'JSON',
+                type: "GET",
+                url: mesh_path
+            }).done(function (data) {
+                console.log("finished to load");
 
-                //
-                _this.mesh = new THREE.SkinnedMesh(geometry, material);
-                _this.mesh.scale.set(4, 4, 4);
-                main_scene.add(_this.mesh);
+                // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
+                if (data.metadata.type === undefined) {
+                    data.metadata.type = 'Geometry';
+                }
 
-                //skinnedMesh.position.y = 50;
-                //
-                _this.mesh.skeleton.bones.forEach(function (bone) {
-                    bone.matrixWorldNeedsUpdate = true;
-                });
+                if (data.metadata.type.toLowerCase() === 'geometry') {
+                    var loader = new THREE.JSONLoader();
+                    var result = loader.parse(data, null);
 
-                // load textures
-                var texture = THREE.ImageUtils.loadTexture(marker_path);
-                _this.mesh.skeleton.bones.forEach(function (bone, index) {
-                    var material = new THREE.SpriteMaterial({ map: texture, color: _this.normalColor });
-                    var sprite = new THREE.Sprite(material);
-                    sprite.scale.set(16.0, 16.0, 1);
-
-                    _this.joint_markers.push(sprite);
-                    _this.scene2d.add(sprite);
-                });
-
-                // make sphere objects
-                _this.mesh.skeleton.bones.forEach(function (bone, index) {
-                    var sphere_geo = new THREE.SphereGeometry(3, 20, 20);
-                    var material = new THREE.MeshBasicMaterial({ wireframe: true });
-                    var sphere = new THREE.Mesh(sphere_geo, material);
-                    sphere.matrixWorldNeedsUpdate = true;
-                    sphere.userData = {
-                        jointIndex: index
-                    };
-
-                    sphere.visible = false;
-                    _this.joint_spheres.push(sphere);
-                    _this.scene.add(sphere);
-
-                    if (callback !== null) {
-                        callback();
+                    var geometry = result.geometry;
+                    var material;
+                    if (result.materials !== undefined) {
+                        if (result.materials.length > 1) {
+                            material = new THREE.MeshFaceMaterial(result.materials);
+                        } else {
+                            material = result.materials[0];
+                        }
+                    } else {
+                        material = new THREE.MeshPhongMaterial();
                     }
-                });
 
-                _this.ready = true;
+                    geometry.sourceType = "ascii";
+
+                    //geometry.sourceFile = file.name;
+                    var mesh;
+                    mesh = new THREE.SkinnedMesh(geometry, material);
+
+                    _this.setupMesh(mesh, marker_path, main_scene, scene2d, callback);
+                } else {
+                    alert("" + data.metadata.type + " is not supported");
+                }
+            }).fail(function (a, b, c) {
+                console.error("error", a, b, c);
             });
 
             //
             this.scene = main_scene;
             this.scene2d = scene2d;
         }
+        Model.prototype.setupMesh = function (mesh, marker_path, main_scene, scene2d, callback) {
+            var _this = this;
+            //
+            this.mesh = mesh;
+            this.mesh.scale.set(3, 3, 3);
+            this.mesh.position.y = -24;
+
+            main_scene.add(this.mesh);
+
+            //
+            this.mesh.skeleton.bones.forEach(function (bone) {
+                bone.matrixWorldNeedsUpdate = true;
+            });
+
+            // load textures(marker)
+            var texture = THREE.ImageUtils.loadTexture(marker_path);
+            this.mesh.skeleton.bones.forEach(function (bone, index) {
+                var material = new THREE.SpriteMaterial({ map: texture, color: _this.normalColor });
+                var sprite = new THREE.Sprite(material);
+                sprite.scale.set(12.0, 12.0, 1);
+
+                _this.joint_markers.push(sprite);
+                _this.scene2d.add(sprite);
+            });
+
+            // make sphere objects
+            this.mesh.skeleton.bones.forEach(function (bone, index) {
+                var sphere_geo = new THREE.SphereGeometry(3, 20, 20);
+                var material = new THREE.MeshBasicMaterial({ wireframe: true });
+                var sphere = new THREE.Mesh(sphere_geo, material);
+                sphere.matrixWorldNeedsUpdate = true;
+                sphere.userData = {
+                    jointIndex: index
+                };
+
+                sphere.visible = false;
+                _this.joint_spheres.push(sphere);
+                _this.scene.add(sphere);
+
+                if (callback !== null) {
+                    callback();
+                }
+            });
+
+            this.ready = true;
+        };
+
         Model.prototype.destruct = function () {
             this.ready = false;
         };

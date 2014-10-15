@@ -1,1 +1,1 @@
-python -m SimpleHTTPServer 30000
+python2 -m SimpleHTTPServer 30000

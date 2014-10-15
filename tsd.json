@@ -7,6 +7,9 @@
   "installed": {
     "threejs/three.d.ts": {
       "commit": "3505d15d991ddaa4f5efa13edcd8543bae1e46de"
+    },
+    "jquery/jquery.d.ts": {
+      "commit": "8abb240eea37beed10de955c59023d1cbd9c829f"
     }
   }
 }
