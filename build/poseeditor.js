@@ -45,8 +45,13 @@ var PoseEditor;
             this.isOnManipurator = false;
             this.selectedSphere = null;
             this.selectedBaseRot = null;
-            this.width = 600;
-            this.height = 400;
+            //
+            var parent_dom = document.getElementById(parent_dom_id);
+            var target_dom = parent_dom ? parent_dom : document.body;
+
+            //
+            this.width = target_dom.offsetWidth;
+            this.height = target_dom.offsetHeight;
             this.fov = 60;
             this.aspect = this.width / this.height;
             this.near = 1;
@@ -86,8 +91,6 @@ var PoseEditor;
             }
 
             //
-            var parent_dom = document.getElementById(parent_dom_id);
-            var target_dom = parent_dom ? parent_dom : document.body;
             target_dom.appendChild(this.renderer.domElement);
 
             //

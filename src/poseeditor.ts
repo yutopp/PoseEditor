@@ -11,9 +11,20 @@ module PoseEditor {
     }
 
     export class Editor {
-        constructor(parent_dom_id: string, mesh_path: string, marker_path: string, config: Config = null, callback: () => void = null) {
-            this.width  = 600;
-            this.height = 400;
+        constructor(
+            parent_dom_id: string,
+            mesh_path: string,
+            marker_path: string,
+            config: Config = null,
+            callback: () => void = null
+        ) {
+            //
+            var parent_dom = document.getElementById(parent_dom_id);
+            var target_dom = parent_dom ? parent_dom : document.body;
+
+            //
+            this.width  = target_dom.offsetWidth;
+            this.height = target_dom.offsetHeight;
             this.fov    = 60;
             this.aspect = this.width / this.height;
             this.near   = 1;
@@ -53,8 +64,6 @@ module PoseEditor {
             }
 
             //
-            var parent_dom = document.getElementById(parent_dom_id);
-            var target_dom = parent_dom ? parent_dom : document.body;
             target_dom.appendChild(this.renderer.domElement);
 
             //
