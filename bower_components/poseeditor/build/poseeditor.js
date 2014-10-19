@@ -55,7 +55,7 @@ var PoseEditor;
             //
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
-            this.camera.position.set(0, 20, 45);
+            this.camera.position.set(0, 18, 45);
 
             this.projector = new THREE.Projector();
 
@@ -366,18 +366,24 @@ var PoseEditor;
                     if (result.materials !== undefined) {
                         if (result.materials.length > 1) {
                             material = new THREE.MeshFaceMaterial(result.materials);
+                            material.materials.forEach(function (mat) {
+                                mat.skinning = true;
+                            });
                         } else {
                             material = result.materials[0];
+                            material.setValues({ skinning: true });
                         }
                     } else {
-                        material = new THREE.MeshPhongMaterial();
+                        material = new THREE.MeshLambertMaterial({
+                            color: 0xffffff,
+                            skinning: true
+                        });
                     }
 
                     geometry.sourceType = "ascii";
 
                     //geometry.sourceFile = file.name;
-                    var mesh;
-                    mesh = new THREE.SkinnedMesh(geometry, material);
+                    var mesh = new THREE.SkinnedMesh(geometry, material, false);
 
                     _this.setupMesh(mesh, marker_path, main_scene, scene2d, callback);
                 } else {
@@ -396,7 +402,7 @@ var PoseEditor;
             //
             this.mesh = mesh;
             this.mesh.scale.set(3, 3, 3);
-            this.mesh.position.y = -24;
+            this.mesh.position.y = -28;
 
             main_scene.add(this.mesh);
 

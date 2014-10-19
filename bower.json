@@ -15,6 +15,7 @@
   ],
   "dependencies": {
     "three.js": "*",
-    "poseeditor": "*"
+    "poseeditor": "*",
+    "bootstrap": "~3.2.0"
   }
 }
