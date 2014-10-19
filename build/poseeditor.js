@@ -192,8 +192,15 @@ var PoseEditor;
         };
 
         Editor.prototype.onResize = function () {
-            this.width = this.target_dom.offsetWidth;
-            this.height = this.target_dom.offsetHeight;
+            var w = this.target_dom.offsetWidth;
+            var h = this.target_dom.offsetHeight;
+            if (this.width == w && this.height == h) {
+                return false;
+            }
+
+            // update size
+            this.width = w;
+            this.height = h;
             this.aspect = this.width / this.height;
 
             this.renderer.setSize(this.width, this.height);
