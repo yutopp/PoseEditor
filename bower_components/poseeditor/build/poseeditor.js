@@ -47,11 +47,11 @@ var PoseEditor;
             this.selectedBaseRot = null;
             //
             var parent_dom = document.getElementById(parent_dom_id);
-            var target_dom = parent_dom ? parent_dom : document.body;
+            this.target_dom = parent_dom ? parent_dom : document.body;
 
             //
-            this.width = target_dom.offsetWidth;
-            this.height = target_dom.offsetHeight;
+            this.width = this.target_dom.offsetWidth;
+            this.height = this.target_dom.offsetHeight;
             this.fov = 60;
             this.aspect = this.width / this.height;
             this.near = 1;
@@ -91,7 +91,10 @@ var PoseEditor;
             }
 
             //
-            target_dom.appendChild(this.renderer.domElement);
+            this.target_dom.appendChild(this.renderer.domElement);
+            window.addEventListener('resize', function () {
+                return _this.onResize();
+            }, false);
 
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
@@ -186,6 +189,23 @@ var PoseEditor;
 
         Editor.prototype.toggleMarker = function () {
             this.model.toggleMarker();
+        };
+
+        Editor.prototype.onResize = function () {
+            this.width = this.target_dom.offsetWidth;
+            this.height = this.target_dom.offsetHeight;
+            this.aspect = this.width / this.height;
+
+            this.renderer.setSize(this.width, this.height);
+
+            this.camera.aspect = this.aspect;
+            this.camera.updateProjectionMatrix();
+
+            this.camera2d.right = this.width;
+            this.camera2d.bottom = this.height;
+            this.camera2d.updateProjectionMatrix();
+
+            return false;
         };
 
         Editor.prototype.makeDataUrl = function (type) {
