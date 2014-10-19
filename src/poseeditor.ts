@@ -20,11 +20,11 @@ module PoseEditor {
         ) {
             //
             var parent_dom = document.getElementById(parent_dom_id);
-            var target_dom = parent_dom ? parent_dom : document.body;
+            this.target_dom = parent_dom ? parent_dom : document.body;
 
             //
-            this.width  = target_dom.offsetWidth;
-            this.height = target_dom.offsetHeight;
+            this.width  = this.target_dom.offsetWidth;
+            this.height = this.target_dom.offsetHeight;
             this.fov    = 60;
             this.aspect = this.width / this.height;
             this.near   = 1;
@@ -64,7 +64,8 @@ module PoseEditor {
             }
 
             //
-            target_dom.appendChild(this.renderer.domElement);
+            this.target_dom.appendChild(this.renderer.domElement);
+            window.addEventListener('resize', () => this.onResize(), false);
 
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
@@ -160,6 +161,23 @@ module PoseEditor {
 
         public toggleMarker() {
             this.model.toggleMarker();
+        }
+
+        private onResize(): boolean {
+            this.width  = this.target_dom.offsetWidth;
+            this.height = this.target_dom.offsetHeight;
+            this.aspect = this.width / this.height;
+
+            this.renderer.setSize(this.width, this.height);
+
+            this.camera.aspect = this.aspect;
+            this.camera.updateProjectionMatrix();
+
+            this.camera2d.right = this.width;
+            this.camera2d.bottom = this.height;
+            this.camera2d.updateProjectionMatrix();
+
+            return false;
         }
 
         private makeDataUrl(type: string): string {
@@ -330,6 +348,9 @@ module PoseEditor {
         }
 
         //
+        private target_dom: HTMLElement;
+
+        //
         private width: number;
         private height: number;
         private fov: number;
@@ -345,7 +366,7 @@ module PoseEditor {
 
         //
         private scene: THREE.Scene;
-        private camera: THREE.Camera;
+        private camera: THREE.PerspectiveCamera;
         private projector: THREE.Projector;
         private directionalLight: THREE.DirectionalLight;
         private ambientLight: THREE.AmbientLight;
@@ -354,7 +375,7 @@ module PoseEditor {
 
         //
         private scene2d: THREE.Scene;
-        private camera2d: THREE.Camera;
+        private camera2d: THREE.OrthographicCamera;
 
         //
         private isOnManipurator: boolean = false;
