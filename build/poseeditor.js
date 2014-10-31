@@ -33,7 +33,15 @@ var PoseEditor;
 
                         _this.model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
 
-                        _this.model.joint_spheres[index].position.set(b_pos.x, b_pos.y, b_pos.z);
+                        //
+                        var sphere = _this.model.joint_spheres[index];
+                        sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
+
+                        var sphere_and_camera_dist = sphere.position.distanceTo(_this.camera.position);
+                        var raw_scale = sphere_and_camera_dist * sphere_and_camera_dist / 280.0;
+                        var scale = Math.max(0.3, Math.min(4.0, raw_scale));
+
+                        sphere.scale.set(scale, scale, scale);
                     });
                 }
 
@@ -174,6 +182,7 @@ var PoseEditor;
                 this.camera.quaternion.z = q._z;
                 this.camera.quaternion.w = q._w;
             }
+            this.controls.update();
 
             //threejs/three.d.ts
             this.model.loadJointData(obj.model);
@@ -313,7 +322,6 @@ var PoseEditor;
                 bone.rotation.x = 0.0;
                 bone.rotation.y = 0.0;
                 bone.rotation.z = 0.0;
-
                 bone.updateMatrixWorld(true);
 
                 this.selectedBaseRot = new THREE.Matrix4().extractRotation(bone.matrixWorld);
@@ -454,7 +462,7 @@ var PoseEditor;
 
             // make sphere objects
             this.mesh.skeleton.bones.forEach(function (bone, index) {
-                var sphere_geo = new THREE.SphereGeometry(3, 20, 20);
+                var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
                 var material = new THREE.MeshBasicMaterial({ wireframe: true });
                 var sphere = new THREE.Mesh(sphere_geo, material);
                 sphere.matrixWorldNeedsUpdate = true;

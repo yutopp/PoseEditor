@@ -120,6 +120,7 @@ module PoseEditor {
                     'model': model_obj
                 };
                 return obj;
+
             } else {
                 throw new Error("Model was not loaded");
             }
@@ -146,6 +147,7 @@ module PoseEditor {
                 this.camera.quaternion.z = <number>q._z;
                 this.camera.quaternion.w = <number>q._w;
             }
+            this.controls.update();
 
             //threejs/three.d.ts
             this.model.loadJointData(<{ [key: number]: any; }>obj.model);
@@ -289,7 +291,6 @@ module PoseEditor {
                 bone.rotation.x = 0.0;
                 bone.rotation.y = 0.0;
                 bone.rotation.z = 0.0;
-
                 bone.updateMatrixWorld(true);
 
                 this.selectedBaseRot = new THREE.Matrix4().extractRotation(bone.matrixWorld);
@@ -340,7 +341,15 @@ module PoseEditor {
 
                     this.model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
 
-                    this.model.joint_spheres[index].position.set(b_pos.x, b_pos.y, b_pos.z);
+                    //
+                    var sphere = this.model.joint_spheres[index];
+                    sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
+
+                    var sphere_and_camera_dist = sphere.position.distanceTo(this.camera.position);
+                    var raw_scale = sphere_and_camera_dist * sphere_and_camera_dist / 280.0;
+                    var scale = Math.max(0.3, Math.min(4.0, raw_scale));    // [0.3, 4.0]
+
+                    sphere.scale.set(scale, scale, scale);
                 });
             }
 
@@ -485,7 +494,7 @@ module PoseEditor {
 
             // make sphere objects
             this.mesh.skeleton.bones.forEach((bone, index) => {
-                var sphere_geo = new THREE.SphereGeometry(3, 20, 20);
+                var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
                 var material = new THREE.MeshBasicMaterial({wireframe: true});
                 var sphere = new THREE.Mesh(sphere_geo, material);
                 sphere.matrixWorldNeedsUpdate = true;
