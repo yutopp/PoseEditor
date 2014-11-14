@@ -2,13 +2,11 @@
 Three.js on Bower
 ------
 
-Current version: [r68](https://github.com/mrdoob/three.js/releases/tag/r68)
+Official repo: https://github.com/mrdoob/three.js#threejs
+Official repo is too large on Bower, so I picked files out from that repo.
 
-Visit official repo if you want to know more:
-
-https://github.com/mrdoob/three.js#threejs
-
-Original repo is too large for Bower, so I picked this out from offcial tags.
+Current version: [r69](https://github.com/mrdoob/three.js/releases/tag/r69).
+In this repo the version in converted to `0.69.0` in semantic version for Bower to recognize.
 
 ### Usage
 
@@ -16,6 +14,10 @@ Original repo is too large for Bower, so I picked this out from offcial tags.
 bower install --save three.js
 ```
 
+### Notice
+
+Last time the version was `0.0.68`. However `0.68.0` looks better because the last one is for patch. So there was a switch. Hopefully it doesn't break things.
+
 ### License
 
-MIT
+https://github.com/mrdoob/three.js/blob/master/LICENSE
