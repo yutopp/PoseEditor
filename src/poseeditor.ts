@@ -14,6 +14,7 @@ module PoseEditor {
         constructor(
             parent_dom_id: string,
             mesh_path: string,
+            texture_path: string,
             marker_path: string,
             config: Config = null,
             callback: () => void = null
@@ -34,8 +35,6 @@ module PoseEditor {
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
             this.camera.position.set(0, 18, 45);
-
-            this.projector = new THREE.Projector();
 
             this.directionalLight = new THREE.DirectionalLight(0xffffff);
             this.directionalLight.position.set(0, 0.7, 0.7);
@@ -82,7 +81,7 @@ module PoseEditor {
             //this.controls.addEventListener('change', render);
 
             //
-            this.setupModel(mesh_path, marker_path, callback);
+            this.setupModel(mesh_path, texture_path, marker_path, callback);
 
             //
             this.renderer.domElement.addEventListener('mousedown', this.boneRay.bind(this), false);
@@ -211,8 +210,8 @@ module PoseEditor {
             return data;
         }
 
-        private setupModel(mesh_path: string, marker_path: string, callback: () => void) {
-            this.model = new Model(mesh_path, marker_path, this.scene, this.scene2d, callback);
+        private setupModel(mesh_path: string, texture_path: string, marker_path: string, callback: () => void) {
+            this.model = new Model(mesh_path, texture_path, marker_path, this.scene, this.scene2d, callback);
         }
 
         private onTransformCtrl() {
@@ -309,7 +308,7 @@ module PoseEditor {
             var world_pos = new THREE.Vector3();
             world_pos.x = screen_pos.x / window_half_x - 1;
             world_pos.y = -screen_pos.y / window_half_y + 1;
-            this.projector.unprojectVector(world_pos, this.camera);
+            world_pos.unproject(this.camera);
 
             return world_pos;
         }
@@ -319,7 +318,7 @@ module PoseEditor {
             var window_half_y = this.height / 2.0;
 
             var screen_pos = world_pos.clone();
-            this.projector.projectVector(screen_pos, this.camera);
+            screen_pos.project(this.camera);
             screen_pos.x = ( screen_pos.x + 1 ) * window_half_x;
             screen_pos.y = ( -screen_pos.y + 1) * window_half_y;
 
@@ -383,7 +382,6 @@ module PoseEditor {
         //
         private scene: THREE.Scene;
         private camera: THREE.PerspectiveCamera;
-        private projector: THREE.Projector;
         private directionalLight: THREE.DirectionalLight;
         private ambientLight: THREE.AmbientLight;
         private transformCtrl: THREE.TransformControls;
@@ -403,7 +401,7 @@ module PoseEditor {
     //
     class Model
     {
-        constructor(mesh_path: string, marker_path: string, main_scene: THREE.Scene, scene2d: THREE.Scene, callback: () => void) {
+        constructor(mesh_path: string, texture_path: string, marker_path: string, main_scene: THREE.Scene, scene2d: THREE.Scene, callback: () => void) {
             $.ajax({
                 dataType: 'JSON',
                 type: "GET",
@@ -419,7 +417,7 @@ module PoseEditor {
 
                 if ( data.metadata.type.toLowerCase() === 'geometry' ) {
 			        var loader = new THREE.JSONLoader();
-			        var result: any = loader.parse( data, null );
+			        var result: any = loader.parse(data, texture_path);
 
 			        var geometry = result.geometry;
 			        var material: any;
