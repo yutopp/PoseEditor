@@ -34,7 +34,7 @@ module PoseEditor {
             //
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
-            this.camera.position.set(0, 18, 45);
+            this.camera.position.set(0, 9, 32);
 
             this.directionalLight = new THREE.DirectionalLight(0xffffff);
             this.directionalLight.position.set(0, 0.7, 0.7);
@@ -470,7 +470,7 @@ module PoseEditor {
             //
             this.mesh = mesh;
             this.mesh.scale.set(3, 3, 3);
-            this.mesh.position.y = -28;
+            this.mesh.position.y = -18;
 
             main_scene.add(this.mesh);
 
