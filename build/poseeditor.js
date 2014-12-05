@@ -205,7 +205,16 @@ var PoseEditor;
                 this.isOnManipurator = true;
                 if (this.selectedSphere != null) {
                     var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                    var toto = new THREE.Matrix4().getInverse(this.selectedBaseRot);
+                    var t_r = bone.rotation.clone();
+                    bone.rotation.x = 0.0;
+                    bone.rotation.y = 0.0;
+                    bone.rotation.z = 0.0;
+                    //bone.quaternion.setFromEuler(bone.rotation);
+                    //bone.updateMatrix();
+                    bone.updateMatrixWorld(true);
+                    var pp = new THREE.Matrix4().extractRotation(bone.matrixWorld);
+                    bone.rotation.copy(t_r);
+                    var toto = new THREE.Matrix4().getInverse(pp);
                     var to_qq = new THREE.Matrix4().extractRotation(this.selectedSphere.matrixWorld).clone();
                     var to_q = new THREE.Quaternion().setFromRotationMatrix(toto.multiply(to_qq)).normalize();
                     bone.quaternion.copy(to_q);
@@ -251,16 +260,6 @@ var PoseEditor;
                 this.selectedSphere.quaternion.copy(to_q);
                 this.transformCtrl.attach(this.selectedSphere);
                 this.transformCtrl.update();
-                var t_r = bone.rotation.clone();
-                bone.rotation.x = 0.0;
-                bone.rotation.y = 0.0;
-                bone.rotation.z = 0.0;
-                bone.updateMatrixWorld(true);
-                this.selectedBaseRot = new THREE.Matrix4().extractRotation(bone.matrixWorld);
-                bone.rotation.x = t_r.x;
-                bone.rotation.y = t_r.y;
-                bone.rotation.z = t_r.z;
-                bone.updateMatrixWorld(true);
             }
         };
         Editor.prototype.screenToWorld = function (screen_pos) {
