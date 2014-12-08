@@ -222,11 +222,7 @@ module PoseEditor {
                     var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
 
                     var t_r = bone.rotation.clone();
-                    bone.rotation.x = 0.0;
-                    bone.rotation.y = 0.0;
-                    bone.rotation.z = 0.0;
-                    //bone.quaternion.setFromEuler(bone.rotation);
-                    //bone.updateMatrix();
+                    bone.rotation.set(0,0,0);
                     bone.updateMatrixWorld(true);
                     var pp = new THREE.Matrix4().extractRotation(bone.matrixWorld);
 
@@ -284,10 +280,10 @@ module PoseEditor {
 
             if ( this.selectedSphere == null ) {
                 this.transformCtrl.detach();
-                this.selectedBaseRot = null;
 
             } else {
                 var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
+                console.log("index: ", this.selectedSphere.userData.jointIndex);
 
                 //
                 var mat = new THREE.Matrix4().extractRotation(bone.matrixWorld);
@@ -323,12 +319,61 @@ module PoseEditor {
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         }
 
+        private ik(bone: THREE.Bone, target_pos: THREE.Vector3) {
+            var c_bone = bone;
+            var p_bone = <THREE.Bone>bone.parent;
+            while( p_bone != null ) {
+                console.log("bone!");
+/*
+                var t_r = p_bone.rotation.clone();
+                p_bone.rotation.set(0,0,0);
+                p_bone.updateMatrixWorld(true);
+                var pp = new THREE.Matrix4().extractRotation(p_bone.matrixWorld);
+                p_bone.rotation.copy(t_r);
+
+                var toto = new THREE.Matrix4().getInverse(pp);
+
+
+                var p_to_c_vec = c_bone.position.sub(p_bone.position).normalize();
+                var p_to_t_vec = target_pos.sub(p_bone.position).normalize();
+
+                var vi = p_to_c_vec.cross(p_to_t_vec);
+                var axis = vi.normalize();
+
+                var deg = p_to_c_vec.dot(p_to_t_vec);
+
+                var q = new THREE.Quaternion().setFromAxisAngle(axis, deg);
+
+                var to_qq_mat = new THREE.Matrix4().extractRotation(p_bone.matrixWorld);
+                var to_qq = new THREE.Quaternion().setFromRotationMatrix(to_qq_mat);
+                to_qq.multiply(q);
+
+
+                var to_q = new THREE.Quaternion().setFromRotationMatrix(toto.multiply(to_qq)).normalize();
+
+                p_bone.quaternion.copy(to_q);
+*/
+                break;
+                c_bone = p_bone;
+                p_bone = <THREE.Bone>c_bone.parent;
+            }
+        }
+
+        private count = 0;
 
         private renderLoop = () => {
             requestAnimationFrame(this.renderLoop);
 
 	        this.scene.updateMatrixWorld(true);
             this.scene2d.updateMatrixWorld(true);
+
+            if ( this.count == 10 ) {
+                var pos = new THREE.Vector3(10, 5, 5);
+                this.ik(this.model.mesh.skeleton.bones[34], pos);
+                console.log("aa");
+                this.count = 0;
+            }
+            this.count++;
 
             if ( this.model.isReady() ) {
                 //
@@ -392,7 +437,6 @@ module PoseEditor {
         //
         private isOnManipurator: boolean = false;
         private selectedSphere: THREE.Object3D = null;
-        private selectedBaseRot: THREE.Matrix4 = null;
     }
 
 
@@ -487,6 +531,13 @@ module PoseEditor {
                 this.joint_markers.push(sprite);
                 this.scene2d.add(sprite);
             });
+
+            var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
+            var material = new THREE.MeshBasicMaterial({wireframe: true});
+            var sphere = new THREE.Mesh(sphere_geo, material);
+            sphere.matrixWorldNeedsUpdate = true;
+            sphere.position.set(10, 5, 5);
+            this.scene.add(sphere);
 
             // make sphere objects
             this.mesh.skeleton.bones.forEach((bone, index) => {

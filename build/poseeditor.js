@@ -18,10 +18,18 @@ var PoseEditor;
             var _this = this;
             if (config === void 0) { config = null; }
             if (callback === void 0) { callback = null; }
+            this.count = 0;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.scene.updateMatrixWorld(true);
                 _this.scene2d.updateMatrixWorld(true);
+                if (_this.count == 10) {
+                    var pos = new THREE.Vector3(10, 5, 5);
+                    _this.ik(_this.model.mesh.skeleton.bones[34], pos);
+                    console.log("aa");
+                    _this.count = 0;
+                }
+                _this.count++;
                 if (_this.model.isReady()) {
                     //
                     _this.model.mesh.skeleton.bones.forEach(function (bone, index) {
@@ -44,7 +52,6 @@ var PoseEditor;
             //
             this.isOnManipurator = false;
             this.selectedSphere = null;
-            this.selectedBaseRot = null;
             //
             var parent_dom = document.getElementById(parent_dom_id);
             this.target_dom = parent_dom ? parent_dom : document.body;
@@ -206,11 +213,7 @@ var PoseEditor;
                 if (this.selectedSphere != null) {
                     var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                     var t_r = bone.rotation.clone();
-                    bone.rotation.x = 0.0;
-                    bone.rotation.y = 0.0;
-                    bone.rotation.z = 0.0;
-                    //bone.quaternion.setFromEuler(bone.rotation);
-                    //bone.updateMatrix();
+                    bone.rotation.set(0, 0, 0);
                     bone.updateMatrixWorld(true);
                     var pp = new THREE.Matrix4().extractRotation(bone.matrixWorld);
                     bone.rotation.copy(t_r);
@@ -250,10 +253,10 @@ var PoseEditor;
             }
             if (this.selectedSphere == null) {
                 this.transformCtrl.detach();
-                this.selectedBaseRot = null;
             }
             else {
                 var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
+                console.log("index: ", this.selectedSphere.userData.jointIndex);
                 //
                 var mat = new THREE.Matrix4().extractRotation(bone.matrixWorld);
                 var to_q = new THREE.Quaternion().setFromRotationMatrix(mat);
@@ -279,6 +282,16 @@ var PoseEditor;
             screen_pos.x = (screen_pos.x + 1) * window_half_x;
             screen_pos.y = (-screen_pos.y + 1) * window_half_y;
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
+        };
+        Editor.prototype.ik = function (bone, target_pos) {
+            var c_bone = bone;
+            var p_bone = bone.parent;
+            while (p_bone != null) {
+                console.log("bone!");
+                break;
+                c_bone = p_bone;
+                p_bone = c_bone.parent;
+            }
         };
         Editor.prototype.render = function () {
             this.renderer.clear();
@@ -372,6 +385,12 @@ var PoseEditor;
                 _this.joint_markers.push(sprite);
                 _this.scene2d.add(sprite);
             });
+            var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
+            var material = new THREE.MeshBasicMaterial({ wireframe: true });
+            var sphere = new THREE.Mesh(sphere_geo, material);
+            sphere.matrixWorldNeedsUpdate = true;
+            sphere.position.set(10, 5, 5);
+            this.scene.add(sphere);
             // make sphere objects
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
