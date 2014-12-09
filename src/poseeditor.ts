@@ -321,7 +321,11 @@ module PoseEditor {
         private ik(bone__Aaa: THREE.Bone, target_pos: THREE.Vector3) {
             var c_bone = bone__Aaa;
             var p_bone = <THREE.Bone>c_bone.parent;
+
+            var i=0;
             while( p_bone != null ) {
+                if (i == 2)
+                    break;
                 console.log("bone!");
 
                 // local rotation
@@ -349,9 +353,10 @@ module PoseEditor {
 
                 var to_q = toto_q.multiply(qm).normalize();
                 p_bone.quaternion.copy(to_q);
+                p_bone.updateMatrixWorld(true);
 
-                break;
                 p_bone = <THREE.Bone>p_bone.parent;
+                ++i;
             }
         }
 
@@ -365,7 +370,7 @@ module PoseEditor {
 
             if ( this.model.isReady() ) {
                 if ( this.count == 10 ) {
-                    var pos = new THREE.Vector3(10, 5, 5);
+                    var pos = new THREE.Vector3(10, 5, 10);
                     this.ik(this.model.mesh.skeleton.bones[34], pos);
                     console.log("aa");
                     this.count = 0;
@@ -532,7 +537,7 @@ module PoseEditor {
             var material = new THREE.MeshBasicMaterial({wireframe: true});
             var sphere = new THREE.Mesh(sphere_geo, material);
             sphere.matrixWorldNeedsUpdate = true;
-            sphere.position.set(10, 5, 5);
+            sphere.position.set(10, 5, 10);
             this.scene.add(sphere);
 
             // make sphere objects

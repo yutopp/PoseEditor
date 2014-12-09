@@ -25,7 +25,7 @@ var PoseEditor;
                 _this.scene2d.updateMatrixWorld(true);
                 if (_this.model.isReady()) {
                     if (_this.count == 10) {
-                        var pos = new THREE.Vector3(10, 5, 5);
+                        var pos = new THREE.Vector3(10, 5, 10);
                         _this.ik(_this.model.mesh.skeleton.bones[34], pos);
                         console.log("aa");
                         _this.count = 0;
@@ -286,7 +286,10 @@ var PoseEditor;
         Editor.prototype.ik = function (bone__Aaa, target_pos) {
             var c_bone = bone__Aaa;
             var p_bone = c_bone.parent;
+            var i = 0;
             while (p_bone != null) {
+                if (i == 2)
+                    break;
                 console.log("bone!");
                 // local rotation
                 var t_r = p_bone.quaternion.clone();
@@ -307,8 +310,9 @@ var PoseEditor;
                 THREE.Quaternion.slerp(to_qq, to_qq2, qm, 0.5);
                 var to_q = toto_q.multiply(qm).normalize();
                 p_bone.quaternion.copy(to_q);
-                break;
+                p_bone.updateMatrixWorld(true);
                 p_bone = p_bone.parent;
+                ++i;
             }
         };
         Editor.prototype.render = function () {
@@ -407,7 +411,7 @@ var PoseEditor;
             var material = new THREE.MeshBasicMaterial({ wireframe: true });
             var sphere = new THREE.Mesh(sphere_geo, material);
             sphere.matrixWorldNeedsUpdate = true;
-            sphere.position.set(10, 5, 5);
+            sphere.position.set(10, 5, 10);
             this.scene.add(sphere);
             // make sphere objects
             this.mesh.skeleton.bones.forEach(function (bone, index) {
