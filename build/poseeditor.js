@@ -23,14 +23,14 @@ var PoseEditor;
                 requestAnimationFrame(_this.renderLoop);
                 _this.scene.updateMatrixWorld(true);
                 _this.scene2d.updateMatrixWorld(true);
-                if (_this.count == 10) {
-                    var pos = new THREE.Vector3(10, 5, 5);
-                    _this.ik(_this.model.mesh.skeleton.bones[34], pos);
-                    console.log("aa");
-                    _this.count = 0;
-                }
-                _this.count++;
                 if (_this.model.isReady()) {
+                    if (_this.count == 10) {
+                        var pos = new THREE.Vector3(10, 5, 5);
+                        _this.ik(_this.model.mesh.skeleton.bones[34], pos);
+                        console.log("aa");
+                        _this.count = 0;
+                    }
+                    _this.count++;
                     //
                     _this.model.mesh.skeleton.bones.forEach(function (bone, index) {
                         var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
@@ -212,15 +212,15 @@ var PoseEditor;
                 this.isOnManipurator = true;
                 if (this.selectedSphere != null) {
                     var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                    var t_r = bone.rotation.clone();
+                    var t_r = bone.quaternion.clone();
                     bone.rotation.set(0, 0, 0);
-                    bone.updateMatrixWorld(true);
-                    var pp = new THREE.Matrix4().extractRotation(bone.matrixWorld);
-                    bone.rotation.copy(t_r);
-                    var toto = new THREE.Matrix4().getInverse(pp);
-                    var to_qq = new THREE.Matrix4().extractRotation(this.selectedSphere.matrixWorld).clone();
-                    var to_q = new THREE.Quaternion().setFromRotationMatrix(toto.multiply(to_qq)).normalize();
+                    var toto_q = bone.getWorldQuaternion(null).inverse();
+                    //                    bone.quaternion.copy(t_r);
+                    //                    bone.updateMatrixWorld(true);
+                    var to_qq = this.selectedSphere.getWorldQuaternion(null);
+                    var to_q = toto_q.multiply(to_qq).normalize();
                     bone.quaternion.copy(to_q);
+                    bone.updateMatrixWorld(true);
                 }
             }
             else {
@@ -283,14 +283,32 @@ var PoseEditor;
             screen_pos.y = (-screen_pos.y + 1) * window_half_y;
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         };
-        Editor.prototype.ik = function (bone, target_pos) {
-            var c_bone = bone;
-            var p_bone = bone.parent;
+        Editor.prototype.ik = function (bone__Aaa, target_pos) {
+            var c_bone = bone__Aaa;
+            var p_bone = c_bone.parent;
             while (p_bone != null) {
                 console.log("bone!");
+                // local rotation
+                var t_r = p_bone.quaternion.clone();
+                p_bone.rotation.set(0, 0, 0);
+                var toto_q = p_bone.getWorldQuaternion(null).inverse();
+                p_bone.quaternion.copy(t_r);
+                p_bone.updateMatrixWorld(true);
+                //
+                var c_b_pos = new THREE.Vector3().setFromMatrixPosition(c_bone.matrixWorld);
+                var p_b_pos = new THREE.Vector3().setFromMatrixPosition(p_bone.matrixWorld);
+                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
+                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
+                var q2 = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
+                var to_qq = p_bone.getWorldQuaternion(null);
+                var to_qq2 = q2.clone();
+                to_qq2.multiply(to_qq);
+                var qm = new THREE.Quaternion();
+                THREE.Quaternion.slerp(to_qq, to_qq2, qm, 0.5);
+                var to_q = toto_q.multiply(qm).normalize();
+                p_bone.quaternion.copy(to_q);
                 break;
-                c_bone = p_bone;
-                p_bone = c_bone.parent;
+                p_bone = p_bone.parent;
             }
         };
         Editor.prototype.render = function () {

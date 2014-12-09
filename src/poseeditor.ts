@@ -221,20 +221,19 @@ module PoseEditor {
                 if ( this.selectedSphere != null ) {
                     var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
 
-                    var t_r = bone.rotation.clone();
+                    var t_r = bone.quaternion.clone();
                     bone.rotation.set(0,0,0);
-                    bone.updateMatrixWorld(true);
-                    var pp = new THREE.Matrix4().extractRotation(bone.matrixWorld);
+                    var toto_q = bone.getWorldQuaternion(null).inverse();
 
-                    bone.rotation.copy(t_r);
+//                    bone.quaternion.copy(t_r);
+//                    bone.updateMatrixWorld(true);
 
-                    var toto = new THREE.Matrix4().getInverse(pp);
 
-                    var to_qq = new THREE.Matrix4().extractRotation(this.selectedSphere.matrixWorld).clone();
+                    var to_qq = this.selectedSphere.getWorldQuaternion(null);
 
-                    var to_q = new THREE.Quaternion().setFromRotationMatrix(toto.multiply(to_qq)).normalize();
-
+                    var to_q = toto_q.multiply(to_qq).normalize();
                     bone.quaternion.copy(to_q);
+                    bone.updateMatrixWorld(true);
                 }
 
 	        } else {
@@ -319,43 +318,40 @@ module PoseEditor {
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         }
 
-        private ik(bone: THREE.Bone, target_pos: THREE.Vector3) {
-            var c_bone = bone;
-            var p_bone = <THREE.Bone>bone.parent;
+        private ik(bone__Aaa: THREE.Bone, target_pos: THREE.Vector3) {
+            var c_bone = bone__Aaa;
+            var p_bone = <THREE.Bone>c_bone.parent;
             while( p_bone != null ) {
                 console.log("bone!");
-/*
-                var t_r = p_bone.rotation.clone();
+
+                // local rotation
+                var t_r = p_bone.quaternion.clone();
                 p_bone.rotation.set(0,0,0);
+                var toto_q = p_bone.getWorldQuaternion(null).inverse();
+                p_bone.quaternion.copy(t_r);
                 p_bone.updateMatrixWorld(true);
-                var pp = new THREE.Matrix4().extractRotation(p_bone.matrixWorld);
-                p_bone.rotation.copy(t_r);
 
-                var toto = new THREE.Matrix4().getInverse(pp);
+                //
+                var c_b_pos = new THREE.Vector3().setFromMatrixPosition(c_bone.matrixWorld);
+                var p_b_pos = new THREE.Vector3().setFromMatrixPosition(p_bone.matrixWorld);
 
+                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
+                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
 
-                var p_to_c_vec = c_bone.position.sub(p_bone.position).normalize();
-                var p_to_t_vec = target_pos.sub(p_bone.position).normalize();
+                var q2 = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
 
-                var vi = p_to_c_vec.cross(p_to_t_vec);
-                var axis = vi.normalize();
+                var to_qq = p_bone.getWorldQuaternion(null);
 
-                var deg = p_to_c_vec.dot(p_to_t_vec);
+                var to_qq2 = q2.clone();
+                to_qq2.multiply(to_qq);
+                var qm = new THREE.Quaternion();
+                THREE.Quaternion.slerp(to_qq, to_qq2, qm, 0.5);
 
-                var q = new THREE.Quaternion().setFromAxisAngle(axis, deg);
-
-                var to_qq_mat = new THREE.Matrix4().extractRotation(p_bone.matrixWorld);
-                var to_qq = new THREE.Quaternion().setFromRotationMatrix(to_qq_mat);
-                to_qq.multiply(q);
-
-
-                var to_q = new THREE.Quaternion().setFromRotationMatrix(toto.multiply(to_qq)).normalize();
-
+                var to_q = toto_q.multiply(qm).normalize();
                 p_bone.quaternion.copy(to_q);
-*/
+
                 break;
-                c_bone = p_bone;
-                p_bone = <THREE.Bone>c_bone.parent;
+                p_bone = <THREE.Bone>p_bone.parent;
             }
         }
 
@@ -367,15 +363,15 @@ module PoseEditor {
 	        this.scene.updateMatrixWorld(true);
             this.scene2d.updateMatrixWorld(true);
 
-            if ( this.count == 10 ) {
-                var pos = new THREE.Vector3(10, 5, 5);
-                this.ik(this.model.mesh.skeleton.bones[34], pos);
-                console.log("aa");
-                this.count = 0;
-            }
-            this.count++;
-
             if ( this.model.isReady() ) {
+                if ( this.count == 10 ) {
+                    var pos = new THREE.Vector3(10, 5, 5);
+                    this.ik(this.model.mesh.skeleton.bones[34], pos);
+                    console.log("aa");
+                    this.count = 0;
+                }
+                this.count++;
+
                 //
                 this.model.mesh.skeleton.bones.forEach((bone, index) => {
                     var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
