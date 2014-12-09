@@ -18,19 +18,16 @@ var PoseEditor;
             var _this = this;
             if (config === void 0) { config = null; }
             if (callback === void 0) { callback = null; }
-            this.count = 0;
+            this.dragging = false;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.scene.updateMatrixWorld(true);
                 _this.scene2d.updateMatrixWorld(true);
                 if (_this.model.isReady()) {
-                    if (_this.count == 10) {
-                        var pos = new THREE.Vector3(10, 5, 10);
-                        _this.ik(_this.model.mesh.skeleton.bones[34], pos);
-                        console.log("aa");
-                        _this.count = 0;
+                    if (_this.dragging) {
+                        var bone = _this.model.mesh.skeleton.bones[_this.selectedSphere.userData.jointIndex];
+                        _this.ik(bone, _this.ikTargetPosition);
                     }
-                    _this.count++;
                     //
                     _this.model.mesh.skeleton.bones.forEach(function (bone, index) {
                         var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
@@ -104,11 +101,41 @@ var PoseEditor;
             //this.controls.addEventListener('change', render);
             //
             this.setupModel(mesh_path, texture_path, marker_path, callback);
+            this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.00, transparent: true }));
+            this.plane.visible = false;
+            this.scene.add(this.plane);
             //
-            this.renderer.domElement.addEventListener('mousedown', this.boneRay.bind(this), false);
+            this.renderer.domElement.addEventListener('mousedown', function (e) { return _this.boneRay(e, false); }, false);
+            this.renderer.domElement.addEventListener('touchstart', function (e) { return _this.boneRay(e, true); }, false);
+            this.renderer.domElement.addEventListener('mousemove', function (e) { return _this.moving(e, false); }, false);
+            this.renderer.domElement.addEventListener('touchmove', function (e) { return _this.moving(e, true); }, false);
+            this.renderer.domElement.addEventListener('mouseup', function () { return _this.endDragging(); }, false);
+            this.renderer.domElement.addEventListener('touchend', function () { return _this.endDragging(); }, false);
+            this.renderer.domElement.addEventListener('touchcancel', function () { return _this.endDragging(); }, false);
             //
             this.renderLoop();
         }
+        Editor.prototype.endDragging = function () {
+            this.dragging = false;
+            this.controls.enabled = true;
+        };
+        Editor.prototype.moving = function (e, isTouch) {
+            if (this.dragging == false) {
+                return;
+            }
+            console.log("moving");
+            e.preventDefault();
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
+            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var raycaster = new THREE.Raycaster(this.camera.position, pos.sub(this.camera.position).normalize());
+            var intersects = raycaster.intersectObject(this.plane);
+            this.ikTargetPosition.copy(intersects[0].point);
+            this.model.ikTargetSphere.position.copy(this.ikTargetPosition);
+        };
         Editor.prototype.toDataUrl = function (type) {
             if (type === void 0) { type = 'png'; }
             switch (type) {
@@ -228,14 +255,20 @@ var PoseEditor;
             }
             this.transformCtrl.update();
         };
-        Editor.prototype.boneRay = function (e) {
+        Editor.prototype.boneRay = function (e, isTouch) {
             var _this = this;
             if (this.isOnManipurator) {
                 return;
             }
+            if (this.dragging) {
+                return;
+            }
+            e.preventDefault();
             var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var mouse_x = e.clientX - dom_pos.left;
-            var mouse_y = e.clientY - dom_pos.top;
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
             var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
             var ray = new THREE.Raycaster(this.camera.position, pos.sub(this.camera.position).normalize());
             var conf_objs = ray.intersectObjects(this.model.joint_spheres);
@@ -252,9 +285,13 @@ var PoseEditor;
                 this.model.joint_markers[index].material.color.setHex(this.model.selectedColor);
             }
             if (this.selectedSphere == null) {
+                this.dragging = false;
+                this.controls.enabled = true;
                 this.transformCtrl.detach();
             }
             else {
+                this.dragging = true;
+                this.controls.enabled = false;
                 var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                 console.log("index: ", this.selectedSphere.userData.jointIndex);
                 //
@@ -263,6 +300,11 @@ var PoseEditor;
                 this.selectedSphere.quaternion.copy(to_q);
                 this.transformCtrl.attach(this.selectedSphere);
                 this.transformCtrl.update();
+                //
+                this.ikTargetPosition = this.selectedSphere.position.clone();
+                this.model.ikTargetSphere.position.copy(this.ikTargetPosition);
+                this.plane.position.copy(this.model.ikTargetSphere.position);
+                this.plane.lookAt(this.camera.position);
             }
         };
         Editor.prototype.screenToWorld = function (screen_pos) {
@@ -407,12 +449,13 @@ var PoseEditor;
                 _this.joint_markers.push(sprite);
                 _this.scene2d.add(sprite);
             });
+            // debugging
             var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
             var material = new THREE.MeshBasicMaterial({ wireframe: true });
-            var sphere = new THREE.Mesh(sphere_geo, material);
-            sphere.matrixWorldNeedsUpdate = true;
-            sphere.position.set(10, 5, 10);
-            this.scene.add(sphere);
+            this.ikTargetSphere = new THREE.Mesh(sphere_geo, material);
+            this.ikTargetSphere.matrixWorldNeedsUpdate = true;
+            this.ikTargetSphere.position.set(10, 5, 10);
+            this.scene.add(this.ikTargetSphere);
             // make sphere objects
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 var sphere_geo = new THREE.SphereGeometry(1, 14, 14);

@@ -6,5 +6,6 @@ declare module THREE {
         reset(): void;
 
         damping: number;
+        enabled: boolean;
     }
 }

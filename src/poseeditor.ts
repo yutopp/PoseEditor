@@ -11,6 +11,8 @@ module PoseEditor {
     }
 
     export class Editor {
+        private plane: THREE.Mesh;
+
         constructor(
             parent_dom_id: string,
             mesh_path: string,
@@ -83,11 +85,60 @@ module PoseEditor {
             //
             this.setupModel(mesh_path, texture_path, marker_path, callback);
 
+            this.plane = new THREE.Mesh(
+				new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
+				new THREE.MeshBasicMaterial( { color: 0x0000ff, opacity: 1.00, transparent: true } )
+			);
+			this.plane.visible = false;
+			this.scene.add(this.plane);
+
             //
-            this.renderer.domElement.addEventListener('mousedown', this.boneRay.bind(this), false);
+            this.renderer.domElement.addEventListener('mousedown',  (e) => this.boneRay(e, false), false);
+            this.renderer.domElement.addEventListener('touchstart', (e) => this.boneRay(e, true), false);
+
+            this.renderer.domElement.addEventListener('mousemove', (e) => this.moving(e, false), false);
+            this.renderer.domElement.addEventListener('touchmove', (e) => this.moving(e, true), false);
+
+            this.renderer.domElement.addEventListener('mouseup', () => this.endDragging(), false);
+            this.renderer.domElement.addEventListener('touchend', () => this.endDragging(), false);
+            this.renderer.domElement.addEventListener('touchcancel', () => this.endDragging(), false);
 
             //
             this.renderLoop();
+        }
+
+        private endDragging() {
+            this.dragging = false;
+
+            this.controls.enabled = true;
+        }
+
+        private moving(e: any, isTouch: boolean) {
+            if ( this.dragging == false ) {
+                return;
+            }
+
+            console.log("moving");
+            e.preventDefault();
+
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
+
+			var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var raycaster = new THREE.Raycaster(
+                this.camera.position,
+                pos.sub(this.camera.position).normalize()
+            );
+
+			var intersects = raycaster.intersectObject(this.plane);
+
+
+            this.ikTargetPosition.copy(intersects[0].point);
+            this.model.ikTargetSphere.position.copy(this.ikTargetPosition);
         }
 
         public toDataUrl(type: string = 'png') {
@@ -243,15 +294,23 @@ module PoseEditor {
             this.transformCtrl.update();
         }
 
-        private boneRay(e: MouseEvent) {
+        private boneRay(e: any, isTouch: boolean) {
             if (this.isOnManipurator) {
                 return;
             }
 
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            if (this.dragging) {
+                return;
+            }
 
-            var mouse_x = e.clientX - dom_pos.left;
-            var mouse_y = e.clientY - dom_pos.top;
+            e.preventDefault();
+
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
             var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
 
             var ray = new THREE.Raycaster(
@@ -278,9 +337,15 @@ module PoseEditor {
             }
 
             if ( this.selectedSphere == null ) {
+                this.dragging = false;
+                this.controls.enabled = true;
                 this.transformCtrl.detach();
 
+
             } else {
+                this.dragging = true;
+                this.controls.enabled = false;
+
                 var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                 console.log("index: ", this.selectedSphere.userData.jointIndex);
 
@@ -291,6 +356,13 @@ module PoseEditor {
 
                 this.transformCtrl.attach(this.selectedSphere);
                 this.transformCtrl.update();
+
+                //
+                this.ikTargetPosition = this.selectedSphere.position.clone();
+                this.model.ikTargetSphere.position.copy(this.ikTargetPosition);
+
+                this.plane.position.copy(this.model.ikTargetSphere.position);
+				this.plane.lookAt(this.camera.position);
             }
         }
 
@@ -360,7 +432,7 @@ module PoseEditor {
             }
         }
 
-        private count = 0;
+        private dragging = false;
 
         private renderLoop = () => {
             requestAnimationFrame(this.renderLoop);
@@ -369,13 +441,10 @@ module PoseEditor {
             this.scene2d.updateMatrixWorld(true);
 
             if ( this.model.isReady() ) {
-                if ( this.count == 10 ) {
-                    var pos = new THREE.Vector3(10, 5, 10);
-                    this.ik(this.model.mesh.skeleton.bones[34], pos);
-                    console.log("aa");
-                    this.count = 0;
+                if ( this.dragging ) {
+                    var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
+                    this.ik(bone, this.ikTargetPosition);
                 }
-                this.count++;
 
                 //
                 this.model.mesh.skeleton.bones.forEach((bone, index) => {
@@ -438,6 +507,9 @@ module PoseEditor {
         //
         private isOnManipurator: boolean = false;
         private selectedSphere: THREE.Object3D = null;
+
+        //
+        private ikTargetPosition: THREE.Vector3;
     }
 
 
@@ -533,12 +605,13 @@ module PoseEditor {
                 this.scene2d.add(sprite);
             });
 
+            // debugging
             var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
             var material = new THREE.MeshBasicMaterial({wireframe: true});
-            var sphere = new THREE.Mesh(sphere_geo, material);
-            sphere.matrixWorldNeedsUpdate = true;
-            sphere.position.set(10, 5, 10);
-            this.scene.add(sphere);
+            this.ikTargetSphere = new THREE.Mesh(sphere_geo, material);
+            this.ikTargetSphere.matrixWorldNeedsUpdate = true;
+            this.ikTargetSphere.position.set(10, 5, 10);
+            this.scene.add(this.ikTargetSphere);
 
             // make sphere objects
             this.mesh.skeleton.bones.forEach((bone, index) => {
@@ -633,5 +706,8 @@ module PoseEditor {
         //
         joint_markers: Array<THREE.Sprite> = [];
         joint_spheres: Array<THREE.Mesh> = [];
+
+        //
+        ikTargetSphere: THREE.Mesh; // for debugging
     }
 }
