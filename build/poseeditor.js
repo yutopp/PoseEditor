@@ -321,6 +321,8 @@ var PoseEditor;
             screen_pos.y = (-screen_pos.y + 1) * window_half_y;
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         };
+        // ==================================================
+        // ==================================================
         Editor.prototype.toDataUrl = function (type) {
             if (type === void 0) { type = 'png'; }
             switch (type) {
@@ -342,7 +344,9 @@ var PoseEditor;
                         'position': this.camera.position,
                         'quaternion': this.camera.quaternion
                     },
-                    'model': model_obj
+                    'model': {
+                        'joints': model_obj
+                    }
                 };
                 return obj;
             }
@@ -350,28 +354,17 @@ var PoseEditor;
                 throw new Error("Model was not loaded");
             }
         };
-        Editor.prototype.setClearColor = function (color_hex, alpha) {
-            this.renderer.setClearColor(color_hex, alpha);
-        };
         Editor.prototype.loadSceneDataFromString = function (data) {
             var obj = JSON.parse(data);
-            var camera_data = obj.camera;
-            {
-                var pos = camera_data.position;
-                this.camera.position.x = pos.x;
-                this.camera.position.y = pos.y;
-                this.camera.position.z = pos.z;
-            }
-            {
-                var q = camera_data.quaternion;
-                this.camera.quaternion.x = q._x;
-                this.camera.quaternion.y = q._y;
-                this.camera.quaternion.z = q._z;
-                this.camera.quaternion.w = q._w;
-            }
+            var camera = obj.camera;
+            this.camera.position.copy(camera.position);
+            this.camera.quaternion.copy(camera.quaternion);
             this.controls.update();
-            //threejs/three.d.ts
-            this.model.loadJointData(obj.model);
+            var model = obj.model;
+            this.model.loadJointData(model.joints);
+        };
+        Editor.prototype.setClearColor = function (color_hex, alpha) {
+            this.renderer.setClearColor(color_hex, alpha);
         };
         Editor.prototype.hideMarker = function () {
             this.model.hideMarker();

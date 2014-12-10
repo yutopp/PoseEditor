@@ -410,6 +410,8 @@ module PoseEditor {
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         }
 
+        // ==================================================
+        // ==================================================
 
         public toDataUrl(type: string = 'png') {
             switch(type) {
@@ -433,11 +435,13 @@ module PoseEditor {
                 var model_obj = this.model.jointData();
 
                 var obj = {
-                    'camera': {
+                    'camera' : {
                         'position': this.camera.position,
-                        'quaternion': this.camera.quaternion
+                        'quaternion': this.camera.quaternion,
                     },
-                    'model': model_obj
+                    'model': {
+                        'joints': model_obj
+                    }
                 };
                 return obj;
 
@@ -446,31 +450,20 @@ module PoseEditor {
             }
         }
 
-        public setClearColor(color_hex: number, alpha: number) {
-            this.renderer.setClearColor(color_hex, alpha);
-        }
-
         public loadSceneDataFromString(data: string) {
             var obj = JSON.parse(data);
 
-            var camera_data = obj.camera;
-            {
-                var pos = camera_data.position;
-                this.camera.position.x = <number>pos.x;
-                this.camera.position.y = <number>pos.y;
-                this.camera.position.z = <number>pos.z;
-            }
-            {
-                var q = camera_data.quaternion;
-                this.camera.quaternion.x = <number>q._x;
-                this.camera.quaternion.y = <number>q._y;
-                this.camera.quaternion.z = <number>q._z;
-                this.camera.quaternion.w = <number>q._w;
-            }
+            var camera = obj.camera;
+            this.camera.position.copy(<THREE.Vector3>camera.position);
+            this.camera.quaternion.copy(<THREE.Quaternion>camera.quaternion);
             this.controls.update();
 
-            //threejs/three.d.ts
-            this.model.loadJointData(<{ [key: number]: any; }>obj.model);
+            var model = obj.model
+            this.model.loadJointData(<{ [key: number]: any; }>model.joints);
+        }
+
+        public setClearColor(color_hex: number, alpha: number) {
+            this.renderer.setClearColor(color_hex, alpha);
         }
 
         public hideMarker() {
