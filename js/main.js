@@ -79,8 +79,8 @@ $(function() {
 
   editor = new PoseEditor.Editor(
     "for_pose",
-    "bower_components/poseeditor/models/test06/test06-half.js",
-    "bower_components/poseeditor/models/test06/",
+    "bower_components/poseeditor/models/model/model.js",
+    "bower_components/poseeditor/models/model/",
     "bower_components/poseeditor/images/marker.png",
     config,
     function() {
