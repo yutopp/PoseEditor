@@ -266,8 +266,8 @@ var PoseEditor;
             this.model = new Model(mesh_path, texture_path, marker_path, this.scene, this.scene2d, callback);
         };
         // CCD IK
-        Editor.prototype.ik = function (bone__Aaa, target_pos) {
-            var c_bone = bone__Aaa;
+        Editor.prototype.ik = function (selected_bone, target_pos) {
+            var c_bone = selected_bone;
             var p_bone = c_bone.parent;
             var i = 0;
             while (p_bone != null && p_bone.type != "SkinnedMesh") {

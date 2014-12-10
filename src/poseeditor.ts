@@ -307,8 +307,8 @@ module PoseEditor {
 
 
         // CCD IK
-        private ik(bone__Aaa: THREE.Bone, target_pos: THREE.Vector3) {
-            var c_bone = bone__Aaa;
+        private ik(selected_bone: THREE.Bone, target_pos: THREE.Vector3) {
+            var c_bone = selected_bone;
             var p_bone = <THREE.Bone>c_bone.parent;
 
             var i=0;
