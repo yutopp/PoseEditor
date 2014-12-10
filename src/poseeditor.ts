@@ -619,10 +619,9 @@ module PoseEditor {
         }
 
         private makeDataUrl(type: string): string {
-            /*
             //
-            var vis = this.model.getMarkerVisibility();
-            this.model.setMarkerVisibility(false);
+            var vis = this.models.map((m) => m.getMarkerVisibility());
+            this.models.forEach((m) => m.setMarkerVisibility(false));
 
             var ss = this.selectedSphere;
             this.transformCtrl.detach();
@@ -633,14 +632,14 @@ module PoseEditor {
             var data = this.renderer.domElement.toDataURL(type);
 
             //
-            this.model.setMarkerVisibility(vis);
+            this.models.forEach((m, i) => {
+                m.setMarkerVisibility(vis[i]);
+            });
             if ( ss ) {
                 this.transformCtrl.attach(ss);
             }
 
             return data;
-            */
-            return "";
         }
 
 
