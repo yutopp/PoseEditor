@@ -4,7 +4,7 @@ function downloadImage() {
   // basic example
   if ( editor != null ) {
     var a = document.createElement("a");
-    a.download = name;
+    a.download = "poseeditor";
     a.title = "download snapshot";
 
     var radio = document.getElementsByName("format");
@@ -15,6 +15,7 @@ function downloadImage() {
         break;
       }
     }
+    console.log("format: ", format);
 
     a.href = editor.toDataUrl(format);
     a.click();
@@ -34,6 +35,22 @@ function toggleMarker() {
   // basic example
   if ( editor != null ) {
     editor.toggleMarker();
+  }
+}
+
+function addModel() {
+  if ( editor != null ) {
+    editor.appendModel("sport_man", function(model, error) {
+      if (error) {
+        console.log("error: ", error);
+      }
+    });
+  }
+}
+
+function removeModel() {
+  if ( editor != null ) {
+    editor.removeSelectedModel();
   }
 }
 
