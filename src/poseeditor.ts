@@ -220,7 +220,7 @@ module PoseEditor {
 
                 var model = this.selectedSphere.userData.ownerModel;
                 var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                console.log("index: ", this.selectedSphere.userData.jointIndex);
+                // console.log("index: ", this.selectedSphere.userData.jointIndex);
 
                 //
                 var index = this.selectedSphere.userData.jointIndex;
@@ -293,9 +293,11 @@ module PoseEditor {
         private endDragging() {
             if ( this.dragging ) {
                 // reset color of markers
-                //this.model.joint_markers.forEach((marker) => {
-                //    marker.material.color.setHex(this.model.normalColor);
-                //});
+                this.models.forEach((model) => {
+                    model.joint_markers.forEach((marker) => {
+                        marker.material.color.setHex(model.normalColor);
+                    })
+                });
             }
 
             this.dragStart = false;
@@ -342,11 +344,12 @@ module PoseEditor {
 
 
         private loadAndAppendModel(
+            name: string,
             model_info: ModelInfo,
             sprite_paths: SpritePaths,
-            callback: (error: string) => void
+            callback: (m: Model, error: string) => void
         ) {
-            var model = new Model(model_info, sprite_paths, this.scene, this.scene2d, (e) => {
+            var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, (m, e) => {
                 // default IK stopper node indexes
                 var nx = model_info.ik_stop_joints;
                 nx.forEach((i) => {
@@ -354,7 +357,7 @@ module PoseEditor {
                 });
 
                 if ( callback ) {
-                    callback(e);
+                    callback(m, e);
                 }
             });
 
@@ -514,30 +517,19 @@ module PoseEditor {
         }
 
         public getSceneInfo(): any {
-            /*
-            if ( this.model != null ) {
-                var model_obj = this.model.jointData();
-
-                var obj = {
-                    'camera' : {
-                        'position': this.camera.position,
-                        'quaternion': this.camera.quaternion,
-                    },
-                    'model': {
-                        'joints': model_obj
-                    }
-                };
-                return obj;
-
-            } else {
-                throw new Error("Model was not loaded");
-            }
-            */
-            return null;
+            return {
+                'camera' : {
+                    'position': this.camera.position,
+                    'quaternion': this.camera.quaternion,
+                },
+                'models': {
+                    'num': this.models.length,
+                    'list': this.models.map((m) => m.modelData())
+                }
+            };
         }
 
         public loadSceneDataFromString(data: string) {
-            /*
             var obj = JSON.parse(data);
 
             var camera = obj.camera;
@@ -545,9 +537,25 @@ module PoseEditor {
             this.camera.quaternion.copy(<THREE.Quaternion>camera.quaternion);
             this.controls.update();
 
-            var model = obj.model
-            this.model.loadJointData(<{ [key: number]: any; }>model.joints);
-            */
+            this.removeAllModel();
+
+            var models = obj.models;
+            for( var i=0; i<models.num; i++ ) {
+                var l = models.list[i];
+                var name = l.name;
+
+                // TODO: error check
+                this.appendModel(name, ((i: number, ll: any) => {
+                    return (m: Model, error: string) => {
+                        if ( error ) {
+                            console.log("Error occured: index[" + i + "], name[" + name + "]");
+
+                        } else {
+                            m.loadModelData(ll);
+                        }
+                    };
+                })(i, l));
+            }
         }
 
         public setClearColor(color_hex: number, alpha: number) {
@@ -574,15 +582,21 @@ module PoseEditor {
 
         public appendModel(
             name: string,
-            callback: (error: string) => void = null
+            callback: (m: Model, error: string) => void = null
         ) {
             if ( name in this.modelInfoTable ) {
-                this.loadAndAppendModel(this.modelInfoTable[name], this.spritePaths, callback);
+                this.loadAndAppendModel(name, this.modelInfoTable[name], this.spritePaths, callback);
 
             } else {
                 if ( callback ) {
-                    callback("model name[" + name + "] is not found");
+                    callback(null, "model name[" + name + "] is not found");
                 }
+            }
+        }
+
+        public removeAllModel() {
+            while( this.models.length > 0 ) {
+                this.removeModel(0);
             }
         }
 
@@ -682,12 +696,16 @@ module PoseEditor {
     class Model
     {
         constructor(
+            name: string,
             model_info: ModelInfo,
             sprite_paths: SpritePaths,
             scene: THREE.Scene,
             scene2d: THREE.Scene,
-            callback: (error: string) => void
+            callback: (m: Model, error: string) => void
         ) {
+            //
+            this.name = name;
+
             //
             this.scene = scene;
             this.scene2d = scene2d;
@@ -759,7 +777,7 @@ module PoseEditor {
 
         private setupAppendixData(
             sprite_paths: SpritePaths,
-            callback: (error: string) => void
+            callback: (m: Model, error: string) => void
         ) {
             //
             this.mesh.skeleton.bones.forEach((bone) => {
@@ -814,7 +832,7 @@ module PoseEditor {
 
             this.ready = true;
             if ( callback ) {
-                callback(null);
+                callback(this, null);
             }
         }
 
@@ -836,22 +854,40 @@ module PoseEditor {
             return this.ready;
         }
 
-        jointData(): { [key: number]: any; } {
-            return this.mesh.skeleton.bones.map((bone) => {
-                return {rotation: bone.quaternion};
+        modelData(): any {
+            var joints = this.mesh.skeleton.bones.map((bone) => {
+                return {
+                    q: bone.quaternion
+                };
             });
+
+            return {
+                name: this.name,
+                position: this.mesh.position,
+                q: this.mesh.quaternion,
+                joints: joints
+            };
         }
 
-        loadJointData(joint_data: { [key: number]: any; }) {
-            for( var key in  joint_data ) {
-                var raw_q = joint_data[key];
-                var rot = raw_q.rotation;
-
-                this.mesh.skeleton.bones[key].quaternion.x = <number>rot._x;
-                this.mesh.skeleton.bones[key].quaternion.y = <number>rot._y;
-                this.mesh.skeleton.bones[key].quaternion.z = <number>rot._z;
-                this.mesh.skeleton.bones[key].quaternion.w = <number>rot._w;
+        loadModelData(data: any) {
+            if ( !this.ready ) {
+                return;
             }
+
+            var p = data.position;
+            var q = data.q;
+            var joints = data.joints;
+
+            for( var key in joints ) {
+                var joint = joints[key];
+                var t_q = joint.q;
+
+                var s_q = this.mesh.skeleton.bones[key].quaternion;
+                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
+            }
+
+            this.mesh.position.set(p.x, p.y, p.z);
+            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
         }
 
         toggleIKPropagation(bone_index: number) {
@@ -917,6 +953,9 @@ module PoseEditor {
         //
         selectedColor = 0xff0000;
         normalColor = 0x0000ff;
+
+        //
+        name: string;
 
         //
         scene: THREE.Scene;

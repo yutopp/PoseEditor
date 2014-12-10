@@ -218,7 +218,7 @@ var PoseEditor;
                 this.controls.enabled = false;
                 var model = this.selectedSphere.userData.ownerModel;
                 var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                console.log("index: ", this.selectedSphere.userData.jointIndex);
+                // console.log("index: ", this.selectedSphere.userData.jointIndex);
                 //
                 var index = this.selectedSphere.userData.jointIndex;
                 model.joint_markers[index].material.color.setHex(model.selectedColor);
@@ -270,6 +270,12 @@ var PoseEditor;
         };
         Editor.prototype.endDragging = function () {
             if (this.dragging) {
+                // reset color of markers
+                this.models.forEach(function (model) {
+                    model.joint_markers.forEach(function (marker) {
+                        marker.material.color.setHex(model.normalColor);
+                    });
+                });
             }
             this.dragStart = false;
             this.dragging = false;
@@ -301,15 +307,15 @@ var PoseEditor;
             this.camera2d.updateProjectionMatrix();
             return false;
         };
-        Editor.prototype.loadAndAppendModel = function (model_info, sprite_paths, callback) {
-            var model = new Model(model_info, sprite_paths, this.scene, this.scene2d, function (e) {
+        Editor.prototype.loadAndAppendModel = function (name, model_info, sprite_paths, callback) {
+            var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
                 // default IK stopper node indexes
                 var nx = model_info.ik_stop_joints;
                 nx.forEach(function (i) {
                     model.toggleIKPropagation(i);
                 });
                 if (callback) {
-                    callback(e);
+                    callback(m, e);
                 }
             });
             this.models.push(model);
@@ -396,39 +402,40 @@ var PoseEditor;
             }
         };
         Editor.prototype.getSceneInfo = function () {
-            /*
-            if ( this.model != null ) {
-                var model_obj = this.model.jointData();
-
-                var obj = {
-                    'camera' : {
-                        'position': this.camera.position,
-                        'quaternion': this.camera.quaternion,
-                    },
-                    'model': {
-                        'joints': model_obj
-                    }
-                };
-                return obj;
-
-            } else {
-                throw new Error("Model was not loaded");
-            }
-            */
-            return null;
+            return {
+                'camera': {
+                    'position': this.camera.position,
+                    'quaternion': this.camera.quaternion
+                },
+                'models': {
+                    'num': this.models.length,
+                    'list': this.models.map(function (m) { return m.modelData(); })
+                }
+            };
         };
         Editor.prototype.loadSceneDataFromString = function (data) {
-            /*
             var obj = JSON.parse(data);
-
             var camera = obj.camera;
-            this.camera.position.copy(<THREE.Vector3>camera.position);
-            this.camera.quaternion.copy(<THREE.Quaternion>camera.quaternion);
+            this.camera.position.copy(camera.position);
+            this.camera.quaternion.copy(camera.quaternion);
             this.controls.update();
-
-            var model = obj.model
-            this.model.loadJointData(<{ [key: number]: any; }>model.joints);
-            */
+            this.removeAllModel();
+            var models = obj.models;
+            for (var i = 0; i < models.num; i++) {
+                var l = models.list[i];
+                var name = l.name;
+                // TODO: error check
+                this.appendModel(name, (function (i, ll) {
+                    return function (m, error) {
+                        if (error) {
+                            console.log("Error occured: index[" + i + "], name[" + name + "]");
+                        }
+                        else {
+                            m.loadModelData(ll);
+                        }
+                    };
+                })(i, l));
+            }
         };
         Editor.prototype.setClearColor = function (color_hex, alpha) {
             this.renderer.setClearColor(color_hex, alpha);
@@ -451,12 +458,17 @@ var PoseEditor;
         Editor.prototype.appendModel = function (name, callback) {
             if (callback === void 0) { callback = null; }
             if (name in this.modelInfoTable) {
-                this.loadAndAppendModel(this.modelInfoTable[name], this.spritePaths, callback);
+                this.loadAndAppendModel(name, this.modelInfoTable[name], this.spritePaths, callback);
             }
             else {
                 if (callback) {
-                    callback("model name[" + name + "] is not found");
+                    callback(null, "model name[" + name + "] is not found");
                 }
+            }
+        };
+        Editor.prototype.removeAllModel = function () {
+            while (this.models.length > 0) {
+                this.removeModel(0);
             }
         };
         Editor.prototype.removeModel = function (index) {
@@ -503,7 +515,7 @@ var PoseEditor;
     PoseEditor.Editor = Editor;
     //
     var Model = (function () {
-        function Model(model_info, sprite_paths, scene, scene2d, callback) {
+        function Model(name, model_info, sprite_paths, scene, scene2d, callback) {
             var _this = this;
             //
             this.ready = false;
@@ -517,6 +529,8 @@ var PoseEditor;
             //
             this.joint_markers = [];
             this.joint_spheres = [];
+            //
+            this.name = name;
             //
             this.scene = scene;
             this.scene2d = scene2d;
@@ -621,7 +635,7 @@ var PoseEditor;
             });
             this.ready = true;
             if (callback) {
-                callback(null);
+                callback(this, null);
             }
         };
         Model.prototype.destruct = function () {
@@ -638,20 +652,34 @@ var PoseEditor;
         Model.prototype.isReady = function () {
             return this.ready;
         };
-        Model.prototype.jointData = function () {
-            return this.mesh.skeleton.bones.map(function (bone) {
-                return { rotation: bone.quaternion };
+        Model.prototype.modelData = function () {
+            var joints = this.mesh.skeleton.bones.map(function (bone) {
+                return {
+                    q: bone.quaternion
+                };
             });
+            return {
+                name: this.name,
+                position: this.mesh.position,
+                q: this.mesh.quaternion,
+                joints: joints
+            };
         };
-        Model.prototype.loadJointData = function (joint_data) {
-            for (var key in joint_data) {
-                var raw_q = joint_data[key];
-                var rot = raw_q.rotation;
-                this.mesh.skeleton.bones[key].quaternion.x = rot._x;
-                this.mesh.skeleton.bones[key].quaternion.y = rot._y;
-                this.mesh.skeleton.bones[key].quaternion.z = rot._z;
-                this.mesh.skeleton.bones[key].quaternion.w = rot._w;
+        Model.prototype.loadModelData = function (data) {
+            if (!this.ready) {
+                return;
             }
+            var p = data.position;
+            var q = data.q;
+            var joints = data.joints;
+            for (var key in joints) {
+                var joint = joints[key];
+                var t_q = joint.q;
+                var s_q = this.mesh.skeleton.bones[key].quaternion;
+                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
+            }
+            this.mesh.position.set(p.x, p.y, p.z);
+            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
         };
         Model.prototype.toggleIKPropagation = function (bone_index) {
             var bone = this.mesh.skeleton.bones[bone_index];
