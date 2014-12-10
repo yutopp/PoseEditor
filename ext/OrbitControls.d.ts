@@ -7,5 +7,7 @@ declare module THREE {
 
         damping: number;
         enabled: boolean;
+
+        target: THREE.Vector3;
     }
 }

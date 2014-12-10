@@ -92,7 +92,7 @@ module PoseEditor {
             // plane model
             this.plane = new THREE.Mesh(
                 new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
-                new THREE.MeshBasicMaterial( { color: 0x0000ff, opacity: 1.00, transparent: true } )
+                new THREE.MeshBasicMaterial( { color: 0x0000ff, opacity: 1.0, transparent: true } )
             );
             this.plane.visible = false;
             this.scene.add(this.plane);
@@ -206,7 +206,7 @@ module PoseEditor {
                 this.controls.enabled = false;
 
                 var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                //console.log("index: ", this.selectedSphere.userData.jointIndex);
+                console.log("index: ", this.selectedSphere.userData.jointIndex);
 
                 //
                 var index = this.selectedSphere.userData.jointIndex;
@@ -224,7 +224,18 @@ module PoseEditor {
                 this.ikTargetSphere.position.copy(this.ikTargetPosition);
 
                 // set plane
-                this.plane.position.copy(this.ikTargetSphere.position);
+                var c_to_p = this.controls.target.clone().sub(this.camera.position);
+                var c_to_o = this.ikTargetPosition.clone().sub(this.camera.position);
+
+                var n_c_to_p = c_to_p.clone().normalize();
+                var n_c_to_o = c_to_o.clone().normalize();
+
+                var l = c_to_o.length();
+                var len = n_c_to_o.dot(n_c_to_p) * l;
+
+                var tmp_pos = this.camera.position.clone();
+                tmp_pos.add(c_to_p.normalize().multiplyScalar(len));
+                this.plane.position.copy(tmp_pos);
                 this.plane.lookAt(this.camera.position);
 
             } else {
@@ -330,6 +341,13 @@ module PoseEditor {
         }
 
 
+        private moveCharactor(model: Model, target_pos: THREE.Vector3) {
+            var pos = target_pos.clone();
+            pos.y -= model.offsetOrgToBone.y;
+            model.mesh.position.copy(pos);
+        }
+
+
         // CCD IK
         private ik(selected_bone: THREE.Bone, target_pos: THREE.Vector3) {
             var c_bone = selected_bone;
@@ -381,8 +399,15 @@ module PoseEditor {
 
             if ( this.model.isReady() ) {
                 if ( this.dragging ) {
+                    var joint_index = this.selectedSphere.userData.jointIndex;
                     var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                    this.ik(bone, this.ikTargetPosition);
+
+                    if ( joint_index == 0 ) {
+                        this.moveCharactor(this.model, this.ikTargetPosition);
+
+                    } else {
+                        this.ik(bone, this.ikTargetPosition);
+                    }
                 }
 
                 //
@@ -652,10 +677,16 @@ module PoseEditor {
             //
             this.mesh.skeleton.bones.forEach((bone) => {
                 bone.matrixWorldNeedsUpdate = true;
+                bone.updateMatrixWorld(true);
                 bone.userData = {
                     preventIKPropagation: false
                 };
             });
+
+            //
+            this.offsetOrgToBone
+                = this.mesh.skeleton.bones[0].getWorldPosition(null).sub(this.mesh.position);
+            this.offsetOrgToBone.sub(this.mesh.skeleton.bones[0].position);
 
             // load textures(marker for bone)
             this.joint_markers = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
@@ -781,6 +812,9 @@ module PoseEditor {
         private normalMarkerMat: THREE.SpriteMaterial;
         private specialMarkerTex: THREE.Texture;
         private specialMarkerMat: THREE.SpriteMaterial;
+
+        //
+        offsetOrgToBone: THREE.Vector3;
 
         //
         selectedColor = 0xff0000;
