@@ -19,6 +19,7 @@ var PoseEditor;
             if (config === void 0) { config = null; }
             if (callback === void 0) { callback = null; }
             this.dragging = false;
+            this.dragStart = false;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.scene.updateMatrixWorld(true);
@@ -36,10 +37,6 @@ var PoseEditor;
                         //
                         var sphere = _this.model.joint_spheres[index];
                         sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
-                        var sphere_and_camera_dist = sphere.position.distanceTo(_this.camera.position);
-                        var raw_scale = sphere_and_camera_dist * sphere_and_camera_dist / 280.0;
-                        var scale = Math.max(0.3, Math.min(4.0, raw_scale)); // [0.3, 4.0]
-                        sphere.scale.set(scale, scale, scale);
                     });
                 }
                 _this.render();
@@ -98,7 +95,7 @@ var PoseEditor;
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.damping = 0.2;
             //this.controls.enabled = true;
-            //this.controls.addEventListener('change', render);
+            this.controls.addEventListener('change', function () { return _this.onControlsChange(); });
             //
             this.setupModel(mesh_path, texture_path, marker_path, callback);
             this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.00, transparent: true }));
@@ -115,16 +112,31 @@ var PoseEditor;
             //
             this.renderLoop();
         }
+        Editor.prototype.onControlsChange = function () {
+            this.transformCtrl.update();
+        };
         Editor.prototype.endDragging = function () {
+            var _this = this;
+            if (this.dragging) {
+                // reset color of markers
+                this.model.joint_markers.forEach(function (marker) {
+                    marker.material.color.setHex(_this.model.normalColor);
+                });
+            }
+            this.dragStart = false;
             this.dragging = false;
             this.controls.enabled = true;
+            console.log("end");
         };
         Editor.prototype.moving = function (e, isTouch) {
-            if (this.dragging == false) {
+            if (this.dragStart == false) {
                 return;
             }
+            this.dragging = true;
             console.log("moving");
             e.preventDefault();
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
             var dom_pos = this.renderer.domElement.getBoundingClientRect();
             var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
             var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
@@ -270,7 +282,7 @@ var PoseEditor;
             var mouse_x = client_x - dom_pos.left;
             var mouse_y = client_y - dom_pos.top;
             var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
-            var ray = new THREE.Raycaster(this.camera.position, pos.sub(this.camera.position).normalize());
+            var ray = new THREE.Raycaster(this.camera.position, pos.clone().sub(this.camera.position).normalize());
             var conf_objs = ray.intersectObjects(this.model.joint_spheres);
             // reset color of markers
             this.model.joint_markers.forEach(function (marker) {
@@ -284,13 +296,32 @@ var PoseEditor;
                 var index = this.selectedSphere.userData.jointIndex;
                 this.model.joint_markers[index].material.color.setHex(this.model.selectedColor);
             }
+            var l = 9999999999;
+            this.selectedSphere = null;
+            var ab = pos.clone().sub(this.camera.position).normalize();
+            this.model.joint_spheres.forEach(function (s) {
+                var ap = s.position.clone().sub(_this.camera.position);
+                var len = ap.length();
+                var diff_c = len * len / 200.0;
+                var margin = Math.max(0.001, Math.min(1.4, diff_c)); // [0.001, 1.4]
+                console.log("len: ", len, " / m: ", margin);
+                var d = ab.clone().cross(ap).length();
+                var h = d /* / 1.0 */;
+                if (h < margin) {
+                    if (h < l) {
+                        l = h;
+                        _this.selectedSphere = s;
+                    }
+                }
+            });
+            console.log(l);
             if (this.selectedSphere == null) {
-                this.dragging = false;
+                this.dragStart = false;
                 this.controls.enabled = true;
                 this.transformCtrl.detach();
             }
             else {
-                this.dragging = true;
+                this.dragStart = true;
                 this.controls.enabled = false;
                 var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                 console.log("index: ", this.selectedSphere.userData.jointIndex);
@@ -329,10 +360,10 @@ var PoseEditor;
             var c_bone = bone__Aaa;
             var p_bone = c_bone.parent;
             var i = 0;
-            while (p_bone != null) {
+            while (p_bone != null && p_bone.type != "SkinnedMesh") {
                 if (i == 2)
                     break;
-                console.log("bone!");
+                console.log("bone!", c_bone.parent);
                 // local rotation
                 var t_r = p_bone.quaternion.clone();
                 p_bone.rotation.set(0, 0, 0);
@@ -454,7 +485,7 @@ var PoseEditor;
             var material = new THREE.MeshBasicMaterial({ wireframe: true });
             this.ikTargetSphere = new THREE.Mesh(sphere_geo, material);
             this.ikTargetSphere.matrixWorldNeedsUpdate = true;
-            this.ikTargetSphere.position.set(10, 5, 10);
+            this.ikTargetSphere.visible = false;
             this.scene.add(this.ikTargetSphere);
             // make sphere objects
             this.mesh.skeleton.bones.forEach(function (bone, index) {
