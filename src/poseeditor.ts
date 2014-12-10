@@ -85,11 +85,11 @@ module PoseEditor {
 
             // plane model
             this.plane = new THREE.Mesh(
-				new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
-				new THREE.MeshBasicMaterial( { color: 0x0000ff, opacity: 1.00, transparent: true } )
-			);
-			this.plane.visible = false;
-			this.scene.add(this.plane);
+                new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
+                new THREE.MeshBasicMaterial( { color: 0x0000ff, opacity: 1.00, transparent: true } )
+            );
+            this.plane.visible = false;
+            this.scene.add(this.plane);
 
             // debugging
             var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
@@ -142,7 +142,7 @@ module PoseEditor {
                     bone.updateMatrixWorld(true);
                 }
 
-	        } else {
+            } else {
                 this.isOnManipurator = false;
             }
 
@@ -217,7 +217,7 @@ module PoseEditor {
 
                 // set plane
                 this.plane.position.copy(this.ikTargetSphere.position);
-				this.plane.lookAt(this.camera.position);
+                this.plane.lookAt(this.camera.position);
 
             } else {
                 // not found
@@ -246,14 +246,14 @@ module PoseEditor {
             var mouse_x = client_x - dom_pos.left;
             var mouse_y = client_y - dom_pos.top;
 
-			var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
             var raycaster = new THREE.Raycaster(
                 this.camera.position,
                 pos.sub(this.camera.position).normalize()
             );
 
             // move ik target
-			var intersects = raycaster.intersectObject(this.plane);
+            var intersects = raycaster.intersectObject(this.plane);
             this.ikTargetPosition.copy(intersects[0].point);
             this.ikTargetSphere.position.copy(this.ikTargetPosition);
         }
@@ -353,7 +353,7 @@ module PoseEditor {
         private renderLoop = () => {
             requestAnimationFrame(this.renderLoop);
 
-	        this.scene.updateMatrixWorld(true);
+            this.scene.updateMatrixWorld(true);
             this.scene2d.updateMatrixWorld(true);
 
             if ( this.model.isReady() ) {
@@ -572,50 +572,50 @@ module PoseEditor {
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
 
                 if ( data.metadata.type === undefined ) { // 3.0
-			        data.metadata.type = 'Geometry';
-		        }
+                    data.metadata.type = 'Geometry';
+                }
 
                 if ( data.metadata.type.toLowerCase() === 'geometry' ) {
-			        var loader = new THREE.JSONLoader();
-			        var result: any = loader.parse(data, texture_path);
+                    var loader = new THREE.JSONLoader();
+                    var result: any = loader.parse(data, texture_path);
 
-			        var geometry = result.geometry;
-			        var material: any;
-			        if ( result.materials !== undefined ) {
-				        if ( result.materials.length > 1 ) {
+                    var geometry = result.geometry;
+                    var material: any;
+                    if ( result.materials !== undefined ) {
+                        if ( result.materials.length > 1 ) {
                             material = new THREE.MeshFaceMaterial(result.materials);
                             material.materials.forEach((mat: any) => {
                                 mat.skinning = true;
                             });
 
-				        } else {
-					        material = result.materials[0];
+                        } else {
+                            material = result.materials[0];
                             material.setValues({skinning: true});
-				        }
+                        }
 
-			        } else {
+                    } else {
                         material = new THREE.MeshLambertMaterial({
                             color: 0xffffff,
                             skinning: true
                         });
-			        }
+                    }
 
-			        geometry.sourceType = "ascii";
-			        //geometry.sourceFile = file.name;
+                    geometry.sourceType = "ascii";
+                    //geometry.sourceFile = file.name;
 
                     // create mesh data
-			        this.mesh = new THREE.SkinnedMesh(geometry, material, false);
+                    this.mesh = new THREE.SkinnedMesh(geometry, material, false);
                     this.mesh.scale.set(3, 3, 3);
                     this.mesh.position.y = -18;
 
                     this.scene.add(this.mesh);
 
                     //
-			        this.setupAppendixData(marker_path, callback);
+                    this.setupAppendixData(marker_path, callback);
 
-		        } else {
+                } else {
                     alert("" + data.metadata.type + " is not supported");
-		        }
+                }
 
             }).fail((a, b, c) => {
                 console.error( "error", a, b, c );
