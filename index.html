@@ -82,23 +82,29 @@
              normal: "images/marker.png",
              special: "images/square.png",
            };
-           editor = new PoseEditor.Editor("for_pose", "models/model/model.js", "models/model/", sprite_paths, config, function() {
-             if ( editor ) {
-               if ( location.hash !== "" ) {
-                 try {
-                   var encoded = location.hash.slice(1);
-                   var json_string = decodeURIComponent(encoded);
+           model_table = {
+             "sport_man": {
+               model_path: "models/model/model.js",
+               texture_dir: "models/model/",
+               ik_stop_joints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35],
+             },
+           };
+           editor = new PoseEditor.Editor("for_pose", model_table, sprite_paths, config);
+           if ( location.hash !== "" ) {
+             try {
+               var encoded = location.hash.slice(1);
+               var json_string = decodeURIComponent(encoded);
 
-                   editor.loadSceneDataFromString(json_string);
+               editor.loadSceneDataFromString(json_string);
 
-                 } catch(e) {
-                   console.warn(e);
-                 }
-               }
-             } else {
-               console.warn("editor was not loaded...");
+             } catch(e) {
+               console.warn(e);
              }
-           });
+
+           } else {
+             // default
+             editor.appendModel("sport_man");
+           }
          });
         </script>
 
