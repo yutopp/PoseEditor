@@ -55,6 +55,24 @@
            }
          }
 
+         function appendModel() {
+           // basic example
+           if ( editor != null ) {
+             editor.appendModel("sport_man", function(error) {
+               if (error) {
+                 console.log("error: ", error);
+               }
+             });
+           }
+         }
+
+         function removeModel() {
+           // basic example
+           if ( editor != null ) {
+             editor.removeSelectedModel();
+           }
+         }
+
          function changeBGColorAndAlpha() {
            if ( editor != null ) {
              var color_dom = document.getElementById("bg_color");
@@ -124,7 +142,10 @@
         <label><input type="checkbox" id="toggle_marker" onClick="toggleMarker()" checked>マーカー</label>
 
         <br>
+        <input type="button" value="モデルを追加" onClick="appendModel()">
+        <input type="button" value="選択しているモデルを削除" onClick="removeModel()">
 
+        <br>
         <label>色<input type="text" id="bg_color" value="0x777777" onChange="changeBGColorAndAlpha()"></label>
         <label>アルファ<input type="text" id="bg_alpha" value="1.0" onChange="changeBGColorAndAlpha<script src="
     </body>

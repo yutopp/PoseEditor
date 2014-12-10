@@ -344,9 +344,9 @@ module PoseEditor {
         private loadAndAppendModel(
             model_info: ModelInfo,
             sprite_paths: SpritePaths,
-            callback: (isSucceded: boolean, message: string) => void
+            callback: (error: string) => void
         ) {
-            var model = new Model(model_info, sprite_paths, this.scene, this.scene2d, (a, b) => {
+            var model = new Model(model_info, sprite_paths, this.scene, this.scene2d, (e) => {
                 // default IK stopper node indexes
                 var nx = model_info.ik_stop_joints;
                 nx.forEach((i) => {
@@ -354,7 +354,7 @@ module PoseEditor {
                 });
 
                 if ( callback ) {
-                    callback(a, b);
+                    callback(e);
                 }
             });
 
@@ -574,19 +574,22 @@ module PoseEditor {
 
         public appendModel(
             name: string,
-            callback: (isSucceded: boolean, message: string) => void = null
+            callback: (error: string) => void = null
         ) {
             if ( name in this.modelInfoTable ) {
                 this.loadAndAppendModel(this.modelInfoTable[name], this.spritePaths, callback);
 
             } else {
                 if ( callback ) {
-                    callback(false, "model name[" + name + "] is not found");
+                    callback("model name[" + name + "] is not found");
                 }
             }
         }
 
         public removeModel(index: number) {
+            var model = this.models[index];
+            model.destruct();
+
             this.models.splice(index);
             this.resetCtrl();
         }
@@ -683,7 +686,7 @@ module PoseEditor {
             sprite_paths: SpritePaths,
             scene: THREE.Scene,
             scene2d: THREE.Scene,
-            callback: (isSucceded: boolean, message: string) => void
+            callback: (error: string) => void
         ) {
             //
             this.scene = scene;
@@ -756,7 +759,7 @@ module PoseEditor {
 
         private setupAppendixData(
             sprite_paths: SpritePaths,
-            callback: (isSucceded: boolean, message: string) => void
+            callback: (error: string) => void
         ) {
             //
             this.mesh.skeleton.bones.forEach((bone) => {
@@ -811,12 +814,22 @@ module PoseEditor {
 
             this.ready = true;
             if ( callback ) {
-                callback(true, "");
+                callback(null);
             }
         }
 
         destruct(): void {
             this.ready = false;
+
+            this.scene.remove(this.mesh);
+
+            this.joint_markers.forEach((m) => {
+                this.scene2d.remove(m);
+            });
+
+            this.joint_spheres.forEach((m) => {
+                this.scene.remove(m);
+            });
         }
 
         isReady(): boolean {

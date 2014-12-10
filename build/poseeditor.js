@@ -302,14 +302,14 @@ var PoseEditor;
             return false;
         };
         Editor.prototype.loadAndAppendModel = function (model_info, sprite_paths, callback) {
-            var model = new Model(model_info, sprite_paths, this.scene, this.scene2d, function (a, b) {
+            var model = new Model(model_info, sprite_paths, this.scene, this.scene2d, function (e) {
                 // default IK stopper node indexes
                 var nx = model_info.ik_stop_joints;
                 nx.forEach(function (i) {
                     model.toggleIKPropagation(i);
                 });
                 if (callback) {
-                    callback(a, b);
+                    callback(e);
                 }
             });
             this.models.push(model);
@@ -455,11 +455,13 @@ var PoseEditor;
             }
             else {
                 if (callback) {
-                    callback(false, "model name[" + name + "] is not found");
+                    callback("model name[" + name + "] is not found");
                 }
             }
         };
         Editor.prototype.removeModel = function (index) {
+            var model = this.models[index];
+            model.destruct();
             this.models.splice(index);
             this.resetCtrl();
         };
@@ -619,11 +621,19 @@ var PoseEditor;
             });
             this.ready = true;
             if (callback) {
-                callback(true, "");
+                callback(null);
             }
         };
         Model.prototype.destruct = function () {
+            var _this = this;
             this.ready = false;
+            this.scene.remove(this.mesh);
+            this.joint_markers.forEach(function (m) {
+                _this.scene2d.remove(m);
+            });
+            this.joint_spheres.forEach(function (m) {
+                _this.scene.remove(m);
+            });
         };
         Model.prototype.isReady = function () {
             return this.ready;
