@@ -76,12 +76,16 @@ $(function() {
   config.enableBackgroundAlpha = true;
   config.backgroundColorHex = 0x777777;
   config.backgroundAlpha = 1.0;
+  sprite_paths = {
+    normal: "bower_components/poseeditor/images/marker.png",
+    special: "bower_components/poseeditor/images/square.png"
+  };
 
   editor = new PoseEditor.Editor(
     "for_pose",
     "bower_components/poseeditor/models/model/model.js",
     "bower_components/poseeditor/models/model/",
-    "bower_components/poseeditor/images/marker.png",
+    sprite_paths,
     config,
     function() {
       if ( editor ) {
