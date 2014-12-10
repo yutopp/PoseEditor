@@ -19,34 +19,47 @@ var PoseEditor;
         return SpritePaths;
     })();
     PoseEditor.SpritePaths = SpritePaths;
+    var ModelInfo = (function () {
+        function ModelInfo() {
+        }
+        return ModelInfo;
+    })();
+    PoseEditor.ModelInfo = ModelInfo;
     var Editor = (function () {
-        function Editor(parent_dom_id, mesh_path, texture_path, sprite_paths, config, callback) {
+        function Editor(parent_dom_id, model_info_table, sprite_paths, config) {
             var _this = this;
             if (config === void 0) { config = null; }
-            if (callback === void 0) { callback = null; }
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.scene.updateMatrixWorld(true);
                 _this.scene2d.updateMatrixWorld(true);
-                if (_this.model.isReady()) {
-                    if (_this.dragging) {
-                        var bone = _this.model.mesh.skeleton.bones[_this.selectedSphere.userData.jointIndex];
-                        _this.ik(bone, _this.ikTargetPosition);
-                    }
-                    //
-                    _this.model.mesh.skeleton.bones.forEach(function (bone, index) {
-                        var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
-                        var s_b_pos = _this.worldToScreen(b_pos);
-                        _this.model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
+                _this.models.forEach(function (model) {
+                    if (model.isReady()) {
+                        if (_this.dragging && model == _this.selectedSphere.userData.ownerModel) {
+                            var joint_index = _this.selectedSphere.userData.jointIndex;
+                            var bone = model.mesh.skeleton.bones[_this.selectedSphere.userData.jointIndex];
+                            if (joint_index == 0) {
+                                _this.moveCharactor(model, _this.ikTargetPosition);
+                            }
+                            else {
+                                _this.ik(bone, _this.ikTargetPosition);
+                            }
+                        }
                         //
-                        var sphere = _this.model.joint_spheres[index];
-                        sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
-                    });
-                }
+                        model.mesh.skeleton.bones.forEach(function (bone, index) {
+                            var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
+                            var s_b_pos = _this.worldToScreen(b_pos);
+                            model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
+                            //
+                            var sphere = model.joint_spheres[index];
+                            sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
+                        });
+                    }
+                });
                 _this.render();
             };
             //
-            this.model = null;
+            this.models = [];
             //
             this.dragging = false;
             this.dragStart = false;
@@ -56,6 +69,9 @@ var PoseEditor;
             //
             var parent_dom = document.getElementById(parent_dom_id);
             this.target_dom = parent_dom ? parent_dom : document.body;
+            //
+            this.modelInfoTable = model_info_table;
+            this.spritePaths = sprite_paths;
             //
             this.width = this.target_dom.offsetWidth;
             this.height = this.target_dom.offsetHeight;
@@ -104,10 +120,8 @@ var PoseEditor;
             this.controls.damping = 0.2;
             //this.controls.enabled = true;
             this.controls.addEventListener('change', function () { return _this.onControlsChange(); });
-            //
-            this.setupModel(mesh_path, texture_path, sprite_paths, callback);
             // plane model
-            this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.00, transparent: true }));
+            this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.0, transparent: true }));
             this.plane.visible = false;
             this.scene.add(this.plane);
             // debugging
@@ -136,7 +150,8 @@ var PoseEditor;
             if (this.transformCtrl.axis != null) {
                 this.isOnManipurator = true;
                 if (this.selectedSphere != null) {
-                    var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
+                    var model = this.selectedSphere.userData.ownerModel;
+                    var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                     // local rotation
                     var t_r = bone.quaternion.clone();
                     bone.rotation.set(0, 0, 0);
@@ -168,14 +183,21 @@ var PoseEditor;
             var mouse_y = client_y - dom_pos.top;
             var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
             // reset color of markers
-            this.model.joint_markers.forEach(function (marker) {
-                marker.material.color.setHex(_this.model.normalColor);
+            this.models.forEach(function (model) {
+                model.joint_markers.forEach(function (marker) {
+                    marker.material.color.setHex(model.normalColor);
+                });
             });
             // calc most nearest sphere
             var l = 9999999999;
             this.selectedSphere = null;
             var ab = pos.clone().sub(this.camera.position).normalize();
-            this.model.joint_spheres.forEach(function (s) {
+            var flattened = this.models.map(function (v) {
+                return v.joint_spheres;
+            }).reduce(function (a, b) {
+                return a.concat(b);
+            });
+            flattened.forEach(function (s) {
                 var ap = s.position.clone().sub(_this.camera.position);
                 var len = ap.length();
                 var diff_c = len * len / 200.0;
@@ -194,11 +216,12 @@ var PoseEditor;
             if (this.selectedSphere != null) {
                 this.dragStart = true;
                 this.controls.enabled = false;
-                var bone = this.model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                //console.log("index: ", this.selectedSphere.userData.jointIndex);
+                var model = this.selectedSphere.userData.ownerModel;
+                var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
+                // console.log("index: ", this.selectedSphere.userData.jointIndex);
                 //
                 var index = this.selectedSphere.userData.jointIndex;
-                this.model.joint_markers[index].material.color.setHex(this.model.selectedColor);
+                model.joint_markers[index].material.color.setHex(model.selectedColor);
                 //
                 var to_q = bone.getWorldQuaternion(null);
                 this.selectedSphere.quaternion.copy(to_q);
@@ -208,14 +231,20 @@ var PoseEditor;
                 this.ikTargetPosition = this.selectedSphere.position.clone();
                 this.ikTargetSphere.position.copy(this.ikTargetPosition);
                 // set plane
-                this.plane.position.copy(this.ikTargetSphere.position);
+                var c_to_p = this.controls.target.clone().sub(this.camera.position);
+                var c_to_o = this.ikTargetPosition.clone().sub(this.camera.position);
+                var n_c_to_p = c_to_p.clone().normalize();
+                var n_c_to_o = c_to_o.clone().normalize();
+                var l = c_to_o.length();
+                var len = n_c_to_o.dot(n_c_to_p) * l;
+                var tmp_pos = this.camera.position.clone();
+                tmp_pos.add(c_to_p.normalize().multiplyScalar(len));
+                this.plane.position.copy(tmp_pos);
                 this.plane.lookAt(this.camera.position);
             }
             else {
                 // not found
-                this.dragStart = false;
-                this.controls.enabled = true;
-                this.transformCtrl.detach();
+                this.resetCtrl();
             }
         };
         Editor.prototype.moving = function (e, isTouch) {
@@ -240,11 +269,12 @@ var PoseEditor;
             this.ikTargetSphere.position.copy(this.ikTargetPosition);
         };
         Editor.prototype.endDragging = function () {
-            var _this = this;
             if (this.dragging) {
                 // reset color of markers
-                this.model.joint_markers.forEach(function (marker) {
-                    marker.material.color.setHex(_this.model.normalColor);
+                this.models.forEach(function (model) {
+                    model.joint_markers.forEach(function (marker) {
+                        marker.material.color.setHex(model.normalColor);
+                    });
                 });
             }
             this.dragStart = false;
@@ -254,8 +284,9 @@ var PoseEditor;
         };
         Editor.prototype.toggleIKStopper = function () {
             if (this.selectedSphere) {
+                var model = this.selectedSphere.userData.ownerModel;
                 var i = this.selectedSphere.userData.jointIndex;
-                this.model.toggleIKPropagation(i);
+                model.toggleIKPropagation(i);
             }
         };
         Editor.prototype.onResize = function () {
@@ -276,16 +307,30 @@ var PoseEditor;
             this.camera2d.updateProjectionMatrix();
             return false;
         };
-        Editor.prototype.setupModel = function (mesh_path, texture_path, sprite_paths, callback) {
-            var _this = this;
-            this.model = new Model(mesh_path, texture_path, sprite_paths, this.scene, this.scene2d, function () {
+        Editor.prototype.loadAndAppendModel = function (name, model_info, sprite_paths, callback) {
+            var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
                 // default IK stopper node indexes
-                var nx = [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35];
+                var nx = model_info.ik_stop_joints;
                 nx.forEach(function (i) {
-                    _this.model.toggleIKPropagation(i);
+                    model.toggleIKPropagation(i);
                 });
-                callback();
+                if (callback) {
+                    callback(m, e);
+                }
             });
+            this.models.push(model);
+        };
+        Editor.prototype.resetCtrl = function () {
+            this.endDragging();
+            this.controls.enabled = true;
+            this.transformCtrl.detach();
+            this.controls.enabled = true;
+            this.selectedSphere = null;
+        };
+        Editor.prototype.moveCharactor = function (model, target_pos) {
+            var pos = target_pos.clone();
+            pos.y -= model.offsetOrgToBone.y;
+            model.mesh.position.copy(pos);
         };
         // CCD IK
         Editor.prototype.ik = function (selected_bone, target_pos) {
@@ -357,22 +402,16 @@ var PoseEditor;
             }
         };
         Editor.prototype.getSceneInfo = function () {
-            if (this.model != null) {
-                var model_obj = this.model.jointData();
-                var obj = {
-                    'camera': {
-                        'position': this.camera.position,
-                        'quaternion': this.camera.quaternion
-                    },
-                    'model': {
-                        'joints': model_obj
-                    }
-                };
-                return obj;
-            }
-            else {
-                throw new Error("Model was not loaded");
-            }
+            return {
+                'camera': {
+                    'position': this.camera.position,
+                    'quaternion': this.camera.quaternion
+                },
+                'models': {
+                    'num': this.models.length,
+                    'list': this.models.map(function (m) { return m.modelData(); })
+                }
+            };
         };
         Editor.prototype.loadSceneDataFromString = function (data) {
             var obj = JSON.parse(data);
@@ -380,43 +419,103 @@ var PoseEditor;
             this.camera.position.copy(camera.position);
             this.camera.quaternion.copy(camera.quaternion);
             this.controls.update();
-            var model = obj.model;
-            this.model.loadJointData(model.joints);
+            this.removeAllModel();
+            var models = obj.models;
+            for (var i = 0; i < models.num; i++) {
+                var l = models.list[i];
+                var name = l.name;
+                // TODO: error check
+                this.appendModel(name, (function (i, ll) {
+                    return function (m, error) {
+                        if (error) {
+                            console.log("Error occured: index[" + i + "], name[" + name + "]");
+                        }
+                        else {
+                            m.loadModelData(ll);
+                        }
+                    };
+                })(i, l));
+            }
         };
         Editor.prototype.setClearColor = function (color_hex, alpha) {
             this.renderer.setClearColor(color_hex, alpha);
         };
         Editor.prototype.hideMarker = function () {
-            this.model.hideMarker();
+            this.models.forEach(function (model) {
+                model.hideMarker();
+            });
         };
         Editor.prototype.showMarker = function () {
-            this.model.showMarker();
+            this.models.forEach(function (model) {
+                model.showMarker();
+            });
         };
         Editor.prototype.toggleMarker = function () {
-            this.model.toggleMarker();
+            this.models.forEach(function (model) {
+                model.toggleMarker();
+            });
+        };
+        Editor.prototype.appendModel = function (name, callback) {
+            if (callback === void 0) { callback = null; }
+            if (name in this.modelInfoTable) {
+                this.loadAndAppendModel(name, this.modelInfoTable[name], this.spritePaths, callback);
+            }
+            else {
+                if (callback) {
+                    callback(null, "model name[" + name + "] is not found");
+                }
+            }
+        };
+        Editor.prototype.removeAllModel = function () {
+            while (this.models.length > 0) {
+                this.removeModel(0);
+            }
+        };
+        Editor.prototype.removeModel = function (index) {
+            var model = this.models[index];
+            model.destruct();
+            this.models.splice(index);
+            this.resetCtrl();
+        };
+        Editor.prototype.removeSelectedModel = function () {
+            if (this.selectedSphere != null) {
+                var model = this.selectedSphere.userData.ownerModel;
+                var index = this.models.indexOf(model);
+                if (index != -1) {
+                    this.removeModel(index);
+                }
+            }
         };
         Editor.prototype.makeDataUrl = function (type) {
+            /*
             //
             var vis = this.model.getMarkerVisibility();
             this.model.setMarkerVisibility(false);
+
             var ss = this.selectedSphere;
             this.transformCtrl.detach();
+
             //
             this.render();
+
             var data = this.renderer.domElement.toDataURL(type);
+
             //
             this.model.setMarkerVisibility(vis);
-            if (ss) {
+            if ( ss ) {
                 this.transformCtrl.attach(ss);
             }
+
             return data;
+            */
+            return "";
         };
         return Editor;
     })();
     PoseEditor.Editor = Editor;
     //
     var Model = (function () {
-        function Model(mesh_path, texture_path, sprite_paths, scene, scene2d, callback) {
+        function Model(name, model_info, sprite_paths, scene, scene2d, callback) {
             var _this = this;
             //
             this.ready = false;
@@ -431,8 +530,13 @@ var PoseEditor;
             this.joint_markers = [];
             this.joint_spheres = [];
             //
+            this.name = name;
+            //
             this.scene = scene;
             this.scene2d = scene2d;
+            //
+            var mesh_path = model_info.model_path;
+            var texture_path = model_info.texture_dir;
             // load mesh data from path
             $.ajax({
                 dataType: 'JSON',
@@ -489,10 +593,14 @@ var PoseEditor;
             //
             this.mesh.skeleton.bones.forEach(function (bone) {
                 bone.matrixWorldNeedsUpdate = true;
+                bone.updateMatrixWorld(true);
                 bone.userData = {
                     preventIKPropagation: false
                 };
             });
+            //
+            this.offsetOrgToBone = this.mesh.skeleton.bones[0].getWorldPosition(null).sub(this.mesh.position);
+            this.offsetOrgToBone.sub(this.mesh.skeleton.bones[0].position);
             // load textures(marker for bone)
             this.joint_markers = new Array(this.mesh.skeleton.bones.length);
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
@@ -518,37 +626,60 @@ var PoseEditor;
                 var sphere = new THREE.Mesh(sphere_geo, material);
                 sphere.matrixWorldNeedsUpdate = true;
                 sphere.userData = {
-                    jointIndex: index
+                    jointIndex: index,
+                    ownerModel: _this
                 };
                 sphere.visible = false;
                 _this.joint_spheres.push(sphere);
                 _this.scene.add(sphere);
             });
             this.ready = true;
-            if (callback !== null) {
-                callback();
+            if (callback) {
+                callback(this, null);
             }
         };
         Model.prototype.destruct = function () {
+            var _this = this;
             this.ready = false;
+            this.scene.remove(this.mesh);
+            this.joint_markers.forEach(function (m) {
+                _this.scene2d.remove(m);
+            });
+            this.joint_spheres.forEach(function (m) {
+                _this.scene.remove(m);
+            });
         };
         Model.prototype.isReady = function () {
             return this.ready;
         };
-        Model.prototype.jointData = function () {
-            return this.mesh.skeleton.bones.map(function (bone) {
-                return { rotation: bone.quaternion };
+        Model.prototype.modelData = function () {
+            var joints = this.mesh.skeleton.bones.map(function (bone) {
+                return {
+                    q: bone.quaternion
+                };
             });
+            return {
+                name: this.name,
+                position: this.mesh.position,
+                q: this.mesh.quaternion,
+                joints: joints
+            };
         };
-        Model.prototype.loadJointData = function (joint_data) {
-            for (var key in joint_data) {
-                var raw_q = joint_data[key];
-                var rot = raw_q.rotation;
-                this.mesh.skeleton.bones[key].quaternion.x = rot._x;
-                this.mesh.skeleton.bones[key].quaternion.y = rot._y;
-                this.mesh.skeleton.bones[key].quaternion.z = rot._z;
-                this.mesh.skeleton.bones[key].quaternion.w = rot._w;
+        Model.prototype.loadModelData = function (data) {
+            if (!this.ready) {
+                return;
             }
+            var p = data.position;
+            var q = data.q;
+            var joints = data.joints;
+            for (var key in joints) {
+                var joint = joints[key];
+                var t_q = joint.q;
+                var s_q = this.mesh.skeleton.bones[key].quaternion;
+                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
+            }
+            this.mesh.position.set(p.x, p.y, p.z);
+            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
         };
         Model.prototype.toggleIKPropagation = function (bone_index) {
             var bone = this.mesh.skeleton.bones[bone_index];

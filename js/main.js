@@ -80,28 +80,33 @@ $(function() {
     normal: "bower_components/poseeditor/images/marker.png",
     special: "bower_components/poseeditor/images/square.png"
   };
+  model_table = {
+    "sport_man": {
+      model_path: "bower_components/poseeditor/models/model/model.js",
+      texture_dir: "bower_components/poseeditor/models/model/",
+      ik_stop_joints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35]
+    }
+  };
 
   editor = new PoseEditor.Editor(
     "for_pose",
-    "bower_components/poseeditor/models/model/model.js",
-    "bower_components/poseeditor/models/model/",
+    model_table,
     sprite_paths,
-    config,
-    function() {
-      if ( editor ) {
-        if ( location.hash !== "" ) {
-          try {
-            var encoded = location.hash.slice(1);
-            var json_string = decodeURIComponent(encoded);
+    config
+  );
+  if ( location.hash !== "" ) {
+    try {
+      var encoded = location.hash.slice(1);
+      var json_string = decodeURIComponent(encoded);
 
-            editor.loadSceneDataFromString(json_string);
+      editor.loadSceneDataFromString(json_string);
 
-          } catch(e) {
-            console.warn(e);
-          }
-        }
-      } else {
-        console.warn("editor was not loaded...");
-      }
-    });
+    } catch(e) {
+      console.warn(e);
+    }
+
+  } else {
+    // default
+    editor.appendModel("sport_man");
+  }
 });
