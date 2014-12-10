@@ -172,7 +172,7 @@ var PoseEditor;
         };
         Editor.prototype.boneRay = function (e, isTouch) {
             var _this = this;
-            if (this.isOnManipurator || this.dragging) {
+            if (this.isOnManipurator || this.dragging || this.models.length == 0) {
                 return;
             }
             e.preventDefault();

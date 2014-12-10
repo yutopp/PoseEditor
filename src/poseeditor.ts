@@ -165,7 +165,7 @@ module PoseEditor {
 
 
         private boneRay(e: any, isTouch: boolean) {
-            if (this.isOnManipurator || this.dragging) {
+            if ( this.isOnManipurator || this.dragging || this.models.length == 0 ) {
                 return;
             }
             e.preventDefault();
