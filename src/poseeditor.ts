@@ -10,12 +10,17 @@ module PoseEditor {
         backgroundAlpha: number = 1.0;
     }
 
+    export class SpritePaths {
+        normal: string;
+        special: string;
+    }
+
     export class Editor {
         constructor(
             parent_dom_id: string,
             mesh_path: string,
             texture_path: string,
-            marker_path: string,
+            sprite_paths: SpritePaths,
             config: Config = null,
             callback: () => void = null
         ) {
@@ -70,6 +75,7 @@ module PoseEditor {
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
+            this.transformCtrl.setSize(0.6);
             this.transformCtrl.detach();
             this.transformCtrl.addEventListener('change', this.onTransformCtrl.bind(this));
             this.scene.add(this.transformCtrl);
@@ -81,7 +87,7 @@ module PoseEditor {
             this.controls.addEventListener('change', () => this.onControlsChange() );
 
             //
-            this.setupModel(mesh_path, texture_path, marker_path, callback);
+            this.setupModel(mesh_path, texture_path, sprite_paths, callback);
 
             // plane model
             this.plane = new THREE.Mesh(
@@ -109,6 +115,8 @@ module PoseEditor {
             this.renderer.domElement.addEventListener('mouseup', () => this.endDragging(), false);
             this.renderer.domElement.addEventListener('touchend', () => this.endDragging(), false);
             this.renderer.domElement.addEventListener('touchcancel', () => this.endDragging(), false);
+
+            this.renderer.domElement.addEventListener('dblclick', () => this.toggleIKStopper(), false);
 
             //
             this.renderLoop();
@@ -276,6 +284,14 @@ module PoseEditor {
         }
 
 
+        private toggleIKStopper() {
+            if ( this.selectedSphere ) {
+                var i = this.selectedSphere.userData.jointIndex;
+                this.model.toggleIKPropagation(i);
+            }
+        }
+
+
         private onResize(): boolean {
             var w = this.target_dom.offsetWidth;
             var h = this.target_dom.offsetHeight;
@@ -301,8 +317,16 @@ module PoseEditor {
         }
 
 
-        private setupModel(mesh_path: string, texture_path: string, marker_path: string, callback: () => void) {
-            this.model = new Model(mesh_path, texture_path, marker_path, this.scene, this.scene2d, callback);
+        private setupModel(mesh_path: string, texture_path: string, sprite_paths: SpritePaths, callback: () => void) {
+            this.model = new Model(mesh_path, texture_path, sprite_paths, this.scene, this.scene2d, () => {
+                // default IK stopper node indexes
+                var nx = [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35];
+                nx.forEach((i) => {
+                    this.model.toggleIKPropagation(i);
+                });
+
+                callback();
+            });
         }
 
 
@@ -311,10 +335,7 @@ module PoseEditor {
             var c_bone = selected_bone;
             var p_bone = <THREE.Bone>c_bone.parent;
 
-            var i=0;
             while( p_bone != null && p_bone.type != "SkinnedMesh" ) {
-                if (i == 2)
-                    break;
                 // console.log("bone!", c_bone.parent);
 
                 // local rotation
@@ -344,8 +365,10 @@ module PoseEditor {
                 p_bone.quaternion.copy(to_q);
                 p_bone.updateMatrixWorld(true);
 
+                if ( p_bone.userData.preventIKPropagation )
+                    break;
+
                 p_bone = <THREE.Bone>p_bone.parent;
-                ++i;
             }
         }
 
@@ -552,7 +575,7 @@ module PoseEditor {
         constructor(
             mesh_path: string,
             texture_path: string,
-            marker_path: string,
+            sprite_paths: SpritePaths,
             scene: THREE.Scene,
             scene2d: THREE.Scene,
             callback: () => void
@@ -611,7 +634,7 @@ module PoseEditor {
                     this.scene.add(this.mesh);
 
                     //
-                    this.setupAppendixData(marker_path, callback);
+                    this.setupAppendixData(sprite_paths, callback);
 
                 } else {
                     alert("" + data.metadata.type + " is not supported");
@@ -623,22 +646,35 @@ module PoseEditor {
         }
 
         private setupAppendixData(
-            marker_path: string,
+            sprite_paths: SpritePaths,
             callback: () => void
         ) {
             //
             this.mesh.skeleton.bones.forEach((bone) => {
                 bone.matrixWorldNeedsUpdate = true;
+                bone.userData = {
+                    preventIKPropagation: false
+                };
             });
 
             // load textures(marker for bone)
-            var texture = THREE.ImageUtils.loadTexture(marker_path);
+            this.joint_markers = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
+
+            this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
+            this.normalMarkerMat = new THREE.SpriteMaterial({
+                map: this.normalMarkerTex, color: this.normalColor
+            });
+
+            this.specialMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.special);
+            this.specialMarkerMat = new THREE.SpriteMaterial({
+                map: this.specialMarkerTex, color: this.normalColor
+            });
+
             this.mesh.skeleton.bones.forEach((bone, index) => {
-                var material = new THREE.SpriteMaterial({map: texture, color: this.normalColor});
-                var sprite = new THREE.Sprite(material);
+                var sprite = new THREE.Sprite(this.normalMarkerMat.clone());
                 sprite.scale.set(12.0, 12.0, 1);
 
-                this.joint_markers.push(sprite);
+                this.joint_markers[index] = sprite;
                 this.scene2d.add(sprite);
             });
 
@@ -689,6 +725,26 @@ module PoseEditor {
             }
         }
 
+        toggleIKPropagation(bone_index: number) {
+            var bone = this.mesh.skeleton.bones[bone_index];
+            bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
+
+            var old_sprite = this.joint_markers[bone_index];
+            var sprite: THREE.Sprite = null;
+
+            if ( bone.userData.preventIKPropagation ) {
+                sprite = new THREE.Sprite(this.specialMarkerMat.clone());
+            } else {
+                sprite = new THREE.Sprite(this.normalMarkerMat.clone());
+            }
+
+            sprite.scale.set(12.0, 12.0, 1);
+            this.joint_markers[bone_index] = sprite;
+            this.scene2d.add(sprite);
+
+            this.scene2d.remove(old_sprite);
+        }
+
         hideMarker() {
             this.showingMarker = false;
             this.setMarkerVisibility(this.showingMarker);
@@ -719,6 +775,12 @@ module PoseEditor {
 
         //
         private showingMarker: boolean = true;
+
+        //
+        private normalMarkerTex: THREE.Texture;
+        private normalMarkerMat: THREE.SpriteMaterial;
+        private specialMarkerTex: THREE.Texture;
+        private specialMarkerMat: THREE.SpriteMaterial;
 
         //
         selectedColor = 0xff0000;

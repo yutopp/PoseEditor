@@ -5,6 +5,7 @@ declare module THREE {
 
         setMode(mode: string): void;
         setSpace(space: string): void;
+        setSize(size: number): void;
 
         update(): void;
 

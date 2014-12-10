@@ -78,8 +78,11 @@
            config.enableBackgroundAlpha = true;
            config.backgroundColorHex = 0x777777;
            config.backgroundAlpha = 1.0;
-
-           editor = new PoseEditor.Editor("for_pose", "models/model/model.js", "models/model/", "images/marker.png", config, function() {
+           sprite_paths = {
+             normal: "images/marker.png",
+             special: "images/square.png",
+           };
+           editor = new PoseEditor.Editor("for_pose", "models/model/model.js", "models/model/", sprite_paths, config, function() {
              if ( editor ) {
                if ( location.hash !== "" ) {
                  try {

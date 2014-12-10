@@ -570,7 +570,6 @@
 		var changeEvent = { type: "change" };
 
 		var ray = new THREE.Raycaster();
-		var projector = new THREE.Projector();
 		var pointerVector = new THREE.Vector3();
 
 		var point = new THREE.Vector3();
