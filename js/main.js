@@ -93,10 +93,13 @@ $(function() {
   config.enableBackgroundAlpha = true;
   config.backgroundColorHex = 0x777777;
   config.backgroundAlpha = 1.0;
+  config.loadingImagePath = "bower_components/poseeditor/images/loading.gif";
+
   sprite_paths = {
     normal: "bower_components/poseeditor/images/marker.png",
     special: "bower_components/poseeditor/images/square.png"
   };
+
   model_table = {
     "sport_man": {
       model_path: "bower_components/poseeditor/models/model/model.js",
