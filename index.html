@@ -96,10 +96,13 @@
            config.enableBackgroundAlpha = true;
            config.backgroundColorHex = 0x777777;
            config.backgroundAlpha = 1.0;
+           config.loadingImagePath = "images/loading.gif";
+
            sprite_paths = {
              normal: "images/marker.png",
              special: "images/square.png",
            };
+
            model_table = {
              "sport_man": {
                model_path: "models/model/model.js",
@@ -107,6 +110,7 @@
                ik_stop_joints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35],
              },
            };
+
            editor = new PoseEditor.Editor("for_pose", model_table, sprite_paths, config);
            if ( location.hash !== "" ) {
              try {

@@ -67,6 +67,9 @@ var PoseEditor;
             this.isOnManipurator = false;
             this.selectedSphere = null;
             //
+            this.loadingTasks = 0;
+            this.loadingDom = null;
+            //
             var parent_dom = document.getElementById(parent_dom_id);
             this.target_dom = parent_dom ? parent_dom : document.body;
             //
@@ -107,6 +110,13 @@ var PoseEditor;
             //
             this.target_dom.appendChild(this.renderer.domElement);
             window.addEventListener('resize', function () { return _this.onResize(); }, false);
+            //
+            if (config.loadingImagePath) {
+                this.loadingDom = document.createElement("img");
+                this.loadingDom.src = config.loadingImagePath;
+                this.loadingDom.style.display = "none";
+                this.target_dom.appendChild(this.loadingDom);
+            }
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.transformCtrl.setMode("rotate");
@@ -308,7 +318,10 @@ var PoseEditor;
             return false;
         };
         Editor.prototype.loadAndAppendModel = function (name, model_info, sprite_paths, callback) {
+            var _this = this;
+            this.incTask();
             var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
+                _this.decTask();
                 // default IK stopper node indexes
                 var nx = model_info.ik_stop_joints;
                 nx.forEach(function (i) {
@@ -467,14 +480,16 @@ var PoseEditor;
             }
         };
         Editor.prototype.removeAllModel = function () {
-            while (this.models.length > 0) {
-                this.removeModel(0);
-            }
+            this.models.forEach(function (m) {
+                m.destruct();
+            });
+            this.models = [];
+            this.resetCtrl();
         };
         Editor.prototype.removeModel = function (index) {
             var model = this.models[index];
             model.destruct();
-            this.models.splice(index);
+            this.models.splice(index, 1);
             this.resetCtrl();
         };
         Editor.prototype.removeSelectedModel = function () {
@@ -503,6 +518,30 @@ var PoseEditor;
                 this.transformCtrl.attach(ss);
             }
             return data;
+        };
+        Editor.prototype.incTask = function () {
+            if (this.loadingTasks == 0) {
+                if (this.loadingDom.style) {
+                    this.loadingDom.style.display = "inline";
+                    this.loadingDom.style.position = 'absolute';
+                    this.loadingDom.style.padding = "10px";
+                    this.loadingDom.style.borderRadius = "5px";
+                    this.loadingDom.style.backgroundColor = "#fff";
+                    var x = Math.abs(this.target_dom.offsetWidth - this.loadingDom.offsetWidth) / 2;
+                    var y = Math.abs(this.target_dom.offsetHeight - this.loadingDom.offsetHeight) / 2;
+                    this.loadingDom.style.left = x + 'px';
+                    this.loadingDom.style.top = y + 'px';
+                }
+            }
+            this.loadingTasks++;
+        };
+        Editor.prototype.decTask = function () {
+            this.loadingTasks--;
+            if (this.loadingTasks == 0) {
+                if (this.loadingDom.style) {
+                    this.loadingDom.style.display = "none";
+                }
+            }
         };
         return Editor;
     })();

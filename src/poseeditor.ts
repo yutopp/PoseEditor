@@ -8,6 +8,7 @@ module PoseEditor {
         enableBackgroundAlpha: boolean = false;
         backgroundColorHex: number = 0x777777;
         backgroundAlpha: number = 1.0;
+        loadingImagePath: string;
     }
 
     export class SpritePaths {
@@ -78,6 +79,15 @@ module PoseEditor {
             //
             this.target_dom.appendChild(this.renderer.domElement);
             window.addEventListener('resize', () => this.onResize(), false);
+
+            //
+            if ( config.loadingImagePath ) {
+                this.loadingDom = document.createElement("img");
+                this.loadingDom.src = config.loadingImagePath;
+                this.loadingDom.style.display = "none";
+
+                this.target_dom.appendChild(this.loadingDom);
+            }
 
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
@@ -349,7 +359,11 @@ module PoseEditor {
             sprite_paths: SpritePaths,
             callback: (m: Model, error: string) => void
         ) {
+            this.incTask();
+
             var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, (m, e) => {
+                this.decTask();
+
                 // default IK stopper node indexes
                 var nx = model_info.ik_stop_joints;
                 nx.forEach((i) => {
@@ -595,16 +609,19 @@ module PoseEditor {
         }
 
         public removeAllModel() {
-            while( this.models.length > 0 ) {
-                this.removeModel(0);
-            }
+            this.models.forEach((m) => {
+                m.destruct();
+            });
+
+            this.models = [];
+            this.resetCtrl();
         }
 
         public removeModel(index: number) {
             var model = this.models[index];
             model.destruct();
 
-            this.models.splice(index);
+            this.models.splice(index, 1);
             this.resetCtrl();
         }
 
@@ -640,6 +657,37 @@ module PoseEditor {
             }
 
             return data;
+        }
+
+
+        private incTask() {
+            if ( this.loadingTasks == 0 ) {
+                if ( this.loadingDom.style ) {
+                    this.loadingDom.style.display = "inline";
+                    this.loadingDom.style.position = 'absolute';
+                    this.loadingDom.style.padding = "10px";
+                    this.loadingDom.style.borderRadius = "5px";
+                    this.loadingDom.style.backgroundColor = "#fff";
+
+                    var x = Math.abs( this.target_dom.offsetWidth - this.loadingDom.offsetWidth ) / 2;
+                    var y = Math.abs( this.target_dom.offsetHeight - this.loadingDom.offsetHeight ) / 2;
+
+                    this.loadingDom.style.left = x + 'px';
+                    this.loadingDom.style.top = y + 'px';
+                }
+            }
+
+            this.loadingTasks++;
+        }
+
+        private decTask() {
+            this.loadingTasks--;
+
+            if ( this.loadingTasks == 0 ) {
+                if ( this.loadingDom.style ) {
+                    this.loadingDom.style.display = "none";
+                }
+            }
         }
 
 
@@ -688,6 +736,10 @@ module PoseEditor {
         private isOnManipurator: boolean = false;
         private selectedSphere: THREE.Object3D = null;
         private ikTargetPosition: THREE.Vector3;
+
+        //
+        private loadingTasks = 0;
+        private loadingDom: any = null;
     }
 
 
