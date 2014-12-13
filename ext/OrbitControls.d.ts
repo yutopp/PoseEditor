@@ -4,6 +4,7 @@ declare module THREE {
         constructor(camera: THREE.Camera, dom: HTMLCanvasElement);
         update(): void;
         reset(): void;
+        cancel(): void;
 
         damping: number;
         enabled: boolean;

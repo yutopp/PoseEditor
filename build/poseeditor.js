@@ -585,6 +585,7 @@ var PoseEditor;
                 }
                 if (data.metadata.type.toLowerCase() === 'geometry') {
                     var loader = new THREE.JSONLoader();
+                    loader.crossOrigin = '*';
                     var result = loader.parse(data, texture_path);
                     var geometry = result.geometry;
                     var material;
@@ -625,6 +626,8 @@ var PoseEditor;
         }
         Model.prototype.setupAppendixData = function (sprite_paths, callback) {
             var _this = this;
+            var default_cross_origin = THREE.ImageUtils.crossOrigin;
+            THREE.ImageUtils.crossOrigin = '*';
             //
             this.mesh.skeleton.bones.forEach(function (bone) {
                 bone.matrixWorldNeedsUpdate = true;
@@ -668,6 +671,7 @@ var PoseEditor;
                 _this.joint_spheres.push(sphere);
                 _this.scene.add(sphere);
             });
+            THREE.ImageUtils.crossOrigin = default_cross_origin;
             this.ready = true;
             if (callback) {
                 callback(this, null);

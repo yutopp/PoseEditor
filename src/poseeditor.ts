@@ -782,6 +782,7 @@ module PoseEditor {
 
                 if ( data.metadata.type.toLowerCase() === 'geometry' ) {
                     var loader = new THREE.JSONLoader();
+                    loader.crossOrigin = '*';
                     var result: any = loader.parse(data, texture_path);
 
                     var geometry = result.geometry;
@@ -831,6 +832,9 @@ module PoseEditor {
             sprite_paths: SpritePaths,
             callback: (m: Model, error: string) => void
         ) {
+            var default_cross_origin = THREE.ImageUtils.crossOrigin;
+            THREE.ImageUtils.crossOrigin = '*';
+
             //
             this.mesh.skeleton.bones.forEach((bone) => {
                 bone.matrixWorldNeedsUpdate = true;
@@ -881,6 +885,8 @@ module PoseEditor {
                 this.joint_spheres.push(sphere);
                 this.scene.add(sphere);
             });
+
+            THREE.ImageUtils.crossOrigin = default_cross_origin;
 
             this.ready = true;
             if ( callback ) {
