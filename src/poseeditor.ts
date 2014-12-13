@@ -302,21 +302,24 @@ module PoseEditor {
 
 
         private endDragging() {
-            if ( this.dragging ) {
-                // reset color of markers
-                this.models.forEach((model) => {
-                    model.joint_markers.forEach((marker) => {
-                        marker.material.color.setHex(model.normalColor);
-                    })
-                });
+            if ( this.dragStart ) {
+                if ( this.dragging ) {
+                    // reset color of markers
+                    this.models.forEach((model) => {
+                        model.joint_markers.forEach((marker) => {
+                            marker.material.color.setHex(model.normalColor);
+                        })
+                    });
+                }
+
+                this.dragStart = false;
+                this.dragging = false;
+
+                this.controls.enabled = true;
+                this.controls.cancel(); // ...
+
+                //console.log("end");
             }
-
-            this.dragStart = false;
-            this.dragging = false;
-
-            this.controls.enabled = true;
-            this.controls.cancel(); // ...
-            // console.log("end");
         }
 
 
