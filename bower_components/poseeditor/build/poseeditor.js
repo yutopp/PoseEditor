@@ -147,6 +147,7 @@ var PoseEditor;
             this.renderer.domElement.addEventListener('mousemove', function (e) { return _this.moving(e, false); }, false);
             this.renderer.domElement.addEventListener('touchmove', function (e) { return _this.moving(e, true); }, false);
             this.renderer.domElement.addEventListener('mouseup', function () { return _this.endDragging(); }, false);
+            this.renderer.domElement.addEventListener('mouseleave', function () { return _this.endDragging(); }, false);
             this.renderer.domElement.addEventListener('touchend', function () { return _this.endDragging(); }, false);
             this.renderer.domElement.addEventListener('touchcancel', function () { return _this.endDragging(); }, false);
             this.renderer.domElement.addEventListener('dblclick', function () { return _this.toggleIKStopper(); }, false);
@@ -290,6 +291,7 @@ var PoseEditor;
             this.dragStart = false;
             this.dragging = false;
             this.controls.enabled = true;
+            this.controls.cancel(); // ...
             // console.log("end");
         };
         Editor.prototype.toggleIKStopper = function () {
@@ -583,6 +585,7 @@ var PoseEditor;
                 }
                 if (data.metadata.type.toLowerCase() === 'geometry') {
                     var loader = new THREE.JSONLoader();
+                    loader.crossOrigin = '*';
                     var result = loader.parse(data, texture_path);
                     var geometry = result.geometry;
                     var material;
@@ -623,6 +626,8 @@ var PoseEditor;
         }
         Model.prototype.setupAppendixData = function (sprite_paths, callback) {
             var _this = this;
+            var default_cross_origin = THREE.ImageUtils.crossOrigin;
+            THREE.ImageUtils.crossOrigin = '*';
             //
             this.mesh.skeleton.bones.forEach(function (bone) {
                 bone.matrixWorldNeedsUpdate = true;
@@ -666,6 +671,7 @@ var PoseEditor;
                 _this.joint_spheres.push(sphere);
                 _this.scene.add(sphere);
             });
+            THREE.ImageUtils.crossOrigin = default_cross_origin;
             this.ready = true;
             if (callback) {
                 callback(this, null);
