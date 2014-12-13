@@ -4,7 +4,6 @@
   }
 
   var load_scene = function( id, json, model_table, sprite_paths, config ) {
-    console.log("load", id);
     if ( !model_table ) {
       model_table = {
         "sport_man": {
@@ -42,7 +41,6 @@
 
   var load_all = function() {
     while( window.poseEditorE.queue.length > 0 ) {
-      console.log("while")
       var obj = window.poseEditorE.queue.shift();
 
       var id = obj.id;
@@ -56,7 +54,6 @@
   };
 
   var queue_scene = function( id, json, model_table, sprite_paths, config ) {
-    console.log("queue", id);
     window.poseEditorE.queue.push({
       id: id,
       json: json,
@@ -69,8 +66,6 @@
       load_all();
     }
   };
-
-  console.log("po");
 
   // global var
   window.poseEditorE = {
