@@ -147,6 +147,7 @@ var PoseEditor;
             this.renderer.domElement.addEventListener('mousemove', function (e) { return _this.moving(e, false); }, false);
             this.renderer.domElement.addEventListener('touchmove', function (e) { return _this.moving(e, true); }, false);
             this.renderer.domElement.addEventListener('mouseup', function () { return _this.endDragging(); }, false);
+            this.renderer.domElement.addEventListener('mouseleave', function () { return _this.endDragging(); }, false);
             this.renderer.domElement.addEventListener('touchend', function () { return _this.endDragging(); }, false);
             this.renderer.domElement.addEventListener('touchcancel', function () { return _this.endDragging(); }, false);
             this.renderer.domElement.addEventListener('dblclick', function () { return _this.toggleIKStopper(); }, false);
@@ -290,6 +291,7 @@ var PoseEditor;
             this.dragStart = false;
             this.dragging = false;
             this.controls.enabled = true;
+            this.controls.cancel(); // ...
             // console.log("end");
         };
         Editor.prototype.toggleIKStopper = function () {

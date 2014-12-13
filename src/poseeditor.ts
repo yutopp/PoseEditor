@@ -128,6 +128,7 @@ module PoseEditor {
             this.renderer.domElement.addEventListener('touchmove', (e) => this.moving(e, true), false);
 
             this.renderer.domElement.addEventListener('mouseup', () => this.endDragging(), false);
+            this.renderer.domElement.addEventListener('mouseleave', () => this.endDragging(), false);
             this.renderer.domElement.addEventListener('touchend', () => this.endDragging(), false);
             this.renderer.domElement.addEventListener('touchcancel', () => this.endDragging(), false);
 
@@ -314,7 +315,7 @@ module PoseEditor {
             this.dragging = false;
 
             this.controls.enabled = true;
-
+            this.controls.cancel(); // ...
             // console.log("end");
         }
 
