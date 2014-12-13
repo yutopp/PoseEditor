@@ -280,19 +280,20 @@ var PoseEditor;
             this.ikTargetSphere.position.copy(this.ikTargetPosition);
         };
         Editor.prototype.endDragging = function () {
-            if (this.dragging) {
-                // reset color of markers
-                this.models.forEach(function (model) {
-                    model.joint_markers.forEach(function (marker) {
-                        marker.material.color.setHex(model.normalColor);
+            if (this.dragStart) {
+                if (this.dragging) {
+                    // reset color of markers
+                    this.models.forEach(function (model) {
+                        model.joint_markers.forEach(function (marker) {
+                            marker.material.color.setHex(model.normalColor);
+                        });
                     });
-                });
+                }
+                this.dragStart = false;
+                this.dragging = false;
+                this.controls.enabled = true;
+                this.controls.cancel(); // ...
             }
-            this.dragStart = false;
-            this.dragging = false;
-            this.controls.enabled = true;
-            this.controls.cancel(); // ...
-            // console.log("end");
         };
         Editor.prototype.toggleIKStopper = function () {
             if (this.selectedSphere) {
