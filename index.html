@@ -91,6 +91,13 @@
                     <h3>Load</h3>
                     <input type="file" id="scene_input" style="display:none" onchange="handleSceneFiles(this.files)">
                     <input type="button" value="Load Scene from JSON" onClick="$('#scene_input').click()" class="btn btn-success">
+
+                    <h3>Embed</h3>
+                    <input type="text" id="ecode_id" value="pose">
+                    <input type="text" id="ecode_width" value="200px">
+                    <input type="text" id="ecode_height" value="200px">
+                    <input type="button" value="Generate Code" onClick="generateEmbeddedCode()" class="btn btn-primary">
+                    <textarea id="ecode" class="form-control"></textarea>
                 </div>
             </div>
         </div>

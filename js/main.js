@@ -1,7 +1,6 @@
 var editor = null;
 
 function downloadImage() {
-  // basic example
   if ( editor != null ) {
     var a = document.createElement("a");
     a.download = "poseeditor";
@@ -25,14 +24,44 @@ function downloadImage() {
 }
 
 function loadSceneDataFromEncodedData(json_string) {
-  // basic example
   if ( editor != null ) {
     editor.loadSceneDataFromString(json_string);
   }
 }
 
+function generateEmbeddedCode() {
+  if ( editor != null ) {
+    var s = JSON.stringify(editor.getSceneInfo());
+
+    var id = document.getElementById('ecode_id').value;
+    var width = document.getElementById('ecode_width').value;
+    var height = document.getElementById('ecode_height').value;
+
+    var code = "";
+    code += '<div id="' + id + '" style="width: ' + width + '; height: ' + height + '"></div>';
+    code += "\n\n";
+
+    code += "<script type=\"text/javascript\">\n";
+    code += "(function (d, s, id) {";
+    code += "var scene_json = '" + s + "';";
+
+    code += "var load_scene = (function() {";
+    code += "window.poseEditorE.queueScene( id, scene_json );";
+    code += "});";
+    code += "var script = d.getElementsByTagName(s)[0];";
+    code += "var js = d.createElement(s);";
+    code += "js.src = 'http://poseeditor.levelop.org/js/e.js';";
+    code += "js.onload = load_scene;";
+    code += "script.parentNode.insertBefore(js, script);";
+    code += "})(document, 'script', '" + id +"');";
+    code += "</script>";
+
+    var dom = document.getElementById('ecode');
+    dom.value = code;
+  }
+}
+
 function toggleMarker() {
-  // basic example
   if ( editor != null ) {
     editor.toggleMarker();
   }
