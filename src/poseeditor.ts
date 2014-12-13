@@ -769,66 +769,44 @@ module PoseEditor {
             var mesh_path = model_info.model_path;
             var texture_path = model_info.texture_dir;
 
+            var loader = new THREE.JSONLoader();
+            loader.crossOrigin = '*';
+
             // load mesh data from path
-            $.ajax({
-                dataType: 'JSON',
-                type: "GET",
-                url: mesh_path
-            }).done((data: any) => {
-                console.log("finished to load");
-
+            loader.load(mesh_path, (geometry, materials) => {
+                //console.log("finished to load");
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
-
-                if ( data.metadata.type === undefined ) { // 3.0
-                    data.metadata.type = 'Geometry';
-                }
-
-                if ( data.metadata.type.toLowerCase() === 'geometry' ) {
-                    var loader = new THREE.JSONLoader();
-                    loader.crossOrigin = '*';
-                    var result: any = loader.parse(data, texture_path);
-
-                    var geometry = result.geometry;
-                    var material: any;
-                    if ( result.materials !== undefined ) {
-                        if ( result.materials.length > 1 ) {
-                            material = new THREE.MeshFaceMaterial(result.materials);
-                            material.materials.forEach((mat: any) => {
-                                mat.skinning = true;
-                            });
-
-                        } else {
-                            material = result.materials[0];
-                            material.setValues({skinning: true});
-                        }
+                var material: any;
+                if ( materials !== undefined ) {
+                    if ( materials.length > 1 ) {
+                        material = new THREE.MeshFaceMaterial(materials);
+                        material.materials.forEach((mat: any) => {
+                            mat.skinning = true;
+                        });
 
                     } else {
-                        material = new THREE.MeshLambertMaterial({
-                            color: 0xffffff,
-                            skinning: true
-                        });
+                        material = materials[0];
+                        material.setValues({skinning: true});
                     }
 
-                    geometry.sourceType = "ascii";
-                    //geometry.sourceFile = file.name;
-
-                    // create mesh data
-                    this.mesh = new THREE.SkinnedMesh(geometry, material, false);
-                    this.mesh.scale.set(3, 3, 3);
-                    this.mesh.position.y = -18;
-
-                    this.scene.add(this.mesh);
-
-                    //
-                    this.setupAppendixData(sprite_paths, callback);
-
                 } else {
-                    alert("" + data.metadata.type + " is not supported");
+                    material = new THREE.MeshLambertMaterial({
+                        color: 0xffffff,
+                        skinning: true
+                    });
                 }
 
-            }).fail((a, b, c) => {
-                console.error( "error", a, b, c );
-            });
+                // create mesh data
+                this.mesh = new THREE.SkinnedMesh(geometry, material, false);
+                this.mesh.scale.set(3, 3, 3);
+                this.mesh.position.y = -18;
+
+                this.scene.add(this.mesh);
+
+                //
+                this.setupAppendixData(sprite_paths, callback);
+
+            }, texture_path);
         }
 
         private setupAppendixData(
