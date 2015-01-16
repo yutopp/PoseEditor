@@ -97,6 +97,7 @@
            config.backgroundColorHex = 0x777777;
            config.backgroundAlpha = 1.0;
            config.loadingImagePath = "images/loading.gif";
+           config.isDebugging = true;
 
            sprite_paths = {
              normal: "images/marker.png",
@@ -108,6 +109,11 @@
                model_path: "models/model/model.js",
                texture_dir: "models/model/",
                ik_stop_joints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35],
+               bone_limits: {
+                 32: [[-2.8, 0.3], [-0.13, 0.1], [-1.3, 2.6]],
+                 33: [[0.0, 2.9], [-0.4, 0.2], [-0.6, 0.9]],
+                 34: [[-0.3, 0.6], [0.6, 1.2], [-2.2, -0.3]]
+               }
              },
            };
 

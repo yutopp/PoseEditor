@@ -8,7 +8,8 @@ module PoseEditor {
         enableBackgroundAlpha: boolean = false;
         backgroundColorHex: number = 0x777777;
         backgroundAlpha: number = 1.0;
-        loadingImagePath: string;
+        loadingImagePath: string = null;
+        isDebugging: boolean = false;
     }
 
     export class SpritePaths {
@@ -20,6 +21,13 @@ module PoseEditor {
         model_path: string;
         texture_dir: string;
         ik_stop_joints: Array<number>;
+        bone_limits: {[key: number]: Array<Array<number>>;}
+    }
+
+    export class RotationLimitation {
+        x: boolean = false;
+        y: boolean = false;
+        z: boolean = false;
     }
 
     export class Editor {
@@ -27,7 +35,7 @@ module PoseEditor {
             parent_dom_id: string,
             model_info_table: {[key: string]: ModelInfo;},
             sprite_paths: SpritePaths,
-            config: Config = null
+            config: Config = new Config()
         ) {
             //
             var parent_dom = document.getElementById(parent_dom_id);
@@ -64,17 +72,13 @@ module PoseEditor {
             var prop_for_renderer: any = {
                 preserveDrawingBuffer: true
             };
-            if (config) {
-                prop_for_renderer.alpha = config.enableBackgroundAlpha;
-            }
+            prop_for_renderer.alpha = config.enableBackgroundAlpha;
 
             //
             this.renderer = new THREE.WebGLRenderer(prop_for_renderer);
             this.renderer.setSize(this.width, this.height);
             this.renderer.autoClear = false;
-            if (config) {
-                this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
-            }
+            this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
 
             //
             this.target_dom.appendChild(this.renderer.domElement);
@@ -87,6 +91,19 @@ module PoseEditor {
                 this.loadingDom.style.display = "none";
 
                 this.target_dom.appendChild(this.loadingDom);
+            }
+
+            if ( config.isDebugging ) {
+                // bone: debug information tag
+                this.boneDebugDom = document.createElement("div");
+                this.boneDebugDom.style.display = "none";
+                this.target_dom.appendChild(this.boneDebugDom);
+
+                // debug
+                var gridHelper = new THREE.GridHelper(50.0, 5.0);
+                this.scene.add(gridHelper);
+                var axisHelper = new THREE.AxisHelper(50.0);
+                this.scene.add(axisHelper);
             }
 
             //
@@ -112,13 +129,19 @@ module PoseEditor {
             this.plane.visible = false;
             this.scene.add(this.plane);
 
-            // debugging
+            // ik target
             var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
             var material = new THREE.MeshBasicMaterial({wireframe: true});
             this.ikTargetSphere = new THREE.Mesh(sphere_geo, material);
             this.ikTargetSphere.matrixWorldNeedsUpdate = true;
             this.ikTargetSphere.visible = false;
             this.scene.add(this.ikTargetSphere);
+            if ( config.isDebugging ) {
+                this.ikTargetSphere.visible = true;
+            }
+
+            // save Config
+            this.config = config;
 
             //
             this.renderer.domElement.addEventListener('mousedown',  (e) => this.boneRay(e, false), false);
@@ -139,6 +162,30 @@ module PoseEditor {
         }
 
 
+        private updateBoneDebugInfo(model: Model, index: number) {
+            var bone = model.mesh.skeleton.bones[index];
+
+            var sx = "<span style='color: red'>X</span>";
+            var sy = "<span style='color: #00ff00'>Y</span>";
+            var sz = "<span style='color: blue'>Z</span>";
+
+            this.boneDebugDom.innerHTML  = "selected joint_id: " + index + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + bone.rotation.x + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + bone.rotation.y + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + bone.rotation.z + "<br>";
+
+            var p_bone = <THREE.Bone>bone.parent;
+            if ( p_bone ) {
+                var p_index = p_bone.userData.index;
+                this.boneDebugDom.innerHTML += "<br>";
+                this.boneDebugDom.innerHTML += "parent joint_id: " + p_index + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + p_bone.rotation.x + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + p_bone.rotation.y + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + p_bone.rotation.z + "<br>";
+            }
+        }
+
+
         private onControlsChange() {
             this.transformCtrl.update();
         }
@@ -156,15 +203,22 @@ module PoseEditor {
                     var t_r = bone.quaternion.clone();
                     bone.rotation.set(0,0,0);
                     var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
-                    //p_bone.quaternion.copy(t_r);
-                    //p_bone.updateMatrixWorld(true);
 
                     var sph_q = this.selectedSphere.getWorldQuaternion(null);
 
                     // update bone quaternion
                     var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
+
+                    // limitation
+                    this.adjustRotation(bone, to_q);
+
                     bone.quaternion.copy(to_q);
                     bone.updateMatrixWorld(true);
+
+                    //
+                    if ( this.config.isDebugging ) {
+                        this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
+                    }
                 }
 
             } else {
@@ -173,7 +227,6 @@ module PoseEditor {
 
             this.transformCtrl.update();
         }
-
 
         private boneRay(e: any, isTouch: boolean) {
             if ( this.isOnManipurator || this.dragging || this.models.length == 0 ) {
@@ -263,9 +316,24 @@ module PoseEditor {
                 this.plane.position.copy(tmp_pos);
                 this.plane.lookAt(this.camera.position);
 
+                if ( this.config.isDebugging ) {
+                    // set debug view
+                    this.boneDebugDom.style.display = "inline";
+                    this.boneDebugDom.style.position = 'absolute';
+                    this.boneDebugDom.style.padding = "10px";
+                    this.boneDebugDom.style.top = "10px";
+                    this.boneDebugDom.style.left = "10px";
+
+                    this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
+                }
+
             } else {
                 // not found
                 this.resetCtrl();
+
+                if ( this.config.isDebugging ) {
+                    this.boneDebugDom.style.display = "none";
+                }
             }
         }
 
@@ -298,6 +366,14 @@ module PoseEditor {
             var intersects = raycaster.intersectObject(this.plane);
             this.ikTargetPosition.copy(intersects[0].point);
             this.ikTargetSphere.position.copy(this.ikTargetPosition);
+
+            //
+            if ( this.config.isDebugging ) {
+                if ( this.selectedSphere != null ) {
+                    var model = this.selectedSphere.userData.ownerModel;
+                    this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
+                }
+            }
         }
 
 
@@ -402,6 +478,24 @@ module PoseEditor {
         }
 
 
+        private adjustRotation(bone: THREE.Bone, q: THREE.Quaternion) {
+            // TODO: fix Gimbal lock
+            var e = new THREE.Euler().setFromQuaternion(q);
+
+            if ( bone.userData.rotLimit.x ) {
+                e.x = Math.max( bone.userData.rotMin.x, Math.min( e.x, bone.userData.rotMax.x ) );
+            }
+            if ( bone.userData.rotLimit.y ) {
+                e.y = Math.max( bone.userData.rotMin.y, Math.min( e.y, bone.userData.rotMax.y ) );
+            }
+            if ( bone.userData.rotLimit.z ) {
+                e.z = Math.max( bone.userData.rotMin.z, Math.min( e.z, bone.userData.rotMax.z ) );
+            }
+            q.setFromEuler(e);
+
+            // console.log(e)
+        }
+
         // CCD IK
         private ik(selected_bone: THREE.Bone, target_pos: THREE.Vector3) {
             var c_bone = selected_bone;
@@ -434,6 +528,11 @@ module PoseEditor {
 
                 // update bone quaternion
                 var to_q = w_to_l_comp_q.multiply(qm).normalize();
+
+                // limitation
+                this.adjustRotation(p_bone, to_q);
+
+                // set
                 p_bone.quaternion.copy(to_q);
                 p_bone.updateMatrixWorld(true);
 
@@ -744,6 +843,10 @@ module PoseEditor {
         //
         private loadingTasks = 0;
         private loadingDom: any = null;
+        private boneDebugDom: any = null;
+
+        //
+        private config: Config;
     }
 
 
@@ -768,6 +871,7 @@ module PoseEditor {
             //
             var mesh_path = model_info.model_path;
             var texture_path = model_info.texture_dir;
+            var bone_limits = model_info.bone_limits;
 
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
@@ -804,25 +908,55 @@ module PoseEditor {
                 this.scene.add(this.mesh);
 
                 //
-                this.setupAppendixData(sprite_paths, callback);
+                this.setupAppendixData(sprite_paths, bone_limits, callback);
 
             }, texture_path);
         }
 
         private setupAppendixData(
             sprite_paths: SpritePaths,
+            bone_limits: {[key: number]: Array<Array<number>>;},
             callback: (m: Model, error: string) => void
         ) {
             var default_cross_origin = THREE.ImageUtils.crossOrigin;
             THREE.ImageUtils.crossOrigin = '*';
 
             //
-            this.mesh.skeleton.bones.forEach((bone) => {
+            this.mesh.skeleton.bones.forEach((bone, index) => {
                 bone.matrixWorldNeedsUpdate = true;
                 bone.updateMatrixWorld(true);
                 bone.userData = {
-                    preventIKPropagation: false
+                    index: index,
+                    preventIKPropagation: false,
+                    rotLimit: new RotationLimitation(),
+                    rotMin: null,
+                    rotMax: null,
                 };
+
+                if ( index in bone_limits ) {
+                    bone.userData.rotMin = new THREE.Euler();
+                    bone.userData.rotMax = new THREE.Euler();
+
+                    var rots = bone_limits[index];
+
+                    if ( rots[0] != null ) {
+                        bone.userData.rotLimit.x = true;
+                        bone.userData.rotMin.x = rots[0][0];
+                        bone.userData.rotMax.x = rots[0][1];
+                    }
+
+                    if ( rots[1] != null ) {
+                        bone.userData.rotLimit.y = true;
+                        bone.userData.rotMin.y = rots[1][0];
+                        bone.userData.rotMax.y = rots[1][1];
+                    }
+
+                    if ( rots[2] != null ) {
+                        bone.userData.rotLimit.z = true;
+                        bone.userData.rotMin.z = rots[2][0];
+                        bone.userData.rotMax.z = rots[2][1];
+                    }
+                }
             });
 
             //
@@ -859,7 +993,7 @@ module PoseEditor {
                 sphere.matrixWorldNeedsUpdate = true;
                 sphere.userData = {
                     jointIndex: index,
-                    ownerModel: this
+                    ownerModel: this,
                 };
 
                 sphere.visible = false;

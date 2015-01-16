@@ -6,13 +6,16 @@
   "bundle": "typings/tsd.d.ts",
   "installed": {
     "threejs/three.d.ts": {
-      "commit": "a6b1e4ff841e617e3d449189f82562143d98400d"
+      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
     },
     "jquery/jquery.d.ts": {
-      "commit": "a6b1e4ff841e617e3d449189f82562143d98400d"
+      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
     },
     "webaudioapi/waa.d.ts": {
-      "commit": "a6b1e4ff841e617e3d449189f82562143d98400d"
+      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
+    },
+    "webrtc/MediaStream.d.ts": {
+      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
     }
   }
 }
