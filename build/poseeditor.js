@@ -43,14 +43,14 @@ var PoseEditor;
         }
         return RotationLimitation;
     })();
-    function deg_to_rad(deg) {
+    function degToRad(deg) {
         return deg * Math.PI / 180.0;
     }
-    function rad_to_deg(rad) {
+    function radToDeg(rad) {
         return rad / Math.PI * 180.0;
     }
     var Editor = (function () {
-        function Editor(parent_dom_id, model_info_table, sprite_paths, defaultCamera, config) {
+        function Editor(parentDomId, modelInfoTable, spritePaths, defaultCamera, config) {
             var _this = this;
             if (defaultCamera === void 0) { defaultCamera = new CameraConfig(); }
             if (config === void 0) { config = new Config(); }
@@ -96,14 +96,14 @@ var PoseEditor;
             this.loadingDom = null;
             this.boneDebugDom = null;
             //
-            var parent_dom = document.getElementById(parent_dom_id);
-            this.target_dom = parent_dom ? parent_dom : document.body;
+            var parentDom = document.getElementById(parentDomId);
+            this.targetDom = parentDom ? parentDom : document.body;
             //
-            this.modelInfoTable = model_info_table;
-            this.spritePaths = sprite_paths;
+            this.modelInfoTable = modelInfoTable;
+            this.spritePaths = spritePaths;
             //
-            this.width = this.target_dom.offsetWidth;
-            this.height = this.target_dom.offsetHeight;
+            this.width = this.targetDom.offsetWidth;
+            this.height = this.targetDom.offsetHeight;
             this.fov = 60;
             this.aspect = this.width / this.height;
             this.near = 1;
@@ -120,24 +120,24 @@ var PoseEditor;
             //
             this.scene2d = new THREE.Scene();
             this.camera2d = new THREE.OrthographicCamera(0, this.width, 0, this.height, 0.001, 10000);
-            var prop_for_renderer = {
+            var propForRenderer = {
                 preserveDrawingBuffer: true
             };
-            prop_for_renderer.alpha = config.enableBackgroundAlpha;
+            propForRenderer.alpha = config.enableBackgroundAlpha;
             //
-            this.renderer = new THREE.WebGLRenderer(prop_for_renderer);
+            this.renderer = new THREE.WebGLRenderer(propForRenderer);
             this.renderer.setSize(this.width, this.height);
             this.renderer.autoClear = false;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
             //
-            this.target_dom.appendChild(this.renderer.domElement);
+            this.targetDom.appendChild(this.renderer.domElement);
             window.addEventListener('resize', function () { return _this.onResize(); }, false);
             //
             if (config.loadingImagePath) {
                 this.loadingDom = document.createElement("img");
                 this.loadingDom.src = config.loadingImagePath;
                 this.loadingDom.style.display = "none";
-                this.target_dom.appendChild(this.loadingDom);
+                this.targetDom.appendChild(this.loadingDom);
             }
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
@@ -150,7 +150,7 @@ var PoseEditor;
                 this.boneDebugDom.style.backgroundColor = "#fff";
                 this.boneDebugDom.style.opacity = "0.8";
                 this.boneDebugDom.style.width = "300px";
-                this.target_dom.appendChild(this.boneDebugDom);
+                this.targetDom.appendChild(this.boneDebugDom);
                 // debug
                 var axisHelper = new THREE.AxisHelper(50.0);
                 this.scene.add(axisHelper);
@@ -175,9 +175,9 @@ var PoseEditor;
             this.plane.visible = false;
             this.scene.add(this.plane);
             // ik target
-            var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
+            var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
             var material = new THREE.MeshBasicMaterial({ wireframe: true });
-            this.ikTargetSphere = new THREE.Mesh(sphere_geo, material);
+            this.ikTargetSphere = new THREE.Mesh(sphereGeo, material);
             this.ikTargetSphere.matrixWorldNeedsUpdate = true;
             this.ikTargetSphere.visible = false;
             this.scene.add(this.ikTargetSphere);
@@ -211,17 +211,17 @@ var PoseEditor;
             var sy = "<span style='color: #00ff00'>Y</span>";
             var sz = "<span style='color: blue'>Z</span>";
             this.boneDebugDom.innerHTML = "selected joint_id: " + index + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + rad_to_deg(bone.rotation.x) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + rad_to_deg(bone.rotation.y) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + rad_to_deg(bone.rotation.z) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + radToDeg(bone.rotation.x) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + radToDeg(bone.rotation.y) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + radToDeg(bone.rotation.z) + "<br>";
             var p_bone = bone.parent;
             if (p_bone) {
                 var p_index = p_bone.userData.index;
                 this.boneDebugDom.innerHTML += "<br>";
                 this.boneDebugDom.innerHTML += "parent joint_id: " + p_index + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + rad_to_deg(p_bone.rotation.x) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + rad_to_deg(p_bone.rotation.y) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + rad_to_deg(p_bone.rotation.z) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + radToDeg(p_bone.rotation.x) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + radToDeg(p_bone.rotation.y) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + radToDeg(p_bone.rotation.z) + "<br>";
             }
         };
         Editor.prototype.onControlsChange = function () {
@@ -392,8 +392,8 @@ var PoseEditor;
             }
         };
         Editor.prototype.onResize = function () {
-            var w = this.target_dom.offsetWidth;
-            var h = this.target_dom.offsetHeight;
+            var w = this.targetDom.offsetWidth;
+            var h = this.targetDom.offsetHeight;
             if (this.width == w && this.height == h) {
                 return false;
             }
@@ -415,7 +415,7 @@ var PoseEditor;
             var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
                 _this.decTask();
                 // default IK stopper node indexes
-                var nx = model_info.ik_stop_joints;
+                var nx = model_info.ikStopJoints;
                 nx.forEach(function (i) {
                     model.toggleIKPropagation(i);
                 });
@@ -637,8 +637,8 @@ var PoseEditor;
                     this.loadingDom.style.padding = "10px";
                     this.loadingDom.style.borderRadius = "5px";
                     this.loadingDom.style.backgroundColor = "#fff";
-                    var x = Math.abs(this.target_dom.offsetWidth - this.loadingDom.offsetWidth) / 2;
-                    var y = Math.abs(this.target_dom.offsetHeight - this.loadingDom.offsetHeight) / 2;
+                    var x = Math.abs(this.targetDom.offsetWidth - this.loadingDom.offsetWidth) / 2;
+                    var y = Math.abs(this.targetDom.offsetHeight - this.loadingDom.offsetHeight) / 2;
                     this.loadingDom.style.left = x + 'px';
                     this.loadingDom.style.top = y + 'px';
                 }
@@ -678,12 +678,12 @@ var PoseEditor;
             this.scene = scene;
             this.scene2d = scene2d;
             //
-            var mesh_path = model_info.model_path;
-            var texture_path = model_info.texture_dir;
-            var init_pos = model_info.init_pos;
-            var init_scale = model_info.init_scale;
-            if (model_info.marker_scale) {
-                this.markerScale = model_info.marker_scale;
+            var mesh_path = model_info.modelPath;
+            var texture_path = model_info.textureDir;
+            var init_pos = model_info.initPos;
+            var init_scale = model_info.initScale;
+            if (model_info.markerScale) {
+                this.markerScale = model_info.markerScale;
             }
             else {
                 this.markerScale = [12.0, 12.0];
@@ -729,8 +729,8 @@ var PoseEditor;
         Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
             var _this = this;
             //
-            var bone_limits = model_info.bone_limits;
-            var base_joint_id = model_info.base_joint_id;
+            var bone_limits = model_info.boneLimits;
+            var base_joint_id = model_info.baseJointId;
             //
             var default_cross_origin = THREE.ImageUtils.crossOrigin;
             THREE.ImageUtils.crossOrigin = '*';
@@ -751,18 +751,18 @@ var PoseEditor;
                     var rots = bone_limits[index];
                     if (rots[0] != null) {
                         bone.userData.rotLimit.x = true;
-                        bone.userData.rotMin.x = deg_to_rad(rots[0][0]);
-                        bone.userData.rotMax.x = deg_to_rad(rots[0][1]);
+                        bone.userData.rotMin.x = degToRad(rots[0][0]);
+                        bone.userData.rotMax.x = degToRad(rots[0][1]);
                     }
                     if (rots[1] != null) {
                         bone.userData.rotLimit.y = true;
-                        bone.userData.rotMin.y = deg_to_rad(rots[1][0]);
-                        bone.userData.rotMax.y = deg_to_rad(rots[1][1]);
+                        bone.userData.rotMin.y = degToRad(rots[1][0]);
+                        bone.userData.rotMax.y = degToRad(rots[1][1]);
                     }
                     if (rots[2] != null) {
                         bone.userData.rotLimit.z = true;
-                        bone.userData.rotMin.z = deg_to_rad(rots[2][0]);
-                        bone.userData.rotMax.z = deg_to_rad(rots[2][1]);
+                        bone.userData.rotMin.z = degToRad(rots[2][0]);
+                        bone.userData.rotMax.z = degToRad(rots[2][1]);
                     }
                 }
             });
