@@ -21,20 +21,33 @@ module PoseEditor {
         model_path: string;
         texture_dir: string;
         ik_stop_joints: Array<number>;
-        bone_limits: {[key: number]: Array<Array<number>>;}
+        bone_limits: {[key: number]: Array<Array<number>>;};
+        base_joint_id: number;
+        init_pos: Array<number>;
+        init_scale: Array<number>;
+        marker_scale: Array<number>;
     }
 
-    export class RotationLimitation {
+    export class CameraConfig {
+        position: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+        lookAt: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+    }
+
+    class RotationLimitation {
         x: boolean = false;
         y: boolean = false;
         z: boolean = false;
     }
+
+    function deg_to_rad(deg: number) { return deg * Math.PI / 180.0; }
+    function rad_to_deg(rad: number) { return rad / Math.PI * 180.0; }
 
     export class Editor {
         constructor(
             parent_dom_id: string,
             model_info_table: {[key: string]: ModelInfo;},
             sprite_paths: SpritePaths,
+            defaultCamera: CameraConfig = new CameraConfig(),
             config: Config = new Config()
         ) {
             //
@@ -56,7 +69,7 @@ module PoseEditor {
             //
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
-            this.camera.position.set(0, 9, 32);
+            this.camera.position.copy(defaultCamera.position);
 
             this.directionalLight = new THREE.DirectionalLight(0xffffff);
             this.directionalLight.position.set(0, 0.7, 0.7);
@@ -93,15 +106,21 @@ module PoseEditor {
                 this.target_dom.appendChild(this.loadingDom);
             }
 
+            this.gridHelper = new THREE.GridHelper(50.0, 5.0);
+            this.scene.add(this.gridHelper);
+
             if ( config.isDebugging ) {
                 // bone: debug information tag
                 this.boneDebugDom = document.createElement("div");
                 this.boneDebugDom.style.display = "none";
+                this.boneDebugDom.style.position = "absolute";
+                this.boneDebugDom.style.padding = "0";
+                this.boneDebugDom.style.backgroundColor = "#fff";
+                this.boneDebugDom.style.opacity = "0.8";
+                this.boneDebugDom.style.width = "300px";
                 this.target_dom.appendChild(this.boneDebugDom);
 
                 // debug
-                var gridHelper = new THREE.GridHelper(50.0, 5.0);
-                this.scene.add(gridHelper);
                 var axisHelper = new THREE.AxisHelper(50.0);
                 this.scene.add(axisHelper);
             }
@@ -118,6 +137,8 @@ module PoseEditor {
             //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.damping = 0.2;
+            this.controls.target.copy(defaultCamera.lookAt);
+            this.controls.update();
             //this.controls.enabled = true;
             this.controls.addEventListener('change', () => this.onControlsChange() );
 
@@ -165,23 +186,32 @@ module PoseEditor {
         private updateBoneDebugInfo(model: Model, index: number) {
             var bone = model.mesh.skeleton.bones[index];
 
+            console.log(bone.position);
+
+            var pos = new THREE.Vector3();
+            pos.setFromMatrixPosition(bone.matrixWorld);
+            var pos2d = this.worldToScreen(pos);
+
+            this.boneDebugDom.style.left = "" + (pos2d.x + 40) + "px";
+            this.boneDebugDom.style.top = "" + (pos2d.y + 80) + "px";
+
             var sx = "<span style='color: red'>X</span>";
             var sy = "<span style='color: #00ff00'>Y</span>";
             var sz = "<span style='color: blue'>Z</span>";
 
             this.boneDebugDom.innerHTML  = "selected joint_id: " + index + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + bone.rotation.x + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + bone.rotation.y + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + bone.rotation.z + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + rad_to_deg(bone.rotation.x) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + rad_to_deg(bone.rotation.y) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + rad_to_deg(bone.rotation.z) + "<br>";
 
             var p_bone = <THREE.Bone>bone.parent;
             if ( p_bone ) {
                 var p_index = p_bone.userData.index;
                 this.boneDebugDom.innerHTML += "<br>";
                 this.boneDebugDom.innerHTML += "parent joint_id: " + p_index + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + p_bone.rotation.x + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + p_bone.rotation.y + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + p_bone.rotation.z + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + rad_to_deg(p_bone.rotation.x) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + rad_to_deg(p_bone.rotation.y) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + rad_to_deg(p_bone.rotation.z) + "<br>";
             }
         }
 
@@ -318,11 +348,7 @@ module PoseEditor {
 
                 if ( this.config.isDebugging ) {
                     // set debug view
-                    this.boneDebugDom.style.display = "inline";
-                    this.boneDebugDom.style.position = 'absolute';
-                    this.boneDebugDom.style.padding = "10px";
-                    this.boneDebugDom.style.top = "10px";
-                    this.boneDebugDom.style.left = "10px";
+                    this.boneDebugDom.style.display = "block";
 
                     this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
                 }
@@ -473,7 +499,8 @@ module PoseEditor {
 
         private moveCharactor(model: Model, target_pos: THREE.Vector3) {
             var pos = target_pos.clone();
-            pos.y -= model.offsetOrgToBone.y;
+            pos.sub(model.offsetOrgToBone);
+
             model.mesh.position.copy(pos);
         }
 
@@ -832,6 +859,9 @@ module PoseEditor {
         private ikTargetSphere: THREE.Mesh; // for debugging
 
         //
+        private gridHelper: THREE.GridHelper;
+
+        //
         private dragging = false;
         private dragStart = false;
 
@@ -871,7 +901,13 @@ module PoseEditor {
             //
             var mesh_path = model_info.model_path;
             var texture_path = model_info.texture_dir;
-            var bone_limits = model_info.bone_limits;
+            var init_pos = model_info.init_pos;
+            var init_scale = model_info.init_scale;
+            if ( model_info.marker_scale ) {
+                this.markerScale = model_info.marker_scale;
+            } else {
+                this.markerScale = [12.0, 12.0];
+            }
 
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
@@ -902,22 +938,31 @@ module PoseEditor {
 
                 // create mesh data
                 this.mesh = new THREE.SkinnedMesh(geometry, material, false);
-                this.mesh.scale.set(3, 3, 3);
-                this.mesh.position.y = -18;
+                if ( init_pos ) {
+                    this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
+                }
+                if ( init_scale ) {
+                    this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
+                }
 
                 this.scene.add(this.mesh);
 
                 //
-                this.setupAppendixData(sprite_paths, bone_limits, callback);
+                this.setupAppendixData(sprite_paths, model_info, callback);
 
             }, texture_path);
         }
 
         private setupAppendixData(
             sprite_paths: SpritePaths,
-            bone_limits: {[key: number]: Array<Array<number>>;},
+            model_info: ModelInfo,
             callback: (m: Model, error: string) => void
         ) {
+            //
+            var bone_limits = model_info.bone_limits;
+            var base_joint_id = model_info.base_joint_id;
+
+            //
             var default_cross_origin = THREE.ImageUtils.crossOrigin;
             THREE.ImageUtils.crossOrigin = '*';
 
@@ -941,28 +986,29 @@ module PoseEditor {
 
                     if ( rots[0] != null ) {
                         bone.userData.rotLimit.x = true;
-                        bone.userData.rotMin.x = rots[0][0];
-                        bone.userData.rotMax.x = rots[0][1];
+                        bone.userData.rotMin.x = deg_to_rad(rots[0][0]);
+                        bone.userData.rotMax.x = deg_to_rad(rots[0][1]);
                     }
 
                     if ( rots[1] != null ) {
                         bone.userData.rotLimit.y = true;
-                        bone.userData.rotMin.y = rots[1][0];
-                        bone.userData.rotMax.y = rots[1][1];
+                        bone.userData.rotMin.y = deg_to_rad(rots[1][0]);
+                        bone.userData.rotMax.y = deg_to_rad(rots[1][1]);
                     }
 
                     if ( rots[2] != null ) {
                         bone.userData.rotLimit.z = true;
-                        bone.userData.rotMin.z = rots[2][0];
-                        bone.userData.rotMax.z = rots[2][1];
+                        bone.userData.rotMin.z = deg_to_rad(rots[2][0]);
+                        bone.userData.rotMax.z = deg_to_rad(rots[2][1]);
                     }
                 }
             });
 
+            this.scene.updateMatrixWorld(true);
+
             //
             this.offsetOrgToBone
-                = this.mesh.skeleton.bones[0].getWorldPosition(null).sub(this.mesh.position);
-            this.offsetOrgToBone.sub(this.mesh.skeleton.bones[0].position);
+                = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
 
             // load textures(marker for bone)
             this.joint_markers = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
@@ -979,7 +1025,7 @@ module PoseEditor {
 
             this.mesh.skeleton.bones.forEach((bone, index) => {
                 var sprite = new THREE.Sprite(this.normalMarkerMat.clone());
-                sprite.scale.set(12.0, 12.0, 1);
+                sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
 
                 this.joint_markers[index] = sprite;
                 this.scene2d.add(sprite);
@@ -1076,7 +1122,7 @@ module PoseEditor {
                 sprite = new THREE.Sprite(this.normalMarkerMat.clone());
             }
 
-            sprite.scale.set(12.0, 12.0, 1);
+            sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
             this.joint_markers[bone_index] = sprite;
             this.scene2d.add(sprite);
 
@@ -1140,5 +1186,8 @@ module PoseEditor {
         //
         joint_markers: Array<THREE.Sprite> = [];
         joint_spheres: Array<THREE.Mesh> = [];
+
+        //
+        private markerScale: Array<number>;
     }
 }
