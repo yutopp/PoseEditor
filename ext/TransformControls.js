@@ -40,6 +40,7 @@
 	};
 
 	GizmoMaterial.prototype = Object.create( THREE.MeshBasicMaterial.prototype );
+	GizmoMaterial.prototype.constructor = GizmoMaterial;
 
 	var GizmoLineMaterial = function ( parameters ) {
 
@@ -48,7 +49,7 @@
 		this.depthTest = false;
 		this.depthWrite = false;
 		this.transparent = true;
-		this.linewidth = 3;
+		this.linewidth = 1;
 
 		this.setValues( parameters );
 
@@ -74,6 +75,7 @@
 	};
 
 	GizmoLineMaterial.prototype = Object.create( THREE.LineBasicMaterial.prototype );
+	GizmoLineMaterial.prototype.constructor = GizmoLineMaterial;
 
 	THREE.TransformGizmo = function () {
 
@@ -194,6 +196,7 @@
 	};
 
 	THREE.TransformGizmo.prototype = Object.create( THREE.Object3D.prototype );
+	THREE.TransformGizmo.prototype.constructor = THREE.TransformGizmo;
 
 	THREE.TransformGizmo.prototype.update = function ( rotation, eye ) {
 
@@ -320,6 +323,7 @@
 	};
 
 	THREE.TransformGizmoTranslate.prototype = Object.create( THREE.TransformGizmo.prototype );
+	THREE.TransformGizmoTranslate.prototype.constructor = THREE.TransformGizmoTranslate;
 
 	THREE.TransformGizmoRotate = function () {
 
@@ -446,6 +450,7 @@
 	};
 
 	THREE.TransformGizmoRotate.prototype = Object.create( THREE.TransformGizmo.prototype );
+	THREE.TransformGizmoRotate.prototype.constructor = THREE.TransformGizmoRotate;
 
 	THREE.TransformGizmoScale = function () {
 
@@ -532,6 +537,7 @@
 	};
 
 	THREE.TransformGizmoScale.prototype = Object.create( THREE.TransformGizmo.prototype );
+	THREE.TransformGizmoScale.prototype.constructor = THREE.TransformGizmoScale;
 
 	THREE.TransformControls = function ( camera, domElement ) {
 
@@ -568,6 +574,9 @@
 		var _plane = "XY";
 
 		var changeEvent = { type: "change" };
+		var mouseDownEvent = { type: "mouseDown" };
+		var mouseUpEvent = { type: "mouseUp", mode: _mode };
+		var objectChangeEvent = { type: "objectChange" };
 
 		var ray = new THREE.Raycaster();
 		var pointerVector = new THREE.Vector3();
@@ -639,7 +648,7 @@
 		this.detach = function ( object ) {
 
 			scope.object = undefined;
-			this.axis = undefined;
+			this.axis = null;
 
 			this.gizmo["translate"].hide();
 			this.gizmo["rotate"].hide();
@@ -723,15 +732,17 @@
 
 			var intersect = intersectObjects( pointer, scope.gizmo[_mode].pickers.children );
 
+			var axis = null;
+
 			if ( intersect ) {
 
-				scope.axis = intersect.object.name;
-				scope.update();
-				scope.dispatchEvent( changeEvent );
+				axis = intersect.object.name;
 
-			} else if ( scope.axis !== null ) {
+			}
 
-				scope.axis = null;
+			if ( scope.axis !== axis ) {
+
+				scope.axis = axis;
 				scope.update();
 				scope.dispatchEvent( changeEvent );
 
@@ -753,6 +764,8 @@
 				var intersect = intersectObjects( pointer, scope.gizmo[_mode].pickers.children );
 
 				if ( intersect ) {
+
+					scope.dispatchEvent( mouseDownEvent );
 
 					scope.axis = intersect.object.name;
 
@@ -948,11 +961,16 @@
 
 			scope.update();
 			scope.dispatchEvent( changeEvent );
+			scope.dispatchEvent( objectChangeEvent );
 
 		}
 
 		function onPointerUp( event ) {
 
+			if ( _dragging && ( scope.axis !== null ) ) {
+				mouseUpEvent.mode = _mode;
+				scope.dispatchEvent( mouseUpEvent )
+			}
 			_dragging = false;
 			onPointerHover( event );
 
@@ -961,11 +979,12 @@
 		function intersectObjects( pointer, objects ) {
 
 			var rect = domElement.getBoundingClientRect();
-			var x = (pointer.clientX - rect.left) / rect.width;
-			var y = (pointer.clientY - rect.top) / rect.height;
-			pointerVector.set( ( x ) * 2 - 1, - ( y ) * 2 + 1, 0.5 );
+			var x = ( pointer.clientX - rect.left ) / rect.width;
+			var y = ( pointer.clientY - rect.top ) / rect.height;
 
+			pointerVector.set( ( x * 2 ) - 1, - ( y * 2 ) + 1, 0.5 );
 			pointerVector.unproject( camera );
+
 			ray.set( camPosition, pointerVector.sub( camPosition ).normalize() );
 
 			var intersections = ray.intersectObjects( objects, true );
@@ -976,5 +995,6 @@
 	};
 
 	THREE.TransformControls.prototype = Object.create( THREE.Object3D.prototype );
+	THREE.TransformControls.prototype.constructor = THREE.TransformControls;
 
 }());

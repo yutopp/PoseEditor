@@ -8,6 +8,9 @@
     "threejs/three.d.ts": {
       "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
     },
+    "threejs/three-orbitcontrols.d.ts": {
+      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
+    },
     "jquery/jquery.d.ts": {
       "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
     },
