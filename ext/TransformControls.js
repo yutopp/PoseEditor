@@ -922,6 +922,8 @@
 					tempVector.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
 
 					rotation.set( Math.atan2( point.z, point.y ), Math.atan2( point.x, point.z ), Math.atan2( point.y, point.x ) );
+
+
 					offsetRotation.set( Math.atan2( tempVector.z, tempVector.y ), Math.atan2( tempVector.x, tempVector.z ), Math.atan2( tempVector.y, tempVector.x ) );
 
 					quaternionXYZ.setFromRotationMatrix( oldRotationMatrix );

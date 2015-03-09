@@ -1,7 +1,4 @@
 /// <reference path="../typings/threejs/three.d.ts"/>
-/// <reference path="../typings/jquery/jquery.d.ts"/>
-/// <reference path="../ext/TransformControls.d.ts"/>
-/// <reference path="../ext/OrbitControls.d.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
     var Config = (function () {
@@ -35,6 +32,19 @@ var PoseEditor;
         return CameraConfig;
     })();
     PoseEditor.CameraConfig = CameraConfig;
+    function degToRad(deg) {
+        return deg * Math.PI / 180.0;
+    }
+    PoseEditor.degToRad = degToRad;
+    function radToDeg(rad) {
+        return rad / Math.PI * 180.0;
+    }
+    PoseEditor.radToDeg = radToDeg;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="etc.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
     var RotationLimitation = (function () {
         function RotationLimitation() {
             this.x = false;
@@ -43,21 +53,453 @@ var PoseEditor;
         }
         return RotationLimitation;
     })();
-    function degToRad(deg) {
-        return deg * Math.PI / 180.0;
-    }
-    function radToDeg(rad) {
-        return rad / Math.PI * 180.0;
-    }
+    var Model = (function () {
+        function Model(name, model_info, sprite_paths, scene, scene2d, callback) {
+            var _this = this;
+            //
+            this.ready = false;
+            //
+            this.showingMarker = true;
+            //
+            this.selectedColor = 0xff0000;
+            this.normalColor = 0x0000ff;
+            //
+            this.mesh = null;
+            //
+            this.joint_markers = [];
+            this.joint_spheres = [];
+            //
+            this.name = name;
+            //
+            this.scene = scene;
+            this.scene2d = scene2d;
+            //
+            var mesh_path = model_info.modelPath;
+            var texture_path = model_info.textureDir;
+            var init_pos = model_info.initPos;
+            var init_scale = model_info.initScale;
+            if (model_info.markerScale) {
+                this.markerScale = model_info.markerScale;
+            }
+            else {
+                this.markerScale = [12.0, 12.0];
+            }
+            var loader = new THREE.JSONLoader();
+            loader.crossOrigin = '*';
+            // load mesh data from path
+            loader.load(mesh_path, function (geometry, materials) {
+                //console.log("finished to load");
+                // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
+                var material;
+                if (materials !== undefined) {
+                    if (materials.length > 1) {
+                        material = new THREE.MeshFaceMaterial(materials);
+                        material.materials.forEach(function (mat) {
+                            mat.skinning = true;
+                        });
+                    }
+                    else {
+                        material = materials[0];
+                        material.setValues({ skinning: true });
+                    }
+                }
+                else {
+                    material = new THREE.MeshLambertMaterial({
+                        color: 0xffffff,
+                        skinning: true
+                    });
+                }
+                // create mesh data
+                _this.mesh = new THREE.SkinnedMesh(geometry, material, false);
+                if (init_pos) {
+                    _this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
+                }
+                if (init_scale) {
+                    _this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
+                }
+                _this.scene.add(_this.mesh);
+                //
+                _this.setupAppendixData(sprite_paths, model_info, callback);
+            }, texture_path);
+        }
+        Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
+            var _this = this;
+            //
+            var bone_limits = model_info.boneLimits;
+            var base_joint_id = model_info.baseJointId;
+            //
+            var default_cross_origin = THREE.ImageUtils.crossOrigin;
+            THREE.ImageUtils.crossOrigin = '*';
+            //
+            this.mesh.skeleton.bones.forEach(function (bone, index) {
+                bone.matrixWorldNeedsUpdate = true;
+                bone.updateMatrixWorld(true);
+                bone.userData = {
+                    index: index,
+                    preventIKPropagation: false,
+                    rotLimit: new RotationLimitation(),
+                    rotMin: null,
+                    rotMax: null
+                };
+                if (index in bone_limits) {
+                    bone.userData.rotMin = new THREE.Euler();
+                    bone.userData.rotMax = new THREE.Euler();
+                    var rots = bone_limits[index];
+                    if (rots[0] != null) {
+                        bone.userData.rotLimit.x = true;
+                        bone.userData.rotMin.x = PoseEditor.degToRad(rots[0][0]);
+                        bone.userData.rotMax.x = PoseEditor.degToRad(rots[0][1]);
+                    }
+                    if (rots[1] != null) {
+                        bone.userData.rotLimit.y = true;
+                        bone.userData.rotMin.y = PoseEditor.degToRad(rots[1][0]);
+                        bone.userData.rotMax.y = PoseEditor.degToRad(rots[1][1]);
+                    }
+                    if (rots[2] != null) {
+                        bone.userData.rotLimit.z = true;
+                        bone.userData.rotMin.z = PoseEditor.degToRad(rots[2][0]);
+                        bone.userData.rotMax.z = PoseEditor.degToRad(rots[2][1]);
+                    }
+                }
+            });
+            this.scene.updateMatrixWorld(true);
+            //
+            this.offsetOrgToBone = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
+            // load textures(marker for bone)
+            this.joint_markers = new Array(this.mesh.skeleton.bones.length);
+            this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
+            this.normalMarkerMat = new THREE.SpriteMaterial({
+                map: this.normalMarkerTex,
+                color: this.normalColor
+            });
+            this.specialMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.special);
+            this.specialMarkerMat = new THREE.SpriteMaterial({
+                map: this.specialMarkerTex,
+                color: this.normalColor
+            });
+            this.mesh.skeleton.bones.forEach(function (bone, index) {
+                var sprite = new THREE.Sprite(_this.normalMarkerMat.clone());
+                sprite.scale.set(_this.markerScale[0], _this.markerScale[1], 1);
+                _this.joint_markers[index] = sprite;
+                _this.scene2d.add(sprite);
+            });
+            // make sphere objects(attached by transform ctrl)
+            this.mesh.skeleton.bones.forEach(function (bone, index) {
+                //var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
+                //var material = new THREE.MeshBasicMaterial({wireframe: true});
+                //var sphere = new THREE.Mesh(sphere_geo, material);
+                var sphere = new THREE.AxisHelper(2.0);
+                sphere.matrixWorldNeedsUpdate = true;
+                sphere.userData = {
+                    jointIndex: index,
+                    ownerModel: _this
+                };
+                sphere.visible = true;
+                _this.joint_spheres.push(sphere);
+                _this.scene.add(sphere);
+            });
+            THREE.ImageUtils.crossOrigin = default_cross_origin;
+            this.ready = true;
+            if (callback) {
+                callback(this, null);
+            }
+        };
+        Model.prototype.destruct = function () {
+            var _this = this;
+            this.ready = false;
+            this.scene.remove(this.mesh);
+            this.joint_markers.forEach(function (m) {
+                _this.scene2d.remove(m);
+            });
+            this.joint_spheres.forEach(function (m) {
+                _this.scene.remove(m);
+            });
+        };
+        Model.prototype.isReady = function () {
+            return this.ready;
+        };
+        Model.prototype.modelData = function () {
+            var joints = this.mesh.skeleton.bones.map(function (bone) {
+                return {
+                    q: bone.quaternion
+                };
+            });
+            return {
+                name: this.name,
+                position: this.mesh.position,
+                q: this.mesh.quaternion,
+                joints: joints
+            };
+        };
+        Model.prototype.loadModelData = function (data) {
+            if (!this.ready) {
+                return;
+            }
+            var p = data.position;
+            var q = data.q;
+            var joints = data.joints;
+            for (var key in joints) {
+                var joint = joints[key];
+                var t_q = joint.q;
+                var s_q = this.mesh.skeleton.bones[key].quaternion;
+                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
+            }
+            this.mesh.position.set(p.x, p.y, p.z);
+            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
+        };
+        Model.prototype.toggleIKPropagation = function (bone_index) {
+            var bone = this.mesh.skeleton.bones[bone_index];
+            bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
+            var old_sprite = this.joint_markers[bone_index];
+            var sprite = null;
+            if (bone.userData.preventIKPropagation) {
+                sprite = new THREE.Sprite(this.specialMarkerMat.clone());
+            }
+            else {
+                sprite = new THREE.Sprite(this.normalMarkerMat.clone());
+            }
+            sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
+            this.joint_markers[bone_index] = sprite;
+            this.scene2d.add(sprite);
+            this.scene2d.remove(old_sprite);
+        };
+        Model.prototype.hideMarker = function () {
+            this.showingMarker = false;
+            this.setMarkerVisibility(this.showingMarker);
+        };
+        Model.prototype.showMarker = function () {
+            this.showingMarker = true;
+            this.setMarkerVisibility(this.showingMarker);
+        };
+        Model.prototype.toggleMarker = function () {
+            this.showingMarker = !this.showingMarker;
+            this.setMarkerVisibility(this.showingMarker);
+        };
+        Model.prototype.setMarkerVisibility = function (showing) {
+            this.joint_markers.forEach(function (marker) {
+                marker.visible = showing;
+            });
+        };
+        Model.prototype.getMarkerVisibility = function () {
+            return this.showingMarker;
+        };
+        return Model;
+    })();
+    PoseEditor.Model = Model;
+})(PoseEditor || (PoseEditor = {}));
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        (function (Mode) {
+            Mode[Mode["Camera"] = 0] = "Camera";
+            Mode[Mode["Move"] = 1] = "Move";
+            Mode[Mode["FK"] = 2] = "FK";
+            Mode[Mode["IK"] = 3] = "IK";
+        })(Screen.Mode || (Screen.Mode = {}));
+        var Mode = Screen.Mode;
+        var ScreenController = (function () {
+            function ScreenController(parentDomId, config) {
+                var _this = this;
+                this.modeChangerDom = [];
+                //
+                this.events = {};
+                //
+                this.loadingDom = null;
+                //
+                var parentDom = document.getElementById(parentDomId);
+                this.targetDom = parentDom ? parentDom : document.body;
+                //
+                this.width = this.targetDom.offsetWidth;
+                this.height = this.targetDom.offsetHeight;
+                this.aspect = this.width / this.height;
+                //
+                if (config.loadingImagePath) {
+                    this.loadingDom = document.createElement("img");
+                    this.loadingDom.src = config.loadingImagePath;
+                    this.loadingDom.style.display = "none";
+                    this.targetDom.appendChild(this.loadingDom);
+                }
+                // tmp
+                this.addButton('camera', 0 /* Camera */);
+                this.addButton('move', 1 /* Move */);
+                this.addButton('fk', 2 /* FK */);
+                this.addButton('ik', 3 /* IK */);
+                //
+                window.addEventListener('resize', function () { return _this.onResize(); }, false);
+            }
+            ScreenController.prototype.appendChild = function (dom) {
+                this.targetDom.appendChild(dom);
+            };
+            ScreenController.prototype.onResize = function () {
+                var w = this.targetDom.offsetWidth;
+                var h = this.targetDom.offsetHeight;
+                if (this.width == w && this.height == h) {
+                    return false;
+                }
+                // update size
+                this.width = w;
+                this.height = h;
+                this.aspect = this.width / this.height;
+                //
+                this.dispatchCallback('resize');
+                return false;
+            };
+            ScreenController.prototype.showLoadingDom = function () {
+                if (this.loadingDom.style) {
+                    this.loadingDom.style.display = "inline";
+                    this.loadingDom.style.position = 'absolute';
+                    this.loadingDom.style.padding = "10px";
+                    this.loadingDom.style.borderRadius = "5px";
+                    this.loadingDom.style.backgroundColor = "#fff";
+                    var x = Math.abs(this.targetDom.offsetWidth - this.loadingDom.offsetWidth) / 2;
+                    var y = Math.abs(this.targetDom.offsetHeight - this.loadingDom.offsetHeight) / 2;
+                    this.loadingDom.style.left = x + 'px';
+                    this.loadingDom.style.top = y + 'px';
+                }
+            };
+            ScreenController.prototype.hideLoadingDom = function () {
+                if (this.loadingDom.style) {
+                    this.loadingDom.style.display = "none";
+                }
+            };
+            ScreenController.prototype.addButton = function (title, m) {
+                var _this = this;
+                var dom = document.createElement("input");
+                dom.type = "button";
+                dom.value = title;
+                dom.addEventListener("click", function () {
+                    _this.dispatchCallback("onmodeclick", m);
+                });
+                this.targetDom.appendChild(dom);
+                this.modeChangerDom.push(dom);
+            };
+            ScreenController.prototype.addCallback = function (type, f) {
+                if (this.events[type] == null) {
+                    this.events[type] = [];
+                }
+                this.events[type].push(f);
+            };
+            ScreenController.prototype.dispatchCallback = function (type) {
+                var args = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    args[_i - 1] = arguments[_i];
+                }
+                if (this.events[type] != null) {
+                    this.events[type].forEach(function (f) {
+                        f.apply({}, args);
+                    });
+                }
+            };
+            return ScreenController;
+        })();
+        Screen.ScreenController = ScreenController;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../typings/threejs/three-orbitcontrols.d.ts"/>
+/// <reference path="../ext/TransformControls.d.ts"/>
+/// <reference path="screen.ts"/>
+/// <reference path="model.ts"/>
+/// <reference path="etc.ts"/>
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var PoseEditor;
+(function (PoseEditor) {
+    var Action = (function () {
+        function Action(e) {
+            this.editor = e;
+        }
+        Action.prototype.onActive = function (before) {
+            console.log("base::onActive");
+        };
+        Action.prototype.onDestroy = function () {
+            console.log("base::onDestroy");
+        };
+        Action.prototype.onTapStart = function (e, isTouch) {
+        };
+        Action.prototype.onMoving = function (e, isTouch) {
+        };
+        Action.prototype.onTapEnd = function (e, isTouch) {
+        };
+        return Action;
+    })();
+    var CameraAction = (function (_super) {
+        __extends(CameraAction, _super);
+        function CameraAction(e, c) {
+            _super.call(this, e);
+            this.controls = c;
+        }
+        CameraAction.prototype.onActive = function (before) {
+            this.controls.enabled = true;
+        };
+        CameraAction.prototype.onDestroy = function () {
+            this.controls.enabled = false;
+        };
+        return CameraAction;
+    })(Action);
+    var MoveAction = (function (_super) {
+        __extends(MoveAction, _super);
+        function MoveAction(e) {
+            _super.call(this, e);
+        }
+        return MoveAction;
+    })(Action);
+    var FKAction = (function (_super) {
+        __extends(FKAction, _super);
+        function FKAction(e) {
+            _super.call(this, e);
+        }
+        FKAction.prototype.onTapStart = function (e, isTouch) {
+            this.selectedMarker = this.editor.boneRay(e, isTouch);
+        };
+        FKAction.prototype.onMoving = function (e, isTouch) {
+        };
+        FKAction.prototype.onTapEnd = function (e, isTouch) {
+        };
+        return FKAction;
+    })(Action);
+    var IKAction = (function (_super) {
+        __extends(IKAction, _super);
+        function IKAction(e) {
+            _super.call(this, e);
+        }
+        return IKAction;
+    })(Action);
     var Editor = (function () {
         function Editor(parentDomId, modelInfoTable, spritePaths, defaultCamera, config) {
             var _this = this;
-            if (defaultCamera === void 0) { defaultCamera = new CameraConfig(); }
-            if (config === void 0) { config = new Config(); }
+            if (defaultCamera === void 0) { defaultCamera = new PoseEditor.CameraConfig(); }
+            if (config === void 0) { config = new PoseEditor.Config(); }
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.scene.updateMatrixWorld(true);
                 _this.scene2d.updateMatrixWorld(true);
+                {
+                    var model = _this.models[0];
+                    if (model && model.isReady()) {
+                        var bone = model.mesh.skeleton.bones[14];
+                        //console.log(bone.rotation);
+                        if (_this.selectedSphere != null) {
+                            //bone.rotation.y += 0.01;
+                            bone.updateMatrixWorld(true);
+                            var bone_q = bone.getWorldQuaternion(null);
+                            // local rotation
+                            var t_r = bone.quaternion.clone();
+                            bone.quaternion.set(0, 0, 0, 0);
+                            bone.updateMatrixWorld(true);
+                            var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
+                            bone.quaternion.copy(t_r);
+                            bone.updateMatrixWorld(true);
+                            // update bone quaternion
+                            var to_q = w_to_l_comp_q.multiply(bone_q).normalize();
+                        }
+                    }
+                }
                 _this.models.forEach(function (model) {
                     if (model.isReady()) {
                         if (_this.dragging && model == _this.selectedSphere.userData.ownerModel) {
@@ -93,24 +535,20 @@ var PoseEditor;
             this.selectedSphere = null;
             //
             this.loadingTasks = 0;
-            this.loadingDom = null;
             this.boneDebugDom = null;
-            //
-            var parentDom = document.getElementById(parentDomId);
-            this.targetDom = parentDom ? parentDom : document.body;
+            this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
+            this.screen.addCallback('resize', function () { return _this.onResize(); });
+            this.screen.addCallback('onmodeclick', function (m) { return _this.onModeClick(m); });
             //
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
             //
-            this.width = this.targetDom.offsetWidth;
-            this.height = this.targetDom.offsetHeight;
             this.fov = 60;
-            this.aspect = this.width / this.height;
             this.near = 1;
             this.far = 1000;
             //
             this.scene = new THREE.Scene();
-            this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
+            this.camera = new THREE.PerspectiveCamera(this.fov, this.screen.aspect, this.near, this.far);
             this.camera.position.copy(defaultCamera.position);
             this.directionalLight = new THREE.DirectionalLight(0xffffff);
             this.directionalLight.position.set(0, 0.7, 0.7);
@@ -119,26 +557,18 @@ var PoseEditor;
             this.scene.add(this.ambientLight);
             //
             this.scene2d = new THREE.Scene();
-            this.camera2d = new THREE.OrthographicCamera(0, this.width, 0, this.height, 0.001, 10000);
+            this.camera2d = new THREE.OrthographicCamera(0, this.screen.width, 0, this.screen.height, 0.001, 10000);
             var propForRenderer = {
                 preserveDrawingBuffer: true
             };
             propForRenderer.alpha = config.enableBackgroundAlpha;
             //
             this.renderer = new THREE.WebGLRenderer(propForRenderer);
-            this.renderer.setSize(this.width, this.height);
+            this.renderer.setSize(this.screen.width, this.screen.height);
             this.renderer.autoClear = false;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
             //
-            this.targetDom.appendChild(this.renderer.domElement);
-            window.addEventListener('resize', function () { return _this.onResize(); }, false);
-            //
-            if (config.loadingImagePath) {
-                this.loadingDom = document.createElement("img");
-                this.loadingDom.src = config.loadingImagePath;
-                this.loadingDom.style.display = "none";
-                this.targetDom.appendChild(this.loadingDom);
-            }
+            this.screen.appendChild(this.renderer.domElement);
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
             if (config.isDebugging) {
@@ -150,7 +580,7 @@ var PoseEditor;
                 this.boneDebugDom.style.backgroundColor = "#fff";
                 this.boneDebugDom.style.opacity = "0.8";
                 this.boneDebugDom.style.width = "300px";
-                this.targetDom.appendChild(this.boneDebugDom);
+                this.screen.targetDom.appendChild(this.boneDebugDom);
                 // debug
                 var axisHelper = new THREE.AxisHelper(50.0);
                 this.scene.add(axisHelper);
@@ -165,10 +595,9 @@ var PoseEditor;
             this.scene.add(this.transformCtrl);
             //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-            this.controls.damping = 0.2;
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
-            //this.controls.enabled = true;
+            this.controls.enabled = false;
             this.controls.addEventListener('change', function () { return _this.onControlsChange(); });
             // plane model
             this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.0, transparent: true }));
@@ -182,26 +611,66 @@ var PoseEditor;
             this.ikTargetSphere.visible = false;
             this.scene.add(this.ikTargetSphere);
             if (config.isDebugging) {
-                this.ikTargetSphere.visible = true;
             }
             // save Config
             this.config = config;
-            //
-            this.renderer.domElement.addEventListener('mousedown', function (e) { return _this.boneRay(e, false); }, false);
-            this.renderer.domElement.addEventListener('touchstart', function (e) { return _this.boneRay(e, true); }, false);
-            this.renderer.domElement.addEventListener('mousemove', function (e) { return _this.moving(e, false); }, false);
-            this.renderer.domElement.addEventListener('touchmove', function (e) { return _this.moving(e, true); }, false);
-            this.renderer.domElement.addEventListener('mouseup', function () { return _this.endDragging(); }, false);
-            this.renderer.domElement.addEventListener('mouseleave', function () { return _this.endDragging(); }, false);
-            this.renderer.domElement.addEventListener('touchend', function () { return _this.endDragging(); }, false);
-            this.renderer.domElement.addEventListener('touchcancel', function () { return _this.endDragging(); }, false);
-            this.renderer.domElement.addEventListener('dblclick', function () { return _this.toggleIKStopper(); }, false);
-            //
+            {
+                var rf = this.renderer.domElement.addEventListener;
+                rf('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
+                rf('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
+                rf('mousemove', function (e) { return _this.onMoving(e, false); }, false);
+                rf('touchmove', function (e) { return _this.onMoving(e, true); }, false);
+                rf('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
+                rf('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
+                rf('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
+                rf('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
+                rf('dblclick', function () { return _this.toggleIKStopper(); }, false);
+            }
+            // initialize mode
+            this.currentMode = 2 /* FK */;
+            this.onModeClick(this.currentMode);
+            // jump into loop
             this.renderLoop();
         }
+        Editor.prototype.onModeClick = function (mode) {
+            console.log(mode, this.currentAction);
+            var beforeAction = this.currentAction;
+            if (beforeAction != null) {
+                beforeAction.onDestroy();
+            }
+            this.currentMode = mode;
+            switch (this.currentMode) {
+                case 0 /* Camera */:
+                    this.currentAction = new CameraAction(this, this.controls);
+                    break;
+                case 1 /* Move */:
+                    this.currentAction = new MoveAction(this);
+                    break;
+                case 2 /* FK */:
+                    this.currentAction = new FKAction(this);
+                    break;
+                case 3 /* IK */:
+                    this.currentAction = new IKAction(this);
+                    break;
+                default:
+                    console.error('unexpected mode');
+            }
+            console.log("->", this.currentAction);
+            this.currentAction.onActive(beforeAction);
+            console.log("->", this.currentAction);
+        };
+        Editor.prototype.onTapStart = function (e, isTouch) {
+            this.currentAction.onTapStart(e, isTouch);
+        };
+        Editor.prototype.onMoving = function (e, isTouch) {
+            this.currentAction.onMoving(e, isTouch);
+        };
+        Editor.prototype.onTapEnd = function (e, isTouch) {
+            this.currentAction.onTapEnd(e, isTouch);
+        };
         Editor.prototype.updateBoneDebugInfo = function (model, index) {
             var bone = model.mesh.skeleton.bones[index];
-            console.log(bone.position);
+            // console.log(bone.position);
             var pos = new THREE.Vector3();
             pos.setFromMatrixPosition(bone.matrixWorld);
             var pos2d = this.worldToScreen(pos);
@@ -210,18 +679,22 @@ var PoseEditor;
             var sx = "<span style='color: red'>X</span>";
             var sy = "<span style='color: #00ff00'>Y</span>";
             var sz = "<span style='color: blue'>Z</span>";
+            // local rotation
+            //var t_r = bone.quaternion.clone();
+            //bone.rotation.set(0,0,0);
+            //var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
             this.boneDebugDom.innerHTML = "selected joint_id: " + index + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + radToDeg(bone.rotation.x) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + radToDeg(bone.rotation.y) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + radToDeg(bone.rotation.z) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + PoseEditor.radToDeg(bone.rotation.x) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + PoseEditor.radToDeg(bone.rotation.y) + "<br>";
+            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + PoseEditor.radToDeg(bone.rotation.z) + "<br>";
             var p_bone = bone.parent;
             if (p_bone) {
                 var p_index = p_bone.userData.index;
                 this.boneDebugDom.innerHTML += "<br>";
                 this.boneDebugDom.innerHTML += "parent joint_id: " + p_index + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + radToDeg(p_bone.rotation.x) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + radToDeg(p_bone.rotation.y) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + radToDeg(p_bone.rotation.z) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + PoseEditor.radToDeg(p_bone.rotation.x) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + PoseEditor.radToDeg(p_bone.rotation.y) + "<br>";
+                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + PoseEditor.radToDeg(p_bone.rotation.z) + "<br>";
             }
         };
         Editor.prototype.onControlsChange = function () {
@@ -235,13 +708,16 @@ var PoseEditor;
                     var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                     // local rotation
                     var t_r = bone.quaternion.clone();
-                    bone.rotation.set(0, 0, 0);
+                    bone.quaternion.set(0, 0, 0, 0);
+                    bone.updateMatrixWorld(true);
                     var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
+                    this.selectedSphere.updateMatrixWorld(true);
+                    //console.log(this.selectedSphere.rotation);
                     var sph_q = this.selectedSphere.getWorldQuaternion(null);
+                    // copy to sphere
+                    this.selectedSphere.quaternion.copy(sph_q);
                     // update bone quaternion
                     var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
-                    // limitation
-                    this.adjustRotation(bone, to_q);
                     bone.quaternion.copy(to_q);
                     bone.updateMatrixWorld(true);
                     //
@@ -267,15 +743,9 @@ var PoseEditor;
             var mouse_x = client_x - dom_pos.left;
             var mouse_y = client_y - dom_pos.top;
             var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
-            // reset color of markers
-            this.models.forEach(function (model) {
-                model.joint_markers.forEach(function (marker) {
-                    marker.material.color.setHex(model.normalColor);
-                });
-            });
             // calc most nearest sphere
             var l = 9999999999;
-            this.selectedSphere = null;
+            var selectedMarker = null;
             var ab = pos.clone().sub(this.camera.position).normalize();
             var flattened = this.models.map(function (v) {
                 return v.joint_spheres;
@@ -293,23 +763,28 @@ var PoseEditor;
                 if (h < margin) {
                     if (h < l) {
                         l = h;
-                        _this.selectedSphere = s;
+                        selectedMarker = s;
                     }
                 }
             });
             //console.log(l);
+            if (selectedMarker != null) {
+                this.selectedSphere = selectedMarker;
+            }
+            //
             if (this.selectedSphere != null) {
-                this.dragStart = true;
-                this.controls.enabled = false;
                 var model = this.selectedSphere.userData.ownerModel;
                 var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
                 // console.log("index: ", this.selectedSphere.userData.jointIndex);
-                //
+                // update marker sprite color
+                this.models.forEach(function (model) {
+                    model.joint_markers.forEach(function (marker) {
+                        marker.material.color.setHex(model.normalColor);
+                    });
+                });
                 var index = this.selectedSphere.userData.jointIndex;
                 model.joint_markers[index].material.color.setHex(model.selectedColor);
                 //
-                var to_q = bone.getWorldQuaternion(null);
-                this.selectedSphere.quaternion.copy(to_q);
                 this.transformCtrl.attach(this.selectedSphere);
                 this.transformCtrl.update();
                 // set ik target
@@ -339,6 +814,7 @@ var PoseEditor;
                     this.boneDebugDom.style.display = "none";
                 }
             }
+            return this.selectedSphere;
         };
         Editor.prototype.moving = function (e, isTouch) {
             if (this.dragStart == false) {
@@ -380,8 +856,6 @@ var PoseEditor;
                 }
                 this.dragStart = false;
                 this.dragging = false;
-                this.controls.enabled = true;
-                this.controls.cancel(); // ...
             }
         };
         Editor.prototype.toggleIKStopper = function () {
@@ -392,27 +866,17 @@ var PoseEditor;
             }
         };
         Editor.prototype.onResize = function () {
-            var w = this.targetDom.offsetWidth;
-            var h = this.targetDom.offsetHeight;
-            if (this.width == w && this.height == h) {
-                return false;
-            }
-            // update size
-            this.width = w;
-            this.height = h;
-            this.aspect = this.width / this.height;
-            this.renderer.setSize(this.width, this.height);
-            this.camera.aspect = this.aspect;
+            this.renderer.setSize(this.screen.width, this.screen.height);
+            this.camera.aspect = this.screen.aspect;
             this.camera.updateProjectionMatrix();
-            this.camera2d.right = this.width;
-            this.camera2d.bottom = this.height;
+            this.camera2d.right = this.screen.width;
+            this.camera2d.bottom = this.screen.height;
             this.camera2d.updateProjectionMatrix();
-            return false;
         };
         Editor.prototype.loadAndAppendModel = function (name, model_info, sprite_paths, callback) {
             var _this = this;
             this.incTask();
-            var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
+            var model = new PoseEditor.Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
                 _this.decTask();
                 // default IK stopper node indexes
                 var nx = model_info.ikStopJoints;
@@ -427,30 +891,13 @@ var PoseEditor;
         };
         Editor.prototype.resetCtrl = function () {
             this.endDragging();
-            this.controls.enabled = true;
             this.transformCtrl.detach();
-            this.controls.enabled = true;
             this.selectedSphere = null;
         };
         Editor.prototype.moveCharactor = function (model, target_pos) {
             var pos = target_pos.clone();
             pos.sub(model.offsetOrgToBone);
             model.mesh.position.copy(pos);
-        };
-        Editor.prototype.adjustRotation = function (bone, q) {
-            // TODO: fix Gimbal lock
-            var e = new THREE.Euler().setFromQuaternion(q);
-            if (bone.userData.rotLimit.x) {
-                e.x = Math.max(bone.userData.rotMin.x, Math.min(e.x, bone.userData.rotMax.x));
-            }
-            if (bone.userData.rotLimit.y) {
-                e.y = Math.max(bone.userData.rotMin.y, Math.min(e.y, bone.userData.rotMax.y));
-            }
-            if (bone.userData.rotLimit.z) {
-                e.z = Math.max(bone.userData.rotMin.z, Math.min(e.z, bone.userData.rotMax.z));
-            }
-            q.setFromEuler(e);
-            // console.log(e)
         };
         // CCD IK
         Editor.prototype.ik = function (selected_bone, target_pos) {
@@ -461,6 +908,7 @@ var PoseEditor;
                 // local rotation
                 var t_r = p_bone.quaternion.clone();
                 p_bone.rotation.set(0, 0, 0);
+                p_bone.updateMatrixWorld(true);
                 var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
                 p_bone.quaternion.copy(t_r);
                 p_bone.updateMatrixWorld(true);
@@ -476,8 +924,6 @@ var PoseEditor;
                 THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
                 // update bone quaternion
                 var to_q = w_to_l_comp_q.multiply(qm).normalize();
-                // limitation
-                this.adjustRotation(p_bone, to_q);
                 // set
                 p_bone.quaternion.copy(to_q);
                 p_bone.updateMatrixWorld(true);
@@ -492,8 +938,8 @@ var PoseEditor;
             this.renderer.render(this.scene2d, this.camera2d);
         };
         Editor.prototype.screenToWorld = function (screen_pos) {
-            var window_half_x = this.width / 2.0;
-            var window_half_y = this.height / 2.0;
+            var window_half_x = this.screen.width / 2.0;
+            var window_half_y = this.screen.height / 2.0;
             var world_pos = new THREE.Vector3();
             world_pos.x = screen_pos.x / window_half_x - 1;
             world_pos.y = -screen_pos.y / window_half_y + 1;
@@ -501,8 +947,8 @@ var PoseEditor;
             return world_pos;
         };
         Editor.prototype.worldToScreen = function (world_pos) {
-            var window_half_x = this.width / 2.0;
-            var window_half_y = this.height / 2.0;
+            var window_half_x = this.screen.width / 2.0;
+            var window_half_y = this.screen.height / 2.0;
             var screen_pos = world_pos.clone();
             screen_pos.project(this.camera);
             screen_pos.x = (screen_pos.x + 1) * window_half_x;
@@ -631,261 +1077,17 @@ var PoseEditor;
         };
         Editor.prototype.incTask = function () {
             if (this.loadingTasks == 0) {
-                if (this.loadingDom.style) {
-                    this.loadingDom.style.display = "inline";
-                    this.loadingDom.style.position = 'absolute';
-                    this.loadingDom.style.padding = "10px";
-                    this.loadingDom.style.borderRadius = "5px";
-                    this.loadingDom.style.backgroundColor = "#fff";
-                    var x = Math.abs(this.targetDom.offsetWidth - this.loadingDom.offsetWidth) / 2;
-                    var y = Math.abs(this.targetDom.offsetHeight - this.loadingDom.offsetHeight) / 2;
-                    this.loadingDom.style.left = x + 'px';
-                    this.loadingDom.style.top = y + 'px';
-                }
+                this.screen.showLoadingDom();
             }
             this.loadingTasks++;
         };
         Editor.prototype.decTask = function () {
             this.loadingTasks--;
             if (this.loadingTasks == 0) {
-                if (this.loadingDom.style) {
-                    this.loadingDom.style.display = "none";
-                }
+                this.screen.hideLoadingDom();
             }
         };
         return Editor;
     })();
     PoseEditor.Editor = Editor;
-    //
-    var Model = (function () {
-        function Model(name, model_info, sprite_paths, scene, scene2d, callback) {
-            var _this = this;
-            //
-            this.ready = false;
-            //
-            this.showingMarker = true;
-            //
-            this.selectedColor = 0xff0000;
-            this.normalColor = 0x0000ff;
-            //
-            this.mesh = null;
-            //
-            this.joint_markers = [];
-            this.joint_spheres = [];
-            //
-            this.name = name;
-            //
-            this.scene = scene;
-            this.scene2d = scene2d;
-            //
-            var mesh_path = model_info.modelPath;
-            var texture_path = model_info.textureDir;
-            var init_pos = model_info.initPos;
-            var init_scale = model_info.initScale;
-            if (model_info.markerScale) {
-                this.markerScale = model_info.markerScale;
-            }
-            else {
-                this.markerScale = [12.0, 12.0];
-            }
-            var loader = new THREE.JSONLoader();
-            loader.crossOrigin = '*';
-            // load mesh data from path
-            loader.load(mesh_path, function (geometry, materials) {
-                //console.log("finished to load");
-                // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
-                var material;
-                if (materials !== undefined) {
-                    if (materials.length > 1) {
-                        material = new THREE.MeshFaceMaterial(materials);
-                        material.materials.forEach(function (mat) {
-                            mat.skinning = true;
-                        });
-                    }
-                    else {
-                        material = materials[0];
-                        material.setValues({ skinning: true });
-                    }
-                }
-                else {
-                    material = new THREE.MeshLambertMaterial({
-                        color: 0xffffff,
-                        skinning: true
-                    });
-                }
-                // create mesh data
-                _this.mesh = new THREE.SkinnedMesh(geometry, material, false);
-                if (init_pos) {
-                    _this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
-                }
-                if (init_scale) {
-                    _this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
-                }
-                _this.scene.add(_this.mesh);
-                //
-                _this.setupAppendixData(sprite_paths, model_info, callback);
-            }, texture_path);
-        }
-        Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
-            var _this = this;
-            //
-            var bone_limits = model_info.boneLimits;
-            var base_joint_id = model_info.baseJointId;
-            //
-            var default_cross_origin = THREE.ImageUtils.crossOrigin;
-            THREE.ImageUtils.crossOrigin = '*';
-            //
-            this.mesh.skeleton.bones.forEach(function (bone, index) {
-                bone.matrixWorldNeedsUpdate = true;
-                bone.updateMatrixWorld(true);
-                bone.userData = {
-                    index: index,
-                    preventIKPropagation: false,
-                    rotLimit: new RotationLimitation(),
-                    rotMin: null,
-                    rotMax: null
-                };
-                if (index in bone_limits) {
-                    bone.userData.rotMin = new THREE.Euler();
-                    bone.userData.rotMax = new THREE.Euler();
-                    var rots = bone_limits[index];
-                    if (rots[0] != null) {
-                        bone.userData.rotLimit.x = true;
-                        bone.userData.rotMin.x = degToRad(rots[0][0]);
-                        bone.userData.rotMax.x = degToRad(rots[0][1]);
-                    }
-                    if (rots[1] != null) {
-                        bone.userData.rotLimit.y = true;
-                        bone.userData.rotMin.y = degToRad(rots[1][0]);
-                        bone.userData.rotMax.y = degToRad(rots[1][1]);
-                    }
-                    if (rots[2] != null) {
-                        bone.userData.rotLimit.z = true;
-                        bone.userData.rotMin.z = degToRad(rots[2][0]);
-                        bone.userData.rotMax.z = degToRad(rots[2][1]);
-                    }
-                }
-            });
-            this.scene.updateMatrixWorld(true);
-            //
-            this.offsetOrgToBone = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
-            // load textures(marker for bone)
-            this.joint_markers = new Array(this.mesh.skeleton.bones.length);
-            this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
-            this.normalMarkerMat = new THREE.SpriteMaterial({
-                map: this.normalMarkerTex,
-                color: this.normalColor
-            });
-            this.specialMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.special);
-            this.specialMarkerMat = new THREE.SpriteMaterial({
-                map: this.specialMarkerTex,
-                color: this.normalColor
-            });
-            this.mesh.skeleton.bones.forEach(function (bone, index) {
-                var sprite = new THREE.Sprite(_this.normalMarkerMat.clone());
-                sprite.scale.set(_this.markerScale[0], _this.markerScale[1], 1);
-                _this.joint_markers[index] = sprite;
-                _this.scene2d.add(sprite);
-            });
-            // make sphere objects(attached by transform ctrl)
-            this.mesh.skeleton.bones.forEach(function (bone, index) {
-                var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
-                var material = new THREE.MeshBasicMaterial({ wireframe: true });
-                var sphere = new THREE.Mesh(sphere_geo, material);
-                sphere.matrixWorldNeedsUpdate = true;
-                sphere.userData = {
-                    jointIndex: index,
-                    ownerModel: _this
-                };
-                sphere.visible = false;
-                _this.joint_spheres.push(sphere);
-                _this.scene.add(sphere);
-            });
-            THREE.ImageUtils.crossOrigin = default_cross_origin;
-            this.ready = true;
-            if (callback) {
-                callback(this, null);
-            }
-        };
-        Model.prototype.destruct = function () {
-            var _this = this;
-            this.ready = false;
-            this.scene.remove(this.mesh);
-            this.joint_markers.forEach(function (m) {
-                _this.scene2d.remove(m);
-            });
-            this.joint_spheres.forEach(function (m) {
-                _this.scene.remove(m);
-            });
-        };
-        Model.prototype.isReady = function () {
-            return this.ready;
-        };
-        Model.prototype.modelData = function () {
-            var joints = this.mesh.skeleton.bones.map(function (bone) {
-                return {
-                    q: bone.quaternion
-                };
-            });
-            return {
-                name: this.name,
-                position: this.mesh.position,
-                q: this.mesh.quaternion,
-                joints: joints
-            };
-        };
-        Model.prototype.loadModelData = function (data) {
-            if (!this.ready) {
-                return;
-            }
-            var p = data.position;
-            var q = data.q;
-            var joints = data.joints;
-            for (var key in joints) {
-                var joint = joints[key];
-                var t_q = joint.q;
-                var s_q = this.mesh.skeleton.bones[key].quaternion;
-                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
-            }
-            this.mesh.position.set(p.x, p.y, p.z);
-            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
-        };
-        Model.prototype.toggleIKPropagation = function (bone_index) {
-            var bone = this.mesh.skeleton.bones[bone_index];
-            bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
-            var old_sprite = this.joint_markers[bone_index];
-            var sprite = null;
-            if (bone.userData.preventIKPropagation) {
-                sprite = new THREE.Sprite(this.specialMarkerMat.clone());
-            }
-            else {
-                sprite = new THREE.Sprite(this.normalMarkerMat.clone());
-            }
-            sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
-            this.joint_markers[bone_index] = sprite;
-            this.scene2d.add(sprite);
-            this.scene2d.remove(old_sprite);
-        };
-        Model.prototype.hideMarker = function () {
-            this.showingMarker = false;
-            this.setMarkerVisibility(this.showingMarker);
-        };
-        Model.prototype.showMarker = function () {
-            this.showingMarker = true;
-            this.setMarkerVisibility(this.showingMarker);
-        };
-        Model.prototype.toggleMarker = function () {
-            this.showingMarker = !this.showingMarker;
-            this.setMarkerVisibility(this.showingMarker);
-        };
-        Model.prototype.setMarkerVisibility = function (showing) {
-            this.joint_markers.forEach(function (marker) {
-                marker.visible = showing;
-            });
-        };
-        Model.prototype.getMarkerVisibility = function () {
-            return this.showingMarker;
-        };
-        return Model;
-    })();
 })(PoseEditor || (PoseEditor = {}));
