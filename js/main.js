@@ -131,9 +131,14 @@ $(function() {
 
   model_table = {
     "sport_man": {
-      model_path: "bower_components/poseeditor/models/model/model.js",
-      texture_dir: "bower_components/poseeditor/models/model/",
-      ik_stop_joints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35]
+      modelPath: "bower_components/poseeditor/models/model/model.js",
+      textureDir: "bower_components/poseeditor/models/model/",
+      ikStopJoints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35],
+      boneLimits: {},
+      baseJointId: 0,
+      initPos: [0, 0, 0],
+      initScale: [1, 1, 1],
+      markerScale: [12.0, 12.0]
     }
   };
 
