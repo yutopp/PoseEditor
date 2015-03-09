@@ -28,11 +28,11 @@
     "three.js": "*"
   },
   "homepage": "https://github.com/yutopp/PoseEditor",
-  "_release": "49cb9a3105",
+  "_release": "67102130b2",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "49cb9a310562ae47f14e67049eafd1528d53dc5a"
+    "commit": "67102130b2ec7f81f87c79b2021b85faebd76c0d"
   },
   "_source": "git://github.com/yutopp/PoseEditor.git",
   "_target": "*",
