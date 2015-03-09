@@ -137,10 +137,15 @@ $(function() {
     }
   };
 
+  var defCam = new PoseEditor.CameraConfig();
+  defCam.position.set(0, 8, 12);
+  defCam.lookAt.set(0, 6, 0);
+
   editor = new PoseEditor.Editor(
     "for_pose",
     model_table,
     sprite_paths,
+    defCam,
     config
   );
   if ( location.hash !== "" ) {
