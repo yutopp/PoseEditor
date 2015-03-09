@@ -129,7 +129,7 @@ module PoseEditor {
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(0.6);
+            this.transformCtrl.setSize(1.0);
             this.transformCtrl.detach();
             this.transformCtrl.addEventListener('change', this.onTransformCtrl.bind(this));
             this.scene.add(this.transformCtrl);
@@ -240,7 +240,7 @@ module PoseEditor {
                     var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
 
                     // limitation
-                    this.adjustRotation(bone, to_q);
+                    //this.adjustRotation(bone, to_q);
 
                     bone.quaternion.copy(to_q);
                     bone.updateMatrixWorld(true);
@@ -557,7 +557,7 @@ module PoseEditor {
                 var to_q = w_to_l_comp_q.multiply(qm).normalize();
 
                 // limitation
-                this.adjustRotation(p_bone, to_q);
+                //this.adjustRotation(p_bone, to_q);
 
                 // set
                 p_bone.quaternion.copy(to_q);
