@@ -89,7 +89,6 @@ module PoseEditor {
                 }
             }
 
-
             private addButton(title: string, m: Mode): void {
                 var dom = document.createElement("input");
                 dom.type = "button";

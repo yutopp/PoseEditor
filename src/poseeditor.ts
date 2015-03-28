@@ -3,83 +3,14 @@
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="screen.ts"/>
 /// <reference path="model.ts"/>
+/// <reference path="camera_action.ts"/>
+/// <reference path="move_action.ts"/>
+/// <reference path="fk_action.ts"/>
+/// <reference path="ik_action.ts"/>
+/// <reference path="cursor_position_helper.ts"/>
 /// <reference path="etc.ts"/>
 
 module PoseEditor {
-    class Action {
-        constructor(e: Editor) {
-            this.editor = e;
-        }
-
-        onActive(before: Action): void {
-            console.log("base::onActive");
-        }
-
-        onDestroy(): void {
-            console.log("base::onDestroy");
-        }
-
-        onTapStart(e: any, isTouch: boolean): void {
-        }
-
-        onMoving(e: any, isTouch: boolean): void {
-        }
-
-        onTapEnd(e: any, isTouch: boolean): void {
-        }
-
-        editor: Editor;
-    }
-
-    class CameraAction extends Action {
-        constructor(e: Editor, c: THREE.OrbitControls) {
-            super(e);
-
-            this.controls = c;
-        }
-
-        onActive(before: CameraAction) {
-            this.controls.enabled = true;
-        }
-
-        onDestroy() {
-            this.controls.enabled = false;
-        }
-
-        private controls: THREE.OrbitControls;
-    }
-
-    class MoveAction extends Action {
-        constructor(e: Editor) {
-            super(e);
-        }
-    }
-
-    class FKAction extends Action {
-        constructor(e: Editor) {
-            super(e);
-        }
-
-        onTapStart(e: any, isTouch: boolean): void {
-            this.selectedMarker = this.editor.boneRay(e, isTouch);
-        }
-
-        onMoving(e: any, isTouch: boolean): void {
-        }
-
-        onTapEnd(e: any, isTouch: boolean): void {
-        }
-
-        private selectedMarker: THREE.Object3D;
-    }
-
-    class IKAction extends Action {
-        constructor(e: Editor) {
-            super(e);
-        }
-    }
-
-
     export class Editor {
         constructor(
             parentDomId: string,
@@ -88,8 +19,8 @@ module PoseEditor {
             defaultCamera: CameraConfig = new CameraConfig(),
             config: Config = new Config()
         ) {
+            // setup screen
             this.screen = new Screen.ScreenController(parentDomId, config);
-
             this.screen.addCallback('resize', () => this.onResize());
             this.screen.addCallback('onmodeclick', (m: Screen.Mode) => this.onModeClick(m));
 
@@ -132,6 +63,7 @@ module PoseEditor {
             //
             this.screen.appendChild(this.renderer.domElement);
 
+            //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
 
@@ -175,16 +107,12 @@ module PoseEditor {
             this.plane.visible = false;
             this.scene.add(this.plane);
 
-            // ik target
-            var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
-            var material = new THREE.MeshBasicMaterial({wireframe: true});
-            this.ikTargetSphere = new THREE.Mesh(sphereGeo, material);
-            this.ikTargetSphere.matrixWorldNeedsUpdate = true;
-            this.ikTargetSphere.visible = false;
-            this.scene.add(this.ikTargetSphere);
-            if ( config.isDebugging ) {
-                // this.ikTargetSphere.visible = true;
-            }
+            // intersect helper
+            this.cursorHelper = new CursorPositionHelper(
+                this.scene,
+                this.camera,
+                this.controls
+            );
 
             // save Config
             this.config = config;
@@ -207,13 +135,15 @@ module PoseEditor {
             }
 
             // initialize mode
-            this.currentMode = Screen.Mode.FK;
+            this.currentMode = Screen.Mode.Move;
             this.onModeClick(this.currentMode);
 
             // jump into loop
             this.renderLoop();
         }
 
+        /// ==================================================
+        /// ==================================================
         private onModeClick(mode: Screen.Mode): void {
             console.log(mode, this.currentAction);
             var beforeAction = this.currentAction;
@@ -254,6 +184,8 @@ module PoseEditor {
         private onTapEnd(e: any, isTouch: boolean): void {
             this.currentAction.onTapEnd(e, isTouch);
         }
+        /// ==================================================
+        /// ==================================================
 
 
         private updateBoneDebugInfo(model: Model, index: number) {
@@ -341,19 +273,32 @@ module PoseEditor {
             this.transformCtrl.update();
         }
 
+        public selectModel(e: any, isTouch: boolean): [Model, THREE.Vector3] {
+            e.preventDefault();
+
+            var pos = this.cursorToWorld(e, isTouch);
+            var raycaster = new THREE.Raycaster(
+                this.camera.position,
+                pos.sub(this.camera.position).normalize()
+            );
+            var intersects = raycaster.intersectObjects(
+                this.models.map((m) => m.mesh)
+            );
+            var mesh = intersects.length > 0 ? intersects[0].object : null;
+            if ( mesh == null ) return
+
+            return [mesh.userData.modelData, intersects[0].point];
+        }
+
+
+
         public boneRay(e: any, isTouch: boolean) {
             if ( this.isOnManipurator || this.dragging || this.models.length == 0 ) {
                 return;
             }
             e.preventDefault();
 
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
-
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var pos = this.cursorToWorld(e, isTouch);
 
             // calc most nearest sphere
             var l = 9999999999;
@@ -405,6 +350,8 @@ module PoseEditor {
                 //
                 this.transformCtrl.attach(this.selectedSphere);
                 this.transformCtrl.update();
+
+                //
 
                 // set ik target
                 this.ikTargetPosition = this.selectedSphere.position.clone();
@@ -696,7 +643,7 @@ module PoseEditor {
         }
 
 
-        private screenToWorld(screen_pos: THREE.Vector2): THREE.Vector3 {
+        public screenToWorld(screen_pos: THREE.Vector2): THREE.Vector3 {
             var window_half_x = this.screen.width / 2.0;
             var window_half_y = this.screen.height / 2.0;
 
@@ -708,7 +655,7 @@ module PoseEditor {
             return world_pos;
         }
 
-        private worldToScreen(world_pos: THREE.Vector3): THREE.Vector2 {
+        public worldToScreen(world_pos: THREE.Vector3): THREE.Vector2 {
             var window_half_x = this.screen.width / 2.0;
             var window_half_y = this.screen.height / 2.0;
 
@@ -718,6 +665,16 @@ module PoseEditor {
             screen_pos.y = ( -screen_pos.y + 1) * window_half_y;
 
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
+        }
+
+        public cursorToWorld(e: any, isTouch: boolean): THREE.Vector3 {
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
+            return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
         }
 
         // ==================================================
@@ -941,5 +898,7 @@ module PoseEditor {
 
         //
         private config: Config;
+
+        cursorHelper: CursorPositionHelper;
     }
 }

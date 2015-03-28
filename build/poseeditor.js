@@ -1,3 +1,104 @@
+var PoseEditor;
+(function (PoseEditor) {
+    var Action = (function () {
+        function Action(e) {
+            this.editor = e;
+        }
+        Action.prototype.onActive = function (before) {
+            console.log("base::onActive");
+        };
+        Action.prototype.onDestroy = function () {
+            console.log("base::onDestroy");
+        };
+        Action.prototype.onTapStart = function (e, isTouch) {
+        };
+        Action.prototype.onMoving = function (e, isTouch) {
+        };
+        Action.prototype.onTapEnd = function (e, isTouch) {
+        };
+        return Action;
+    })();
+    PoseEditor.Action = Action;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var PoseEditor;
+(function (PoseEditor) {
+    var CameraAction = (function (_super) {
+        __extends(CameraAction, _super);
+        function CameraAction(e, c) {
+            _super.call(this, e);
+            // copy ownership
+            this.controls = c;
+        }
+        CameraAction.prototype.onActive = function (before) {
+            this.controls.enabled = true;
+        };
+        CameraAction.prototype.onDestroy = function () {
+            this.controls.enabled = false;
+        };
+        return CameraAction;
+    })(PoseEditor.Action);
+    PoseEditor.CameraAction = CameraAction;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="../typings/threejs/three.d.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var CursorPositionHelper = (function () {
+        function CursorPositionHelper(scene, camera, targeter) {
+            this.scene = scene;
+            this.camera = camera;
+            this.targeter = targeter;
+            //
+            this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({
+                color: 0x0000ff,
+                opacity: 0.4,
+                transparent: true
+            }));
+            this.plane.visible = true;
+            this.scene.add(this.plane);
+            //
+            var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
+            var material = new THREE.MeshBasicMaterial({ wireframe: true });
+            this.targetMesh = new THREE.Mesh(sphereGeo, material);
+            this.targetMesh.matrixWorldNeedsUpdate = true;
+            //this.targetSphere.visible = false;
+            this.scene.add(this.targetMesh);
+        }
+        CursorPositionHelper.prototype.setBeginState = function (startPos) {
+            //
+            this.targetMesh.position.copy(startPos);
+            // set plane
+            var c_to_p = this.targeter.target.clone().sub(this.camera.position);
+            var c_to_o = startPos.clone().sub(this.camera.position);
+            var n_c_to_p = c_to_p.clone().normalize();
+            var n_c_to_o = c_to_o.clone().normalize();
+            var l = c_to_o.length();
+            var len = n_c_to_o.dot(n_c_to_p) * l;
+            var tmp_pos = this.camera.position.clone();
+            tmp_pos.add(c_to_p.normalize().multiplyScalar(len));
+            this.plane.position.copy(tmp_pos);
+            this.plane.lookAt(this.camera.position);
+        };
+        CursorPositionHelper.prototype.move = function (worldCursorPos) {
+            var raycaster = new THREE.Raycaster(this.camera.position, worldCursorPos.clone().sub(this.camera.position).normalize());
+            // move ik target
+            var intersects = raycaster.intersectObject(this.plane);
+            if (intersects.length == 0)
+                return;
+            var pos = intersects[0].point;
+            this.targetMesh.position.copy(pos);
+            return pos;
+        };
+        return CursorPositionHelper;
+    })();
+    PoseEditor.CursorPositionHelper = CursorPositionHelper;
+})(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
@@ -40,6 +141,37 @@ var PoseEditor;
         return rad / Math.PI * 180.0;
     }
     PoseEditor.radToDeg = radToDeg;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var FKAction = (function (_super) {
+        __extends(FKAction, _super);
+        function FKAction(e) {
+            _super.call(this, e);
+        }
+        FKAction.prototype.onTapStart = function (e, isTouch) {
+            this.selectedMarker = this.editor.boneRay(e, isTouch);
+        };
+        FKAction.prototype.onMoving = function (e, isTouch) {
+        };
+        FKAction.prototype.onTapEnd = function (e, isTouch) {
+        };
+        return FKAction;
+    })(PoseEditor.Action);
+    PoseEditor.FKAction = FKAction;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var IKAction = (function (_super) {
+        __extends(IKAction, _super);
+        function IKAction(e) {
+            _super.call(this, e);
+        }
+        return IKAction;
+    })(PoseEditor.Action);
+    PoseEditor.IKAction = IKAction;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="etc.ts"/>
@@ -117,7 +249,12 @@ var PoseEditor;
                 if (init_scale) {
                     _this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
                 }
+                // add mesh to model
                 _this.scene.add(_this.mesh);
+                // bind this model data to the mesh
+                _this.mesh.userData = {
+                    modelData: _this
+                };
                 //
                 _this.setupAppendixData(sprite_paths, model_info, callback);
             }, texture_path);
@@ -287,6 +424,53 @@ var PoseEditor;
     })();
     PoseEditor.Model = Model;
 })(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var MoveAction = (function (_super) {
+        __extends(MoveAction, _super);
+        function MoveAction(e) {
+            _super.call(this, e);
+        }
+        MoveAction.prototype.onDestroy = function () {
+            this.releaseModel();
+        };
+        MoveAction.prototype.onTapStart = function (e, isTouch) {
+            this.catchModel(e, isTouch);
+        };
+        MoveAction.prototype.onMoving = function (e, isTouch) {
+            this.moveModel(e, isTouch);
+        };
+        MoveAction.prototype.onTapEnd = function (e, isTouch) {
+            this.releaseModel();
+        };
+        MoveAction.prototype.catchModel = function (e, isTouch) {
+            var mp = this.editor.selectModel(e, isTouch);
+            if (mp == null)
+                return;
+            this.currentModel = mp[0];
+            var pos = mp[1];
+            this.offsetOrgToBone = pos.sub(this.currentModel.mesh.position);
+            //
+            this.editor.cursorHelper.setBeginState(pos);
+        };
+        MoveAction.prototype.moveModel = function (e, isTouch) {
+            if (this.currentModel == null)
+                return;
+            var pos = this.editor.cursorToWorld(e, isTouch);
+            var curPos = this.editor.cursorHelper.move(pos);
+            curPos.sub(this.offsetOrgToBone);
+            this.currentModel.mesh.position.copy(curPos);
+        };
+        MoveAction.prototype.releaseModel = function () {
+            if (this.currentModel == null)
+                return;
+            this.currentModel = null;
+        };
+        return MoveAction;
+    })(PoseEditor.Action);
+    PoseEditor.MoveAction = MoveAction;
+})(PoseEditor || (PoseEditor = {}));
 var PoseEditor;
 (function (PoseEditor) {
     var Screen;
@@ -401,75 +585,14 @@ var PoseEditor;
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="screen.ts"/>
 /// <reference path="model.ts"/>
+/// <reference path="camera_action.ts"/>
+/// <reference path="move_action.ts"/>
+/// <reference path="fk_action.ts"/>
+/// <reference path="ik_action.ts"/>
+/// <reference path="cursor_position_helper.ts"/>
 /// <reference path="etc.ts"/>
-var __extends = this.__extends || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
 var PoseEditor;
 (function (PoseEditor) {
-    var Action = (function () {
-        function Action(e) {
-            this.editor = e;
-        }
-        Action.prototype.onActive = function (before) {
-            console.log("base::onActive");
-        };
-        Action.prototype.onDestroy = function () {
-            console.log("base::onDestroy");
-        };
-        Action.prototype.onTapStart = function (e, isTouch) {
-        };
-        Action.prototype.onMoving = function (e, isTouch) {
-        };
-        Action.prototype.onTapEnd = function (e, isTouch) {
-        };
-        return Action;
-    })();
-    var CameraAction = (function (_super) {
-        __extends(CameraAction, _super);
-        function CameraAction(e, c) {
-            _super.call(this, e);
-            this.controls = c;
-        }
-        CameraAction.prototype.onActive = function (before) {
-            this.controls.enabled = true;
-        };
-        CameraAction.prototype.onDestroy = function () {
-            this.controls.enabled = false;
-        };
-        return CameraAction;
-    })(Action);
-    var MoveAction = (function (_super) {
-        __extends(MoveAction, _super);
-        function MoveAction(e) {
-            _super.call(this, e);
-        }
-        return MoveAction;
-    })(Action);
-    var FKAction = (function (_super) {
-        __extends(FKAction, _super);
-        function FKAction(e) {
-            _super.call(this, e);
-        }
-        FKAction.prototype.onTapStart = function (e, isTouch) {
-            this.selectedMarker = this.editor.boneRay(e, isTouch);
-        };
-        FKAction.prototype.onMoving = function (e, isTouch) {
-        };
-        FKAction.prototype.onTapEnd = function (e, isTouch) {
-        };
-        return FKAction;
-    })(Action);
-    var IKAction = (function (_super) {
-        __extends(IKAction, _super);
-        function IKAction(e) {
-            _super.call(this, e);
-        }
-        return IKAction;
-    })(Action);
     var Editor = (function () {
         function Editor(parentDomId, modelInfoTable, spritePaths, defaultCamera, config) {
             var _this = this;
@@ -536,6 +659,7 @@ var PoseEditor;
             //
             this.loadingTasks = 0;
             this.boneDebugDom = null;
+            // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
             this.screen.addCallback('resize', function () { return _this.onResize(); });
             this.screen.addCallback('onmodeclick', function (m) { return _this.onModeClick(m); });
@@ -569,6 +693,7 @@ var PoseEditor;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
             //
             this.screen.appendChild(this.renderer.domElement);
+            //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
             if (config.isDebugging) {
@@ -603,15 +728,8 @@ var PoseEditor;
             this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.0, transparent: true }));
             this.plane.visible = false;
             this.scene.add(this.plane);
-            // ik target
-            var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
-            var material = new THREE.MeshBasicMaterial({ wireframe: true });
-            this.ikTargetSphere = new THREE.Mesh(sphereGeo, material);
-            this.ikTargetSphere.matrixWorldNeedsUpdate = true;
-            this.ikTargetSphere.visible = false;
-            this.scene.add(this.ikTargetSphere);
-            if (config.isDebugging) {
-            }
+            // intersect helper
+            this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
             // save Config
             this.config = config;
             {
@@ -627,11 +745,13 @@ var PoseEditor;
                 rf('dblclick', function () { return _this.toggleIKStopper(); }, false);
             }
             // initialize mode
-            this.currentMode = 2 /* FK */;
+            this.currentMode = 1 /* Move */;
             this.onModeClick(this.currentMode);
             // jump into loop
             this.renderLoop();
         }
+        /// ==================================================
+        /// ==================================================
         Editor.prototype.onModeClick = function (mode) {
             console.log(mode, this.currentAction);
             var beforeAction = this.currentAction;
@@ -641,16 +761,16 @@ var PoseEditor;
             this.currentMode = mode;
             switch (this.currentMode) {
                 case 0 /* Camera */:
-                    this.currentAction = new CameraAction(this, this.controls);
+                    this.currentAction = new PoseEditor.CameraAction(this, this.controls);
                     break;
                 case 1 /* Move */:
-                    this.currentAction = new MoveAction(this);
+                    this.currentAction = new PoseEditor.MoveAction(this);
                     break;
                 case 2 /* FK */:
-                    this.currentAction = new FKAction(this);
+                    this.currentAction = new PoseEditor.FKAction(this);
                     break;
                 case 3 /* IK */:
-                    this.currentAction = new IKAction(this);
+                    this.currentAction = new PoseEditor.IKAction(this);
                     break;
                 default:
                     console.error('unexpected mode');
@@ -668,6 +788,8 @@ var PoseEditor;
         Editor.prototype.onTapEnd = function (e, isTouch) {
             this.currentAction.onTapEnd(e, isTouch);
         };
+        /// ==================================================
+        /// ==================================================
         Editor.prototype.updateBoneDebugInfo = function (model, index) {
             var bone = model.mesh.skeleton.bones[index];
             // console.log(bone.position);
@@ -731,18 +853,23 @@ var PoseEditor;
             }
             this.transformCtrl.update();
         };
+        Editor.prototype.selectModel = function (e, isTouch) {
+            e.preventDefault();
+            var pos = this.cursorToWorld(e, isTouch);
+            var raycaster = new THREE.Raycaster(this.camera.position, pos.sub(this.camera.position).normalize());
+            var intersects = raycaster.intersectObjects(this.models.map(function (m) { return m.mesh; }));
+            var mesh = intersects.length > 0 ? intersects[0].object : null;
+            if (mesh == null)
+                return;
+            return [mesh.userData.modelData, intersects[0].point];
+        };
         Editor.prototype.boneRay = function (e, isTouch) {
             var _this = this;
             if (this.isOnManipurator || this.dragging || this.models.length == 0) {
                 return;
             }
             e.preventDefault();
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var pos = this.cursorToWorld(e, isTouch);
             // calc most nearest sphere
             var l = 9999999999;
             var selectedMarker = null;
@@ -787,6 +914,7 @@ var PoseEditor;
                 //
                 this.transformCtrl.attach(this.selectedSphere);
                 this.transformCtrl.update();
+                //
                 // set ik target
                 this.ikTargetPosition = this.selectedSphere.position.clone();
                 this.ikTargetSphere.position.copy(this.ikTargetPosition);
@@ -954,6 +1082,14 @@ var PoseEditor;
             screen_pos.x = (screen_pos.x + 1) * window_half_x;
             screen_pos.y = (-screen_pos.y + 1) * window_half_y;
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
+        };
+        Editor.prototype.cursorToWorld = function (e, isTouch) {
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
+            return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
         };
         // ==================================================
         // ==================================================

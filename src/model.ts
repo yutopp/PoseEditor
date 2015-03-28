@@ -72,7 +72,13 @@ module PoseEditor {
                     this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
                 }
 
+                // add mesh to model
                 this.scene.add(this.mesh);
+
+                // bind this model data to the mesh
+                this.mesh.userData = {
+                    modelData: this
+                }
 
                 //
                 this.setupAppendixData(sprite_paths, model_info, callback);
