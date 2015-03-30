@@ -246,12 +246,17 @@ var PoseEditor;
             if (m == null)
                 return;
             this.catchJoint(m);
+            this.beforeModelStatus = this.model.modelData();
         };
         IKAction.prototype.onMoving = function (e, isTouch) {
             this.moving(e, isTouch);
         };
         IKAction.prototype.onTapEnd = function (e, isTouch) {
             this.isMoving = false;
+            if (this.currentJointMarker == null)
+                return;
+            var currentModelStatus = this.model.modelData();
+            this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
         };
         IKAction.prototype.onDoubleTap = function (e, isTouch) {
             if (this.currentJointMarker) {
@@ -480,7 +485,6 @@ var PoseEditor;
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 if (hiddenJoints.indexOf(index) != -1) {
                     // this bone is hidden
-                    console.log(index);
                     return;
                 }
                 _this.availableBones.push(bone);
@@ -527,31 +531,31 @@ var PoseEditor;
         Model.prototype.modelData = function () {
             var joints = this.mesh.skeleton.bones.map(function (bone) {
                 return {
-                    q: bone.quaternion
+                    quaternion: bone.quaternion.clone()
                 };
             });
             return {
                 name: this.name,
-                position: this.mesh.position,
-                q: this.mesh.quaternion,
+                position: this.mesh.position.clone(),
+                quaternion: this.mesh.quaternion.clone(),
                 joints: joints
             };
         };
-        Model.prototype.loadModelData = function (data) {
+        Model.prototype.loadModelData = function (status) {
             if (!this.ready) {
                 return;
             }
-            var p = data.position;
-            var q = data.q;
-            var joints = data.joints;
+            var p = status.position;
+            var q = status.quaternion;
+            var joints = status.joints;
             for (var key in joints) {
                 var joint = joints[key];
-                var t_q = joint.q;
+                var t_q = joint.quaternion;
                 var s_q = this.mesh.skeleton.bones[key].quaternion;
-                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
+                s_q.set(t_q.x, t_q.y, t_q.z, t_q.w);
             }
             this.mesh.position.set(p.x, p.y, p.z);
-            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
+            this.mesh.quaternion.set(q.x, q.y, q.z, q.w);
         };
         Model.prototype.toggleIKPropagation = function (bone_index) {
             var bone = this.mesh.skeleton.bones[bone_index];
@@ -661,12 +665,16 @@ var PoseEditor;
             function ScreenController(parentDomId, config) {
                 var _this = this;
                 this.modeChangerDom = [];
+                this.systemDom = [];
                 //
                 this.events = {};
                 //
                 this.loadingDom = null;
                 //
                 var parentDom = document.getElementById(parentDomId);
+                if (parentDom == null) {
+                    console.log("parent dom was not found...");
+                }
                 this.targetDom = parentDom ? parentDom : document.body;
                 //
                 this.width = this.targetDom.offsetWidth;
@@ -684,6 +692,8 @@ var PoseEditor;
                 this.addButton('move', 1 /* Move */);
                 //this.addButton('fk', Mode.FK);
                 this.addButton('ik', 3 /* IK */);
+                this.addUndoButton();
+                this.addRedoButton();
                 //
                 window.addEventListener('resize', function () { return _this.onResize(); }, false);
             }
@@ -733,6 +743,28 @@ var PoseEditor;
                 this.targetDom.appendChild(dom);
                 this.modeChangerDom.push(dom);
             };
+            ScreenController.prototype.addUndoButton = function () {
+                var _this = this;
+                var dom = document.createElement("input");
+                dom.type = "button";
+                dom.value = "Undo";
+                dom.addEventListener("click", function () {
+                    _this.dispatchCallback("onundo");
+                });
+                this.targetDom.appendChild(dom);
+                this.modeChangerDom.push(dom);
+            };
+            ScreenController.prototype.addRedoButton = function () {
+                var _this = this;
+                var dom = document.createElement("input");
+                dom.type = "button";
+                dom.value = "Redo";
+                dom.addEventListener("click", function () {
+                    _this.dispatchCallback("onredo");
+                });
+                this.targetDom.appendChild(dom);
+                this.modeChangerDom.push(dom);
+            };
             ScreenController.prototype.addCallback = function (type, f) {
                 if (this.events[type] == null) {
                     this.events[type] = [];
@@ -755,6 +787,70 @@ var PoseEditor;
         Screen.ScreenController = ScreenController;
     })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
+var PoseEditor;
+(function (PoseEditor) {
+    var TimeMachine;
+    (function (TimeMachine) {
+        var Action = (function () {
+            function Action() {
+            }
+            Action.prototype.undo = function () {
+            };
+            Action.prototype.redo = function () {
+            };
+            return Action;
+        })();
+        TimeMachine.Action = Action;
+        var ChangeModelStatusAction = (function (_super) {
+            __extends(ChangeModelStatusAction, _super);
+            function ChangeModelStatusAction(m, b, a) {
+                _super.call(this);
+                this.model = m;
+                this.beforeStatus = b;
+                this.afterStatus = a;
+            }
+            ChangeModelStatusAction.prototype.undo = function () {
+                this.model.loadModelData(this.beforeStatus);
+            };
+            ChangeModelStatusAction.prototype.redo = function () {
+                this.model.loadModelData(this.afterStatus);
+            };
+            return ChangeModelStatusAction;
+        })(Action);
+        TimeMachine.ChangeModelStatusAction = ChangeModelStatusAction;
+        var Machine = (function () {
+            function Machine() {
+                this.history = [];
+                this.currentStep = 0;
+                this.maxStep = 0;
+            }
+            Machine.prototype.undo = function () {
+                if (this.currentStep == 0)
+                    return;
+                this.currentStep--;
+                this.history[this.currentStep].undo();
+            };
+            Machine.prototype.redo = function () {
+                if (this.currentStep >= this.maxStep)
+                    return;
+                this.history[this.currentStep].redo();
+                this.currentStep++;
+            };
+            Machine.prototype.didAction = function (act) {
+                if (this.currentStep < this.maxStep) {
+                    // remove all action to redo
+                    this.history.splice(this.currentStep, this.history.length - this.currentStep);
+                    this.maxStep = this.currentStep;
+                }
+                this.history.push(act);
+                this.maxStep++;
+                this.currentStep++;
+            };
+            return Machine;
+        })();
+        TimeMachine.Machine = Machine;
+    })(TimeMachine = PoseEditor.TimeMachine || (PoseEditor.TimeMachine = {}));
+})(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="../typings/threejs/three-orbitcontrols.d.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
@@ -765,6 +861,7 @@ var PoseEditor;
 /// <reference path="fk_action.ts"/>
 /// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
+/// <reference path="time_machine.ts"/>
 /// <reference path="etc.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
@@ -790,6 +887,8 @@ var PoseEditor;
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
             this.screen.addCallback('resize', function () { return _this.onResize(); });
             this.screen.addCallback('onmodeclick', function (m) { return _this.onModeClick(m); });
+            this.screen.addCallback('onundo', function () { return _this.history.undo(); });
+            this.screen.addCallback('onredo', function () { return _this.history.redo(); });
             //
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
@@ -850,19 +949,21 @@ var PoseEditor;
             // save Config
             this.config = config;
             {
-                var rf = this.renderer.domElement.addEventListener;
-                rf('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
-                rf('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
-                rf('mousemove', function (e) { return _this.onMoving(e, false); }, false);
-                rf('touchmove', function (e) { return _this.onMoving(e, true); }, false);
-                rf('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
-                rf('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
-                rf('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
-                rf('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
-                rf('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
+                var dom = this.renderer.domElement;
+                dom.addEventListener('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
+                dom.addEventListener('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
+                dom.addEventListener('mousemove', function (e) { return _this.onMoving(e, false); }, false);
+                dom.addEventListener('touchmove', function (e) { return _this.onMoving(e, true); }, false);
+                dom.addEventListener('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
+                dom.addEventListener('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
+                dom.addEventListener('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
+                dom.addEventListener('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
+                dom.addEventListener('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
             }
+            //
+            this.history = new PoseEditor.TimeMachine.Machine();
             // initialize mode
-            this.currentMode = 3 /* IK */;
+            this.currentMode = 0 /* Camera */;
             this.onModeClick(this.currentMode);
             // jump into loop
             this.renderLoop();
@@ -870,7 +971,6 @@ var PoseEditor;
         /// ==================================================
         /// ==================================================
         Editor.prototype.onModeClick = function (mode) {
-            console.log(mode, this.currentAction);
             var beforeAction = this.currentAction;
             if (beforeAction != null) {
                 beforeAction.onDestroy();
@@ -892,20 +992,22 @@ var PoseEditor;
                 default:
                     console.error('unexpected mode');
             }
-            console.log("->", this.currentAction);
             this.currentAction.onActive(beforeAction);
-            console.log("->", this.currentAction);
         };
         Editor.prototype.onTapStart = function (e, isTouch) {
+            e.preventDefault();
             this.currentAction.onTapStart(e, isTouch);
         };
         Editor.prototype.onMoving = function (e, isTouch) {
+            e.preventDefault();
             this.currentAction.onMoving(e, isTouch);
         };
         Editor.prototype.onTapEnd = function (e, isTouch) {
+            e.preventDefault();
             this.currentAction.onTapEnd(e, isTouch);
         };
         Editor.prototype.onDoubleTap = function (e, isTouch) {
+            e.preventDefault();
             this.currentAction.onDoubleTap(e, isTouch);
         };
         /// ==================================================
@@ -1035,8 +1137,8 @@ var PoseEditor;
                 _this.decTask();
                 // default IK stopper node indexes
                 var nx = model_info.ikInversePropagationJoints;
-                nx.forEach(function (i) {
-                    model.toggleIKPropagation(i);
+                nx.forEach(function (jointIndex) {
+                    model.toggleIKPropagation(jointIndex);
                 });
                 if (callback) {
                     callback(m, e);

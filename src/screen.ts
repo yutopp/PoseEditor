@@ -18,6 +18,9 @@ module PoseEditor {
             ) {
                 //
                 var parentDom = document.getElementById(parentDomId);
+                if (parentDom == null) {
+                    console.log("parent dom was not found...");
+                }
                 this.targetDom = parentDom ? parentDom : document.body;
 
                 //
@@ -40,6 +43,8 @@ module PoseEditor {
                 //this.addButton('fk', Mode.FK);
                 this.addButton('ik', Mode.IK);
 
+                this.addUndoButton();
+                this.addRedoButton();
 
                 //
                 window.addEventListener('resize', () => this.onResize(), false);
@@ -102,6 +107,31 @@ module PoseEditor {
                 this.modeChangerDom.push(dom);
             }
 
+            private addUndoButton() {
+                var dom = document.createElement("input");
+                dom.type = "button";
+                dom.value = "Undo";
+                dom.addEventListener("click", () => {
+                    this.dispatchCallback("onundo");
+                });
+
+                this.targetDom.appendChild(dom);
+
+                this.modeChangerDom.push(dom);
+            }
+
+            private addRedoButton() {
+                var dom = document.createElement("input");
+                dom.type = "button";
+                dom.value = "Redo";
+                dom.addEventListener("click", () => {
+                    this.dispatchCallback("onredo");
+                });
+
+                this.targetDom.appendChild(dom);
+
+                this.modeChangerDom.push(dom);
+            }
 
             public addCallback(type: string, f: any): void {
                 if ( this.events[type] == null ) {
@@ -121,6 +151,7 @@ module PoseEditor {
             //
             public targetDom: HTMLElement;
             private modeChangerDom: Array<HTMLElement> = [];
+            private systemDom: Array<HTMLElement> = [];
 
             //
             private events: {[key: string]: Array<any>} = {};

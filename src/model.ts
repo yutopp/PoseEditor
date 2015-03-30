@@ -182,7 +182,6 @@ module PoseEditor {
             this.mesh.skeleton.bones.forEach((bone, index) => {
                 if (hiddenJoints.indexOf(index) != -1) {
                     // this bone is hidden
-                    console.log(index);
                     return;
                 }
 
@@ -243,14 +242,14 @@ module PoseEditor {
         public modelData(): ModelStatus {
             var joints = this.mesh.skeleton.bones.map((bone) => {
                 return {
-                    quaternion: bone.quaternion
+                    quaternion: bone.quaternion.clone()
                 };
             });
 
             return {
                 name: this.name,
-                position: this.mesh.position,
-                quaternion: this.mesh.quaternion,
+                position: this.mesh.position.clone(),
+                quaternion: this.mesh.quaternion.clone(),
                 joints: joints
             };
         }

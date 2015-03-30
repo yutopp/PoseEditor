@@ -22,6 +22,8 @@ module PoseEditor {
             if (m == null) return;
 
             this.catchJoint(m);
+
+            this.beforeModelStatus = this.model.modelData();
         }
 
         onMoving(e: any, isTouch: boolean): void {
@@ -30,6 +32,15 @@ module PoseEditor {
 
         onTapEnd(e: any, isTouch: boolean): void {
             this.isMoving = false;
+
+            if (this.currentJointMarker == null) return;
+
+            var currentModelStatus = this.model.modelData();
+            this.editor.history.didAction( new TimeMachine.ChangeModelStatusAction(
+                this.model,
+                this.beforeModelStatus,
+                currentModelStatus
+            ));
         }
 
         onDoubleTap(e: any, isTouch: boolean): void {
@@ -135,5 +146,7 @@ module PoseEditor {
 
         private isMoving: boolean = false;
         private curPos: THREE.Vector3;
+
+        private beforeModelStatus: ModelStatus;
     }
 }

@@ -8,6 +8,7 @@
 /// <reference path="fk_action.ts"/>
 /// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
+/// <reference path="time_machine.ts"/>
 /// <reference path="etc.ts"/>
 
 module PoseEditor {
@@ -23,6 +24,8 @@ module PoseEditor {
             this.screen = new Screen.ScreenController(parentDomId, config);
             this.screen.addCallback('resize', () => this.onResize());
             this.screen.addCallback('onmodeclick', (m: Screen.Mode) => this.onModeClick(m));
+            this.screen.addCallback('onundo', () => this.history.undo());
+            this.screen.addCallback('onredo', () => this.history.redo());
 
             //
             this.modelInfoTable = modelInfoTable;
@@ -106,23 +109,26 @@ module PoseEditor {
 
             //
             {
-                var rf = this.renderer.domElement.addEventListener;
-                rf('mousedown', (e) => this.onTapStart(e, false), false);
-                rf('touchstart', (e) => this.onTapStart(e, true), false);
+                var dom = this.renderer.domElement;
+                dom.addEventListener('mousedown', (e) => this.onTapStart(e, false), false);
+                dom.addEventListener('touchstart', (e) => this.onTapStart(e, true), false);
 
-                rf('mousemove', (e) => this.onMoving(e, false), false);
-                rf('touchmove', (e) => this.onMoving(e, true), false);
+                dom.addEventListener('mousemove', (e) => this.onMoving(e, false), false);
+                dom.addEventListener('touchmove', (e) => this.onMoving(e, true), false);
 
-                rf('mouseup', (e) => this.onTapEnd(e, false), false);
-                rf('mouseleave', (e) => this.onTapEnd(e, true), false);
-                rf('touchend', (e) => this.onTapEnd(e, true), false);
-                rf('touchcancel', (e) => this.onTapEnd(e, true), false);
+                dom.addEventListener('mouseup', (e) => this.onTapEnd(e, false), false);
+                dom.addEventListener('mouseleave', (e) => this.onTapEnd(e, true), false);
+                dom.addEventListener('touchend', (e) => this.onTapEnd(e, true), false);
+                dom.addEventListener('touchcancel', (e) => this.onTapEnd(e, true), false);
 
-                rf('dblclick', (e) => this.onDoubleTap(e, false), false);
+                dom.addEventListener('dblclick', (e) => this.onDoubleTap(e, false), false);
             }
 
+            //
+            this.history = new TimeMachine.Machine();
+
             // initialize mode
-            this.currentMode = Screen.Mode.IK;
+            this.currentMode = Screen.Mode.Camera;
             this.onModeClick(this.currentMode);
 
             // jump into loop
@@ -132,7 +138,6 @@ module PoseEditor {
         /// ==================================================
         /// ==================================================
         private onModeClick(mode: Screen.Mode): void {
-            console.log(mode, this.currentAction);
             var beforeAction = this.currentAction;
             if ( beforeAction != null ) {
                 beforeAction.onDestroy();
@@ -155,24 +160,26 @@ module PoseEditor {
             default:
                 console.error('unexpected mode');
             }
-            console.log("->", this.currentAction);
             this.currentAction.onActive(beforeAction);
-            console.log("->", this.currentAction);
         }
 
         private onTapStart(e: any, isTouch: boolean): void {
+            e.preventDefault();
             this.currentAction.onTapStart(e, isTouch);
         }
 
         private onMoving(e: any, isTouch: boolean): void {
+            e.preventDefault();
             this.currentAction.onMoving(e, isTouch);
         }
 
         private onTapEnd(e: any, isTouch: boolean): void {
+            e.preventDefault();
             this.currentAction.onTapEnd(e, isTouch);
         }
 
         private onDoubleTap(e: any, isTouch: boolean): void {
+            e.preventDefault();
             this.currentAction.onDoubleTap(e, isTouch);
         }
         /// ==================================================
@@ -345,11 +352,11 @@ module PoseEditor {
 
                 // default IK stopper node indexes
                 var nx = model_info.ikInversePropagationJoints;
-                nx.forEach((i) => {
-                    model.toggleIKPropagation(i);
+                nx.forEach((jointIndex) => {
+                    model.toggleIKPropagation(jointIndex);
                 });
 
-                if ( callback ) {
+                if (callback) {
                     callback(m, e);
                 }
             });
@@ -622,6 +629,8 @@ module PoseEditor {
         private screen: Screen.ScreenController;
         private currentMode: Screen.Mode;
         private currentAction: Action;
+
+        public history: TimeMachine.Machine;
 
         //
         private fov: number;
