@@ -1,47 +1,17 @@
 /// <reference path="../typings/threejs/three.d.ts"/>
-/// <reference path="../typings/jquery/jquery.d.ts"/>
+/// <reference path="../typings/threejs/three-orbitcontrols.d.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
-/// <reference path="../ext/OrbitControls.d.ts"/>
+/// <reference path="screen.ts"/>
+/// <reference path="model.ts"/>
+/// <reference path="camera_action.ts"/>
+/// <reference path="move_action.ts"/>
+/// <reference path="fk_action.ts"/>
+/// <reference path="ik_action.ts"/>
+/// <reference path="cursor_position_helper.ts"/>
+/// <reference path="time_machine.ts"/>
+/// <reference path="etc.ts"/>
 
 module PoseEditor {
-    export class Config {
-        enableBackgroundAlpha: boolean = false;
-        backgroundColorHex: number = 0x777777;
-        backgroundAlpha: number = 1.0;
-        loadingImagePath: string = null;
-        isDebugging: boolean = false;
-    }
-
-    export class SpritePaths {
-        normal: string;
-        special: string;
-    }
-
-    export class ModelInfo {
-        modelPath: string;
-        textureDir: string;
-        ikStopJoints: Array<number>;
-        boneLimits: {[key: number]: Array<Array<number>>;};
-        baseJointId: number;
-        initPos: Array<number>;
-        initScale: Array<number>;
-        markerScale: Array<number>;
-    }
-
-    export class CameraConfig {
-        position: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
-        lookAt: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
-    }
-
-    class RotationLimitation {
-        x: boolean = false;
-        y: boolean = false;
-        z: boolean = false;
-    }
-
-    function degToRad(deg: number) { return deg * Math.PI / 180.0; }
-    function radToDeg(rad: number) { return rad / Math.PI * 180.0; }
-
     export class Editor {
         constructor(
             parentDomId: string,
@@ -50,25 +20,25 @@ module PoseEditor {
             defaultCamera: CameraConfig = new CameraConfig(),
             config: Config = new Config()
         ) {
-            //
-            var parentDom = document.getElementById(parentDomId);
-            this.targetDom = parentDom ? parentDom : document.body;
+            // setup screen
+            this.screen = new Screen.ScreenController(parentDomId, config);
+            this.screen.addCallback('resize', () => this.onResize());
+            this.screen.addCallback('onmodeclick', (m: Screen.Mode) => this.onModeClick(m));
+            this.screen.addCallback('onundo', () => this.history.undo());
+            this.screen.addCallback('onredo', () => this.history.redo());
 
             //
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
 
             //
-            this.width  = this.targetDom.offsetWidth;
-            this.height = this.targetDom.offsetHeight;
             this.fov    = 60;
-            this.aspect = this.width / this.height;
             this.near   = 1;
             this.far    = 1000;
 
             //
             this.scene = new THREE.Scene();
-            this.camera = new THREE.PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
+            this.camera = new THREE.PerspectiveCamera(this.fov, this.screen.aspect, this.near, this.far);
             this.camera.position.copy(defaultCamera.position);
 
             this.directionalLight = new THREE.DirectionalLight(0xffffff);
@@ -80,7 +50,7 @@ module PoseEditor {
 
             //
             this.scene2d = new THREE.Scene();
-            this.camera2d = new THREE.OrthographicCamera(0, this.width, 0, this.height, 0.001, 10000);
+            this.camera2d = new THREE.OrthographicCamera(0, this.screen.width, 0, this.screen.height, 0.001, 10000);
 
             var propForRenderer: any = {
                 preserveDrawingBuffer: true
@@ -89,23 +59,14 @@ module PoseEditor {
 
             //
             this.renderer = new THREE.WebGLRenderer(propForRenderer);
-            this.renderer.setSize(this.width, this.height);
+            this.renderer.setSize(this.screen.width, this.screen.height);
             this.renderer.autoClear = false;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
 
             //
-            this.targetDom.appendChild(this.renderer.domElement);
-            window.addEventListener('resize', () => this.onResize(), false);
+            this.screen.appendChild(this.renderer.domElement);
 
             //
-            if ( config.loadingImagePath ) {
-                this.loadingDom = document.createElement("img");
-                this.loadingDom.src = config.loadingImagePath;
-                this.loadingDom.style.display = "none";
-
-                this.targetDom.appendChild(this.loadingDom);
-            }
-
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
 
@@ -118,7 +79,7 @@ module PoseEditor {
                 this.boneDebugDom.style.backgroundColor = "#fff";
                 this.boneDebugDom.style.opacity = "0.8";
                 this.boneDebugDom.style.width = "300px";
-                this.targetDom.appendChild(this.boneDebugDom);
+                this.screen.targetDom.appendChild(this.boneDebugDom);
 
                 // debug
                 var axisHelper = new THREE.AxisHelper(50.0);
@@ -126,67 +87,109 @@ module PoseEditor {
             }
 
             //
-            this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
-            this.transformCtrl.setMode("rotate");
-            this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(1.0);
-            this.transformCtrl.detach();
-            this.transformCtrl.addEventListener('change', this.onTransformCtrl.bind(this));
-            this.scene.add(this.transformCtrl);
-
-            //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-            this.controls.damping = 0.2;
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
-            //this.controls.enabled = true;
-            this.controls.addEventListener('change', () => this.onControlsChange() );
+            this.controls.enabled = false;
 
-            // plane model
-            this.plane = new THREE.Mesh(
-                new THREE.PlaneBufferGeometry( 2000, 2000, 8, 8 ),
-                new THREE.MeshBasicMaterial( { color: 0x0000ff, opacity: 1.0, transparent: true } )
+            //
+            this.transformCtrl
+                = new THREE.TransformControls(this.camera, this.renderer.domElement);
+            this.scene.add(this.transformCtrl);
+
+            // intersect helper
+            this.cursorHelper = new CursorPositionHelper(
+                this.scene,
+                this.camera,
+                this.controls
             );
-            this.plane.visible = false;
-            this.scene.add(this.plane);
-
-            // ik target
-            var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
-            var material = new THREE.MeshBasicMaterial({wireframe: true});
-            this.ikTargetSphere = new THREE.Mesh(sphereGeo, material);
-            this.ikTargetSphere.matrixWorldNeedsUpdate = true;
-            this.ikTargetSphere.visible = false;
-            this.scene.add(this.ikTargetSphere);
-            if ( config.isDebugging ) {
-                this.ikTargetSphere.visible = true;
-            }
 
             // save Config
             this.config = config;
 
             //
-            this.renderer.domElement.addEventListener('mousedown',  (e) => this.boneRay(e, false), false);
-            this.renderer.domElement.addEventListener('touchstart', (e) => this.boneRay(e, true), false);
+            {
+                var dom = this.renderer.domElement;
+                dom.addEventListener('mousedown', (e) => this.onTapStart(e, false), false);
+                dom.addEventListener('touchstart', (e) => this.onTapStart(e, true), false);
 
-            this.renderer.domElement.addEventListener('mousemove', (e) => this.moving(e, false), false);
-            this.renderer.domElement.addEventListener('touchmove', (e) => this.moving(e, true), false);
+                dom.addEventListener('mousemove', (e) => this.onMoving(e, false), false);
+                dom.addEventListener('touchmove', (e) => this.onMoving(e, true), false);
 
-            this.renderer.domElement.addEventListener('mouseup', () => this.endDragging(), false);
-            this.renderer.domElement.addEventListener('mouseleave', () => this.endDragging(), false);
-            this.renderer.domElement.addEventListener('touchend', () => this.endDragging(), false);
-            this.renderer.domElement.addEventListener('touchcancel', () => this.endDragging(), false);
+                dom.addEventListener('mouseup', (e) => this.onTapEnd(e, false), false);
+                dom.addEventListener('mouseleave', (e) => this.onTapEnd(e, true), false);
+                dom.addEventListener('touchend', (e) => this.onTapEnd(e, true), false);
+                dom.addEventListener('touchcancel', (e) => this.onTapEnd(e, true), false);
 
-            this.renderer.domElement.addEventListener('dblclick', () => this.toggleIKStopper(), false);
+                dom.addEventListener('dblclick', (e) => this.onDoubleTap(e, false), false);
+            }
 
             //
+            this.history = new TimeMachine.Machine();
+
+            // initialize mode
+            this.currentMode = Screen.Mode.Camera;
+            this.onModeClick(this.currentMode);
+
+            // jump into loop
             this.renderLoop();
         }
+
+        /// ==================================================
+        /// ==================================================
+        private onModeClick(mode: Screen.Mode): void {
+            var beforeAction = this.currentAction;
+            if ( beforeAction != null ) {
+                beforeAction.onDestroy();
+            }
+
+            this.currentMode = mode;
+            switch(this.currentMode) {
+            case Screen.Mode.Camera:
+                this.currentAction = new CameraAction(this, this.controls);
+                break;
+            case Screen.Mode.Move:
+                this.currentAction = new MoveAction(this);
+                break;
+            case Screen.Mode.FK:
+                this.currentAction = new FKAction(this, this.transformCtrl);
+                break;
+            case Screen.Mode.IK:
+                this.currentAction = new IKAction(this);
+                break;
+            default:
+                console.error('unexpected mode');
+            }
+            this.currentAction.onActive(beforeAction);
+        }
+
+        private onTapStart(e: any, isTouch: boolean): void {
+            e.preventDefault();
+            this.currentAction.onTapStart(e, isTouch);
+        }
+
+        private onMoving(e: any, isTouch: boolean): void {
+            e.preventDefault();
+            this.currentAction.onMoving(e, isTouch);
+        }
+
+        private onTapEnd(e: any, isTouch: boolean): void {
+            e.preventDefault();
+            this.currentAction.onTapEnd(e, isTouch);
+        }
+
+        private onDoubleTap(e: any, isTouch: boolean): void {
+            e.preventDefault();
+            this.currentAction.onDoubleTap(e, isTouch);
+        }
+        /// ==================================================
+        /// ==================================================
 
 
         private updateBoneDebugInfo(model: Model, index: number) {
             var bone = model.mesh.skeleton.bones[index];
 
-            console.log(bone.position);
+            // console.log(bone.position);
 
             var pos = new THREE.Vector3();
             pos.setFromMatrixPosition(bone.matrixWorld);
@@ -198,6 +201,12 @@ module PoseEditor {
             var sx = "<span style='color: red'>X</span>";
             var sy = "<span style='color: #00ff00'>Y</span>";
             var sz = "<span style='color: blue'>Z</span>";
+
+            // local rotation
+            //var t_r = bone.quaternion.clone();
+            //bone.rotation.set(0,0,0);
+            //var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
+
 
             this.boneDebugDom.innerHTML  = "selected joint_id: " + index + "<br>";
             this.boneDebugDom.innerHTML += "rot " + sx + "   : " + radToDeg(bone.rotation.x) + "<br>";
@@ -216,72 +225,38 @@ module PoseEditor {
         }
 
 
-        private onControlsChange() {
-            this.transformCtrl.update();
-        }
 
 
-        private onTransformCtrl() {
-            if ( this.transformCtrl.axis != null ) {
-                this.isOnManipurator = true;
-
-                if ( this.selectedSphere != null ) {
-                    var model = this.selectedSphere.userData.ownerModel;
-                    var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-
-                    // local rotation
-                    var t_r = bone.quaternion.clone();
-                    bone.rotation.set(0,0,0);
-                    var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
-
-                    var sph_q = this.selectedSphere.getWorldQuaternion(null);
-
-                    // update bone quaternion
-                    var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
-
-                    // limitation
-                    //this.adjustRotation(bone, to_q);
-
-                    bone.quaternion.copy(to_q);
-                    bone.updateMatrixWorld(true);
-
-                    //
-                    if ( this.config.isDebugging ) {
-                        this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
-                    }
-                }
-
-            } else {
-                this.isOnManipurator = false;
-            }
-
-            this.transformCtrl.update();
-        }
-
-        private boneRay(e: any, isTouch: boolean) {
-            if ( this.isOnManipurator || this.dragging || this.models.length == 0 ) {
-                return;
-            }
+        //
+        public selectModel(e: any, isTouch: boolean): [Model, THREE.Vector3] {
             e.preventDefault();
 
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var pos = this.cursorToWorld(e, isTouch);
+            var raycaster = new THREE.Raycaster(
+                this.camera.position,
+                pos.sub(this.camera.position).normalize()
+            );
+            var intersects = raycaster.intersectObjects(
+                this.models.map((m) => m.mesh)
+            );
+            var mesh = intersects.length > 0 ? intersects[0].object : null;
+            if ( mesh == null ) return
 
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var modelPos = mesh.position.clone();
+            var localConfPos = intersects[0].point.clone();
 
-            // reset color of markers
-            this.models.forEach((model) => {
-                model.joint_markers.forEach((marker) => {
-                    marker.material.color.setHex(model.normalColor);
-                })
-            });
+            return [mesh.userData.modelData, localConfPos];
+        }
+
+        //
+        public selectJointMarker(e: any, isTouch: boolean): THREE.Object3D {
+            e.preventDefault();
+
+            var pos = this.cursorToWorld(e, isTouch);
 
             // calc most nearest sphere
-            var l = 9999999999;
-            this.selectedSphere = null;
+            var l = 9999999999.9;
+            var selectedMarker: THREE.Object3D = null;
 
             var ab = pos.clone().sub(this.camera.position).normalize();
             var flattened = this.models.map((v) => {
@@ -302,160 +277,65 @@ module PoseEditor {
                 if ( h < margin ) {
                     if ( h < l ) {
                         l = h;
-                        this.selectedSphere = s;
+                        selectedMarker = s;
                     }
                 }
             });
             //console.log(l);
+            if ( selectedMarker != null ) {
+                this.selectedSphere = selectedMarker;
+            }
 
-            if ( this.selectedSphere != null ) {
-                this.dragStart = true;
-                this.controls.enabled = false;
+            return selectedMarker;
+        }
 
-                var model = this.selectedSphere.userData.ownerModel;
-                var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                // console.log("index: ", this.selectedSphere.userData.jointIndex);
+        public cancelAllMarkerSprite() {
+            // update marker sprite color (to not selected color)
+            this.models.forEach((model) => {
+                model.joint_markers.forEach((sprite) => {
+                    if (sprite) {
+                        sprite.material.color.setHex(model.normalColor);
+                    }
+                })
+            });
+        }
 
-                //
-                var index = this.selectedSphere.userData.jointIndex;
-                model.joint_markers[index].material.color.setHex(model.selectedColor);
+        public selectMarkerSprite(markerMesh: THREE.Object3D) {
+            this.cancelAllMarkerSprite();
 
-                //
-                var to_q = bone.getWorldQuaternion(null)
-                this.selectedSphere.quaternion.copy(to_q);
-
-                this.transformCtrl.attach(this.selectedSphere);
-                this.transformCtrl.update();
-
-                // set ik target
-                this.ikTargetPosition = this.selectedSphere.position.clone();
-                this.ikTargetSphere.position.copy(this.ikTargetPosition);
-
-                // set plane
-                var c_to_p = this.controls.target.clone().sub(this.camera.position);
-                var c_to_o = this.ikTargetPosition.clone().sub(this.camera.position);
-
-                var n_c_to_p = c_to_p.clone().normalize();
-                var n_c_to_o = c_to_o.clone().normalize();
-
-                var l = c_to_o.length();
-                var len = n_c_to_o.dot(n_c_to_p) * l;
-
-                var tmp_pos = this.camera.position.clone();
-                tmp_pos.add(c_to_p.normalize().multiplyScalar(len));
-                this.plane.position.copy(tmp_pos);
-                this.plane.lookAt(this.camera.position);
-
-                if ( this.config.isDebugging ) {
-                    // set debug view
-                    this.boneDebugDom.style.display = "block";
-
-                    this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
-                }
-
-            } else {
-                // not found
-                this.resetCtrl();
-
-                if ( this.config.isDebugging ) {
-                    this.boneDebugDom.style.display = "none";
-                }
+            var model = markerMesh.userData.ownerModel;
+            var index = markerMesh.userData.jointIndex;
+            var sprite = model.joint_markers[index];
+            if (sprite) {
+                sprite.material.color.setHex(model.selectedColor);
             }
         }
 
-
-        private moving(e: any, isTouch: boolean) {
-            if ( this.dragStart == false ) {
-                return;
-            }
-
-            // console.log("moving");
-            e.preventDefault();
-            this.dragging = true;
-            this.isOnManipurator = false;
-            this.transformCtrl.detach();
-
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
-
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-
-            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
-            var raycaster = new THREE.Raycaster(
-                this.camera.position,
-                pos.sub(this.camera.position).normalize()
-            );
-
-            // move ik target
-            var intersects = raycaster.intersectObject(this.plane);
-            this.ikTargetPosition.copy(intersects[0].point);
-            this.ikTargetSphere.position.copy(this.ikTargetPosition);
-
-            //
-            if ( this.config.isDebugging ) {
-                if ( this.selectedSphere != null ) {
-                    var model = this.selectedSphere.userData.ownerModel;
-                    this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
-                }
-            }
+        public hideAllMarkerSprite() {
+            this.models.forEach((model) => {
+                model.joint_markers.forEach((marker) => {
+                    marker.visible = false;
+                })
+            });
         }
 
-
-        private endDragging() {
-            if ( this.dragStart ) {
-                if ( this.dragging ) {
-                    // reset color of markers
-                    this.models.forEach((model) => {
-                        model.joint_markers.forEach((marker) => {
-                            marker.material.color.setHex(model.normalColor);
-                        })
-                    });
-                }
-
-                this.dragStart = false;
-                this.dragging = false;
-
-                this.controls.enabled = true;
-                this.controls.cancel(); // ...
-
-                //console.log("end");
-            }
+        public showAllMarkerSprite() {
+            this.models.forEach((model) => {
+                model.joint_markers.forEach((marker) => {
+                    marker.visible = true;
+                })
+            });
         }
 
+        private onResize(): void {
+            this.renderer.setSize(this.screen.width, this.screen.height);
 
-        private toggleIKStopper() {
-            if ( this.selectedSphere ) {
-                var model = this.selectedSphere.userData.ownerModel;
-                var i = this.selectedSphere.userData.jointIndex;
-                model.toggleIKPropagation(i);
-            }
-        }
-
-
-        private onResize(): boolean {
-            var w = this.targetDom.offsetWidth;
-            var h = this.targetDom.offsetHeight;
-            if ( this.width == w && this.height == h ) {
-                return false;
-            }
-
-            // update size
-            this.width  = w;
-            this.height = h;
-            this.aspect = this.width / this.height;
-
-            this.renderer.setSize(this.width, this.height);
-
-            this.camera.aspect = this.aspect;
+            this.camera.aspect = this.screen.aspect;
             this.camera.updateProjectionMatrix();
 
-            this.camera2d.right = this.width;
-            this.camera2d.bottom = this.height;
+            this.camera2d.right = this.screen.width;
+            this.camera2d.bottom = this.screen.height;
             this.camera2d.updateProjectionMatrix();
-
-            return false;
         }
 
 
@@ -471,12 +351,12 @@ module PoseEditor {
                 this.decTask();
 
                 // default IK stopper node indexes
-                var nx = model_info.ikStopJoints;
-                nx.forEach((i) => {
-                    model.toggleIKPropagation(i);
+                var nx = model_info.ikInversePropagationJoints;
+                nx.forEach((jointIndex) => {
+                    model.toggleIKPropagation(jointIndex);
                 });
 
-                if ( callback ) {
+                if (callback) {
                     callback(m, e);
                 }
             });
@@ -486,126 +366,50 @@ module PoseEditor {
 
 
         private resetCtrl() {
-            this.endDragging();
 
-            this.controls.enabled = true;
             this.transformCtrl.detach();
 
-            this.controls.enabled = true;
 
             this.selectedSphere = null;
         }
 
 
-        private moveCharactor(model: Model, target_pos: THREE.Vector3) {
-            var pos = target_pos.clone();
-            pos.sub(model.offsetOrgToBone);
-
-            model.mesh.position.copy(pos);
-        }
 
 
-        private adjustRotation(bone: THREE.Bone, q: THREE.Quaternion) {
-            // TODO: fix Gimbal lock
-            var e = new THREE.Euler().setFromQuaternion(q);
-
-            if ( bone.userData.rotLimit.x ) {
-                e.x = Math.max( bone.userData.rotMin.x, Math.min( e.x, bone.userData.rotMax.x ) );
-            }
-            if ( bone.userData.rotLimit.y ) {
-                e.y = Math.max( bone.userData.rotMin.y, Math.min( e.y, bone.userData.rotMax.y ) );
-            }
-            if ( bone.userData.rotLimit.z ) {
-                e.z = Math.max( bone.userData.rotMin.z, Math.min( e.z, bone.userData.rotMax.z ) );
-            }
-            q.setFromEuler(e);
-
-            // console.log(e)
-        }
-
-        // CCD IK
-        private ik(selected_bone: THREE.Bone, target_pos: THREE.Vector3) {
-            var c_bone = selected_bone;
-            var p_bone = <THREE.Bone>c_bone.parent;
-
-            while( p_bone != null && p_bone.type != "SkinnedMesh" ) {
-                // console.log("bone!", c_bone.parent);
-
-                // local rotation
-                var t_r = p_bone.quaternion.clone();
-                p_bone.rotation.set(0,0,0);
-                var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
-                p_bone.quaternion.copy(t_r);
-                p_bone.updateMatrixWorld(true);
-
-                //
-                var c_b_pos = c_bone.getWorldPosition(null);
-                var p_b_pos = p_bone.getWorldPosition(null);
-
-                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
-                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
-
-                var base_bone_q = p_bone.getWorldQuaternion(null);
-
-                var bone_diff_q = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
-                bone_diff_q.multiply(base_bone_q);
-
-                var qm = new THREE.Quaternion();
-                THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
-
-                // update bone quaternion
-                var to_q = w_to_l_comp_q.multiply(qm).normalize();
-
-                // limitation
-                //this.adjustRotation(p_bone, to_q);
-
-                // set
-                p_bone.quaternion.copy(to_q);
-                p_bone.updateMatrixWorld(true);
-
-                if ( p_bone.userData.preventIKPropagation )
-                    break;
-
-                p_bone = <THREE.Bone>p_bone.parent;
-            }
-        }
 
 
         private renderLoop = () => {
             requestAnimationFrame(this.renderLoop);
 
+            this.update();
+            this.render();
+        }
+
+        private update() {
             this.scene.updateMatrixWorld(true);
             this.scene2d.updateMatrixWorld(true);
 
             this.models.forEach((model) => {
                 if ( model.isReady() ) {
-                    if ( this.dragging && model == this.selectedSphere.userData.ownerModel ) {
-                        var joint_index = this.selectedSphere.userData.jointIndex;
-                        var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-
-                        if ( joint_index == 0 ) {
-                            this.moveCharactor(model, this.ikTargetPosition);
-
-                        } else {
-                            this.ik(bone, this.ikTargetPosition);
-                        }
-                    }
+                    this.currentAction.update(model);
 
                     //
-                    model.mesh.skeleton.bones.forEach((bone, index) => {
-                        var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
+                    model.availableBones.forEach((bone) => {
+                        var index = bone.userData.index;
+                        var b_pos
+                            = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
                         var s_b_pos = this.worldToScreen(b_pos);
 
-                        model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
+                        //
+                        var markerSprite = model.joint_markers[index];
+                        markerSprite.position.set(s_b_pos.x, s_b_pos.y, -1);
 
                         //
-                        var sphere = model.joint_spheres[index];
-                        sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
+                        var markerMesh = model.joint_spheres[index];
+                        markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
                     });
                 }
             });
-
-            this.render();
         }
 
         private render() {
@@ -616,9 +420,10 @@ module PoseEditor {
         }
 
 
-        private screenToWorld(screen_pos: THREE.Vector2): THREE.Vector3 {
-            var window_half_x = this.width / 2.0;
-            var window_half_y = this.height / 2.0;
+
+        public screenToWorld(screen_pos: THREE.Vector2): THREE.Vector3 {
+            var window_half_x = this.screen.width / 2.0;
+            var window_half_y = this.screen.height / 2.0;
 
             var world_pos = new THREE.Vector3();
             world_pos.x = screen_pos.x / window_half_x - 1;
@@ -628,9 +433,9 @@ module PoseEditor {
             return world_pos;
         }
 
-        private worldToScreen(world_pos: THREE.Vector3): THREE.Vector2 {
-            var window_half_x = this.width / 2.0;
-            var window_half_y = this.height / 2.0;
+        public worldToScreen(world_pos: THREE.Vector3): THREE.Vector2 {
+            var window_half_x = this.screen.width / 2.0;
+            var window_half_y = this.screen.height / 2.0;
 
             var screen_pos = world_pos.clone();
             screen_pos.project(this.camera);
@@ -638,6 +443,16 @@ module PoseEditor {
             screen_pos.y = ( -screen_pos.y + 1) * window_half_y;
 
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
+        }
+
+        public cursorToWorld(e: any, isTouch: boolean): THREE.Vector3 {
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+
+            var mouse_x = client_x - dom_pos.left;
+            var mouse_y = client_y - dom_pos.top;
+            return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
         }
 
         // ==================================================
@@ -792,19 +607,7 @@ module PoseEditor {
 
         private incTask() {
             if ( this.loadingTasks == 0 ) {
-                if ( this.loadingDom.style ) {
-                    this.loadingDom.style.display = "inline";
-                    this.loadingDom.style.position = 'absolute';
-                    this.loadingDom.style.padding = "10px";
-                    this.loadingDom.style.borderRadius = "5px";
-                    this.loadingDom.style.backgroundColor = "#fff";
-
-                    var x = Math.abs( this.targetDom.offsetWidth - this.loadingDom.offsetWidth ) / 2;
-                    var y = Math.abs( this.targetDom.offsetHeight - this.loadingDom.offsetHeight ) / 2;
-
-                    this.loadingDom.style.left = x + 'px';
-                    this.loadingDom.style.top = y + 'px';
-                }
+                this.screen.showLoadingDom();
             }
 
             this.loadingTasks++;
@@ -814,25 +617,23 @@ module PoseEditor {
             this.loadingTasks--;
 
             if ( this.loadingTasks == 0 ) {
-                if ( this.loadingDom.style ) {
-                    this.loadingDom.style.display = "none";
-                }
+                this.screen.hideLoadingDom();
             }
         }
-
-
-        //
-        private targetDom: HTMLElement;
 
         //
         private modelInfoTable: {[key: string]: ModelInfo;};
         private spritePaths: SpritePaths;
 
         //
-        private width: number;
-        private height: number;
+        private screen: Screen.ScreenController;
+        private currentMode: Screen.Mode;
+        private currentAction: Action;
+
+        public history: TimeMachine.Machine;
+
+        //
         private fov: number;
-        private aspect: number;
         private near: number;
         private far: number;
 
@@ -855,339 +656,23 @@ module PoseEditor {
         private camera2d: THREE.OrthographicCamera;
 
         //
-        private plane: THREE.Mesh;
-        private ikTargetSphere: THREE.Mesh; // for debugging
-
-        //
         private gridHelper: THREE.GridHelper;
 
-        //
-        private dragging = false;
-        private dragStart = false;
+
 
         //
         private isOnManipurator: boolean = false;
         private selectedSphere: THREE.Object3D = null;
-        private ikTargetPosition: THREE.Vector3;
+
 
         //
         private loadingTasks = 0;
-        private loadingDom: any = null;
+
         private boneDebugDom: any = null;
 
         //
         private config: Config;
-    }
 
-
-    //
-    class Model
-    {
-        constructor(
-            name: string,
-            model_info: ModelInfo,
-            sprite_paths: SpritePaths,
-            scene: THREE.Scene,
-            scene2d: THREE.Scene,
-            callback: (m: Model, error: string) => void
-        ) {
-            //
-            this.name = name;
-
-            //
-            this.scene = scene;
-            this.scene2d = scene2d;
-
-            //
-            var mesh_path = model_info.modelPath;
-            var texture_path = model_info.textureDir;
-            var init_pos = model_info.initPos;
-            var init_scale = model_info.initScale;
-            if ( model_info.markerScale ) {
-                this.markerScale = model_info.markerScale;
-            } else {
-                this.markerScale = [12.0, 12.0];
-            }
-
-            var loader = new THREE.JSONLoader();
-            loader.crossOrigin = '*';
-
-            // load mesh data from path
-            loader.load(mesh_path, (geometry, materials) => {
-                //console.log("finished to load");
-                // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
-                var material: any;
-                if ( materials !== undefined ) {
-                    if ( materials.length > 1 ) {
-                        material = new THREE.MeshFaceMaterial(materials);
-                        material.materials.forEach((mat: any) => {
-                            mat.skinning = true;
-                        });
-
-                    } else {
-                        material = materials[0];
-                        material.setValues({skinning: true});
-                    }
-
-                } else {
-                    material = new THREE.MeshLambertMaterial({
-                        color: 0xffffff,
-                        skinning: true
-                    });
-                }
-
-                // create mesh data
-                this.mesh = new THREE.SkinnedMesh(geometry, material, false);
-                if ( init_pos ) {
-                    this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
-                }
-                if ( init_scale ) {
-                    this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
-                }
-
-                this.scene.add(this.mesh);
-
-                //
-                this.setupAppendixData(sprite_paths, model_info, callback);
-
-            }, texture_path);
-        }
-
-        private setupAppendixData(
-            sprite_paths: SpritePaths,
-            model_info: ModelInfo,
-            callback: (m: Model, error: string) => void
-        ) {
-            //
-            var bone_limits = model_info.boneLimits;
-            var base_joint_id = model_info.baseJointId;
-
-            //
-            var default_cross_origin = THREE.ImageUtils.crossOrigin;
-            THREE.ImageUtils.crossOrigin = '*';
-
-            //
-            this.mesh.skeleton.bones.forEach((bone, index) => {
-                bone.matrixWorldNeedsUpdate = true;
-                bone.updateMatrixWorld(true);
-                bone.userData = {
-                    index: index,
-                    preventIKPropagation: false,
-                    rotLimit: new RotationLimitation(),
-                    rotMin: null,
-                    rotMax: null,
-                };
-
-                if ( index in bone_limits ) {
-                    bone.userData.rotMin = new THREE.Euler();
-                    bone.userData.rotMax = new THREE.Euler();
-
-                    var rots = bone_limits[index];
-
-                    if ( rots[0] != null ) {
-                        bone.userData.rotLimit.x = true;
-                        bone.userData.rotMin.x = degToRad(rots[0][0]);
-                        bone.userData.rotMax.x = degToRad(rots[0][1]);
-                    }
-
-                    if ( rots[1] != null ) {
-                        bone.userData.rotLimit.y = true;
-                        bone.userData.rotMin.y = degToRad(rots[1][0]);
-                        bone.userData.rotMax.y = degToRad(rots[1][1]);
-                    }
-
-                    if ( rots[2] != null ) {
-                        bone.userData.rotLimit.z = true;
-                        bone.userData.rotMin.z = degToRad(rots[2][0]);
-                        bone.userData.rotMax.z = degToRad(rots[2][1]);
-                    }
-                }
-            });
-
-            this.scene.updateMatrixWorld(true);
-
-            //
-            this.offsetOrgToBone
-                = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
-
-            // load textures(marker for bone)
-            this.joint_markers = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
-
-            this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
-            this.normalMarkerMat = new THREE.SpriteMaterial({
-                map: this.normalMarkerTex, color: this.normalColor
-            });
-
-            this.specialMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.special);
-            this.specialMarkerMat = new THREE.SpriteMaterial({
-                map: this.specialMarkerTex, color: this.normalColor
-            });
-
-            this.mesh.skeleton.bones.forEach((bone, index) => {
-                var sprite = new THREE.Sprite(this.normalMarkerMat.clone());
-                sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
-
-                this.joint_markers[index] = sprite;
-                this.scene2d.add(sprite);
-            });
-
-            // make sphere objects(attached by transform ctrl)
-            this.mesh.skeleton.bones.forEach((bone, index) => {
-                var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
-                var material = new THREE.MeshBasicMaterial({wireframe: true});
-                var sphere = new THREE.Mesh(sphere_geo, material);
-                sphere.matrixWorldNeedsUpdate = true;
-                sphere.userData = {
-                    jointIndex: index,
-                    ownerModel: this,
-                };
-
-                sphere.visible = false;
-                this.joint_spheres.push(sphere);
-                this.scene.add(sphere);
-            });
-
-            THREE.ImageUtils.crossOrigin = default_cross_origin;
-
-            this.ready = true;
-            if ( callback ) {
-                callback(this, null);
-            }
-        }
-
-        destruct(): void {
-            this.ready = false;
-
-            this.scene.remove(this.mesh);
-
-            this.joint_markers.forEach((m) => {
-                this.scene2d.remove(m);
-            });
-
-            this.joint_spheres.forEach((m) => {
-                this.scene.remove(m);
-            });
-        }
-
-        isReady(): boolean {
-            return this.ready;
-        }
-
-        modelData(): any {
-            var joints = this.mesh.skeleton.bones.map((bone) => {
-                return {
-                    q: bone.quaternion
-                };
-            });
-
-            return {
-                name: this.name,
-                position: this.mesh.position,
-                q: this.mesh.quaternion,
-                joints: joints
-            };
-        }
-
-        loadModelData(data: any) {
-            if ( !this.ready ) {
-                return;
-            }
-
-            var p = data.position;
-            var q = data.q;
-            var joints = data.joints;
-
-            for( var key in joints ) {
-                var joint = joints[key];
-                var t_q = joint.q;
-
-                var s_q = this.mesh.skeleton.bones[key].quaternion;
-                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
-            }
-
-            this.mesh.position.set(p.x, p.y, p.z);
-            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
-        }
-
-        toggleIKPropagation(bone_index: number) {
-            var bone = this.mesh.skeleton.bones[bone_index];
-            bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
-
-            var old_sprite = this.joint_markers[bone_index];
-            var sprite: THREE.Sprite = null;
-
-            if ( bone.userData.preventIKPropagation ) {
-                sprite = new THREE.Sprite(this.specialMarkerMat.clone());
-            } else {
-                sprite = new THREE.Sprite(this.normalMarkerMat.clone());
-            }
-
-            sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
-            this.joint_markers[bone_index] = sprite;
-            this.scene2d.add(sprite);
-
-            this.scene2d.remove(old_sprite);
-        }
-
-        hideMarker() {
-            this.showingMarker = false;
-            this.setMarkerVisibility(this.showingMarker);
-        }
-
-        showMarker() {
-            this.showingMarker = true;
-            this.setMarkerVisibility(this.showingMarker);
-        }
-
-        toggleMarker() {
-            this.showingMarker = !this.showingMarker;
-            this.setMarkerVisibility(this.showingMarker);
-        }
-
-        setMarkerVisibility(showing: boolean) {
-            this.joint_markers.forEach((marker) => {
-                marker.visible = showing;
-            });
-        }
-
-        getMarkerVisibility(): boolean {
-            return this.showingMarker;
-        }
-
-        //
-        private ready: boolean = false;
-
-        //
-        private showingMarker: boolean = true;
-
-        //
-        private normalMarkerTex: THREE.Texture;
-        private normalMarkerMat: THREE.SpriteMaterial;
-        private specialMarkerTex: THREE.Texture;
-        private specialMarkerMat: THREE.SpriteMaterial;
-
-        //
-        offsetOrgToBone: THREE.Vector3;
-
-        //
-        selectedColor = 0xff0000;
-        normalColor = 0x0000ff;
-
-        //
-        name: string;
-
-        //
-        scene: THREE.Scene;
-        scene2d: THREE.Scene;
-
-        //
-        mesh: THREE.SkinnedMesh = null;
-
-        //
-        joint_markers: Array<THREE.Sprite> = [];
-        joint_spheres: Array<THREE.Mesh> = [];
-
-        //
-        private markerScale: Array<number>;
+        cursorHelper: CursorPositionHelper;
     }
 }
