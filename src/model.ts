@@ -8,6 +8,17 @@ module PoseEditor {
         z: boolean = false;
     }
 
+    export interface JointStatus {
+        quaternion: THREE.Quaternion
+    }
+
+    export interface ModelStatus {
+        name: string;
+        position: THREE.Vector3;
+        quaternion: THREE.Quaternion;
+        joints: Array<JointStatus>;
+    }
+
     export class Model
     {
         constructor(
@@ -227,41 +238,44 @@ module PoseEditor {
             return this.ready;
         }
 
-        public modelData(): any {
+
+
+        public modelData(): ModelStatus {
             var joints = this.mesh.skeleton.bones.map((bone) => {
                 return {
-                    q: bone.quaternion
+                    quaternion: bone.quaternion
                 };
             });
 
             return {
                 name: this.name,
                 position: this.mesh.position,
-                q: this.mesh.quaternion,
+                quaternion: this.mesh.quaternion,
                 joints: joints
             };
         }
 
-        public loadModelData(data: any) {
-            if ( !this.ready ) {
+        public loadModelData(status: ModelStatus) {
+            if (!this.ready) {
                 return;
             }
 
-            var p = data.position;
-            var q = data.q;
-            var joints = data.joints;
+            var p = status.position;
+            var q = status.quaternion;
+            var joints = status.joints;
 
-            for( var key in joints ) {
+            for (var key in joints) {
                 var joint = joints[key];
-                var t_q = joint.q;
+                var t_q = joint.quaternion;
 
                 var s_q = this.mesh.skeleton.bones[key].quaternion;
-                s_q.set(t_q._x, t_q._y, t_q._z, t_q._w);
+                s_q.set(t_q.x, t_q.y, t_q.z, t_q.w);
             }
 
             this.mesh.position.set(p.x, p.y, p.z);
-            this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
+            this.mesh.quaternion.set(q.x, q.y, q.z, q.w);
         }
+
 
         public toggleIKPropagation(bone_index: number) {
             var bone = this.mesh.skeleton.bones[bone_index];
@@ -304,6 +318,7 @@ module PoseEditor {
         getMarkerVisibility(): boolean {
             return this.showingMarker;
         }
+
 
         private createMarkerSprite(bone: THREE.Bone): THREE.Sprite {
             if ( bone.userData.preventIKPropagation ) {
