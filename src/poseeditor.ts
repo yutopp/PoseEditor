@@ -285,8 +285,10 @@ module PoseEditor {
         public cancelAllMarkerSprite() {
             // update marker sprite color (to not selected color)
             this.models.forEach((model) => {
-                model.joint_markers.forEach((marker) => {
-                    marker.material.color.setHex(model.normalColor);
+                model.joint_markers.forEach((sprite) => {
+                    if (sprite) {
+                        sprite.material.color.setHex(model.normalColor);
+                    }
                 })
             });
         }
@@ -296,7 +298,10 @@ module PoseEditor {
 
             var model = markerMesh.userData.ownerModel;
             var index = markerMesh.userData.jointIndex;
-            model.joint_markers[index].material.color.setHex(model.selectedColor);
+            var sprite = model.joint_markers[index];
+            if (sprite) {
+                sprite.material.color.setHex(model.selectedColor);
+            }
         }
 
         public hideAllMarkerSprite() {
@@ -382,12 +387,15 @@ module PoseEditor {
                     this.currentAction.update(model);
 
                     //
-                    model.mesh.skeleton.bones.forEach((bone, index) => {
+                    model.availableBones.forEach((bone) => {
+                        var index = bone.userData.index;
                         var b_pos
                             = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
                         var s_b_pos = this.worldToScreen(b_pos);
 
-                        model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
+                        //
+                        var markerSprite = model.joint_markers[index];
+                        markerSprite.position.set(s_b_pos.x, s_b_pos.y, -1);
 
                         //
                         var markerMesh = model.joint_spheres[index];

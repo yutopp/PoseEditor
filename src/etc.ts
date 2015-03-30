@@ -19,6 +19,8 @@ module PoseEditor {
         textureDir: string;
         ikDefaultPropagation: boolean;
         ikInversePropagationJoints: Array<number>;
+        hiddenJoints: Array<number>;
+        presets: {[key: string]: number/*TODO: fix*/}
         boneLimits: {[key: number]: Array<Array<number>>;};
         baseJointId: number;
         initPos: Array<number>;

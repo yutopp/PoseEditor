@@ -274,6 +274,7 @@ var PoseEditor;
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
+            console.log(this.currentJointMarker.userData.jointIndex);
             //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
@@ -353,6 +354,7 @@ var PoseEditor;
             this.normalColor = 0x0000ff;
             //
             this.mesh = null;
+            this.availableBones = [];
             //
             this.joint_markers = [];
             this.joint_spheres = [];
@@ -364,7 +366,6 @@ var PoseEditor;
             //
             var mesh_path = model_info.modelPath;
             var texture_path = model_info.textureDir;
-            var defaultPropagation = model_info.ikDefaultPropagation;
             var init_pos = model_info.initPos;
             var init_scale = model_info.initScale;
             if (model_info.markerScale) {
@@ -413,14 +414,16 @@ var PoseEditor;
                     modelData: _this
                 };
                 //
-                _this.setupAppendixData(sprite_paths, model_info, defaultPropagation, callback);
+                _this.setupAppendixData(sprite_paths, model_info, callback);
             }, texture_path);
         }
-        Model.prototype.setupAppendixData = function (sprite_paths, model_info, ikDefaultPropagation, callback) {
+        Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
             var _this = this;
             //
             var bone_limits = model_info.boneLimits;
             var base_joint_id = model_info.baseJointId;
+            var ikDefaultPropagation = model_info.ikDefaultPropagation;
+            var hiddenJoints = model_info.hiddenJoints;
             //
             var default_cross_origin = THREE.ImageUtils.crossOrigin;
             THREE.ImageUtils.crossOrigin = '*';
@@ -459,8 +462,10 @@ var PoseEditor;
             this.scene.updateMatrixWorld(true);
             //
             this.offsetOrgToBone = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
-            // load textures(marker for bone)
+            //
             this.joint_markers = new Array(this.mesh.skeleton.bones.length);
+            this.joint_spheres = new Array(this.mesh.skeleton.bones.length);
+            // load textures(marker for bone)
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
             this.normalMarkerMat = new THREE.SpriteMaterial({
                 map: this.normalMarkerTex,
@@ -471,27 +476,33 @@ var PoseEditor;
                 map: this.specialMarkerTex,
                 color: this.normalColor
             });
+            // make sphere objects(attached by transform ctrl)
             this.mesh.skeleton.bones.forEach(function (bone, index) {
+                if (hiddenJoints.indexOf(index) != -1) {
+                    // this bone is hidden
+                    console.log(index);
+                    return;
+                }
+                _this.availableBones.push(bone);
+                //
+                // load textures(marker for bone)
                 var sprite = _this.createMarkerSprite(bone);
                 sprite.scale.set(_this.markerScale[0], _this.markerScale[1], 1);
                 sprite.visible = false;
                 _this.joint_markers[index] = sprite;
                 _this.scene2d.add(sprite);
-            });
-            // make sphere objects(attached by transform ctrl)
-            this.mesh.skeleton.bones.forEach(function (bone, index) {
                 //var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
                 //var material = new THREE.MeshBasicMaterial({wireframe: true});
                 //var sphere = new THREE.Mesh(sphere_geo, material);
-                var sphere = new THREE.AxisHelper(2.0);
-                sphere.matrixWorldNeedsUpdate = true;
-                sphere.userData = {
+                var markerMesh = new THREE.AxisHelper(2.0);
+                markerMesh.matrixWorldNeedsUpdate = true;
+                markerMesh.userData = {
                     jointIndex: index,
                     ownerModel: _this
                 };
-                sphere.visible = true;
-                _this.joint_spheres.push(sphere);
-                _this.scene.add(sphere);
+                markerMesh.visible = true;
+                _this.joint_spheres[index] = markerMesh; // TODO: rename
+                _this.scene.add(markerMesh);
             });
             THREE.ImageUtils.crossOrigin = default_cross_origin;
             this.ready = true;
@@ -979,8 +990,10 @@ var PoseEditor;
         Editor.prototype.cancelAllMarkerSprite = function () {
             // update marker sprite color (to not selected color)
             this.models.forEach(function (model) {
-                model.joint_markers.forEach(function (marker) {
-                    marker.material.color.setHex(model.normalColor);
+                model.joint_markers.forEach(function (sprite) {
+                    if (sprite) {
+                        sprite.material.color.setHex(model.normalColor);
+                    }
                 });
             });
         };
@@ -988,7 +1001,10 @@ var PoseEditor;
             this.cancelAllMarkerSprite();
             var model = markerMesh.userData.ownerModel;
             var index = markerMesh.userData.jointIndex;
-            model.joint_markers[index].material.color.setHex(model.selectedColor);
+            var sprite = model.joint_markers[index];
+            if (sprite) {
+                sprite.material.color.setHex(model.selectedColor);
+            }
         };
         Editor.prototype.hideAllMarkerSprite = function () {
             this.models.forEach(function (model) {
@@ -1040,10 +1056,13 @@ var PoseEditor;
                 if (model.isReady()) {
                     _this.currentAction.update(model);
                     //
-                    model.mesh.skeleton.bones.forEach(function (bone, index) {
+                    model.availableBones.forEach(function (bone) {
+                        var index = bone.userData.index;
                         var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
                         var s_b_pos = _this.worldToScreen(b_pos);
-                        model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
+                        //
+                        var markerSprite = model.joint_markers[index];
+                        markerSprite.position.set(s_b_pos.x, s_b_pos.y, -1);
                         //
                         var markerMesh = model.joint_spheres[index];
                         markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);

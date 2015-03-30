@@ -28,7 +28,6 @@ module PoseEditor {
             //
             var mesh_path = model_info.modelPath;
             var texture_path = model_info.textureDir;
-            var defaultPropagation = model_info.ikDefaultPropagation;
             var init_pos = model_info.initPos;
             var init_scale = model_info.initScale;
             if ( model_info.markerScale ) {
@@ -85,7 +84,6 @@ module PoseEditor {
                 this.setupAppendixData(
                     sprite_paths,
                     model_info,
-                    defaultPropagation,
                     callback
                 );
 
@@ -95,12 +93,13 @@ module PoseEditor {
         private setupAppendixData(
             sprite_paths: SpritePaths,
             model_info: ModelInfo,
-            ikDefaultPropagation: boolean,
             callback: (m: Model, error: string) => void
         ) {
             //
             var bone_limits = model_info.boneLimits;
             var base_joint_id = model_info.baseJointId;
+            var ikDefaultPropagation = model_info.ikDefaultPropagation;
+            var hiddenJoints = model_info.hiddenJoints;
 
             //
             var default_cross_origin = THREE.ImageUtils.crossOrigin;
@@ -150,9 +149,11 @@ module PoseEditor {
             this.offsetOrgToBone
                 = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
 
-            // load textures(marker for bone)
+            //
             this.joint_markers = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
+            this.joint_spheres = new Array<THREE.Object3D>(this.mesh.skeleton.bones.length);
 
+            // load textures(marker for bone)
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
             this.normalMarkerMat = new THREE.SpriteMaterial({
                 map: this.normalMarkerTex,
@@ -165,30 +166,39 @@ module PoseEditor {
                 color: this.normalColor
             });
 
+
+            // make sphere objects(attached by transform ctrl)
             this.mesh.skeleton.bones.forEach((bone, index) => {
+                if (hiddenJoints.indexOf(index) != -1) {
+                    // this bone is hidden
+                    console.log(index);
+                    return;
+                }
+
+                this.availableBones.push(bone);
+
+                //
+                // load textures(marker for bone)
                 var sprite = this.createMarkerSprite(bone);
                 sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
                 sprite.visible = false;
 
                 this.joint_markers[index] = sprite;
                 this.scene2d.add(sprite);
-            });
 
-            // make sphere objects(attached by transform ctrl)
-            this.mesh.skeleton.bones.forEach((bone, index) => {
                 //var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
                 //var material = new THREE.MeshBasicMaterial({wireframe: true});
                 //var sphere = new THREE.Mesh(sphere_geo, material);
-                var sphere = new THREE.AxisHelper(2.0);
-                sphere.matrixWorldNeedsUpdate = true;
-                sphere.userData = {
+                var markerMesh = new THREE.AxisHelper(2.0);
+                markerMesh.matrixWorldNeedsUpdate = true;
+                markerMesh.userData = {
                     jointIndex: index,
                     ownerModel: this,
                 };
 
-                sphere.visible = true;
-                this.joint_spheres.push(sphere);
-                this.scene.add(sphere);
+                markerMesh.visible = true;
+                this.joint_spheres[index] = markerMesh;    // TODO: rename
+                this.scene.add(markerMesh);
             });
 
             THREE.ImageUtils.crossOrigin = default_cross_origin;
@@ -331,10 +341,11 @@ module PoseEditor {
 
         //
         mesh: THREE.SkinnedMesh = null;
+        availableBones: Array<THREE.Bone> = [];
 
         //
         joint_markers: Array<THREE.Sprite> = [];
-        joint_spheres: Array<any> = [];
+        joint_spheres: Array<THREE.Object3D> = [];
 
         //
         private markerScale: Array<number>;
