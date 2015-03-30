@@ -37,7 +37,7 @@ module PoseEditor {
                 // tmp
                 this.addButton('camera', Mode.Camera);
                 this.addButton('move', Mode.Move);
-                this.addButton('fk', Mode.FK);
+                //this.addButton('fk', Mode.FK);
                 this.addButton('ik', Mode.IK);
 
 

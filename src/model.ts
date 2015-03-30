@@ -28,6 +28,7 @@ module PoseEditor {
             //
             var mesh_path = model_info.modelPath;
             var texture_path = model_info.textureDir;
+            var defaultPropagation = model_info.ikDefaultPropagation;
             var init_pos = model_info.initPos;
             var init_scale = model_info.initScale;
             if ( model_info.markerScale ) {
@@ -81,7 +82,12 @@ module PoseEditor {
                 }
 
                 //
-                this.setupAppendixData(sprite_paths, model_info, callback);
+                this.setupAppendixData(
+                    sprite_paths,
+                    model_info,
+                    defaultPropagation,
+                    callback
+                );
 
             }, texture_path);
         }
@@ -89,6 +95,7 @@ module PoseEditor {
         private setupAppendixData(
             sprite_paths: SpritePaths,
             model_info: ModelInfo,
+            ikDefaultPropagation: boolean,
             callback: (m: Model, error: string) => void
         ) {
             //
@@ -105,7 +112,7 @@ module PoseEditor {
                 bone.updateMatrixWorld(true);
                 bone.userData = {
                     index: index,
-                    preventIKPropagation: false,
+                    preventIKPropagation: !ikDefaultPropagation,
                     rotLimit: new RotationLimitation(),
                     rotMin: null,
                     rotMax: null,
@@ -148,17 +155,20 @@ module PoseEditor {
 
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
             this.normalMarkerMat = new THREE.SpriteMaterial({
-                map: this.normalMarkerTex, color: this.normalColor
+                map: this.normalMarkerTex,
+                color: this.normalColor
             });
 
             this.specialMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.special);
             this.specialMarkerMat = new THREE.SpriteMaterial({
-                map: this.specialMarkerTex, color: this.normalColor
+                map: this.specialMarkerTex,
+                color: this.normalColor
             });
 
             this.mesh.skeleton.bones.forEach((bone, index) => {
-                var sprite = new THREE.Sprite(this.normalMarkerMat.clone());
+                var sprite = this.createMarkerSprite(bone);
                 sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
+                sprite.visible = false;
 
                 this.joint_markers[index] = sprite;
                 this.scene2d.add(sprite);
@@ -189,7 +199,7 @@ module PoseEditor {
             }
         }
 
-        destruct(): void {
+        public destruct(): void {
             this.ready = false;
 
             this.scene.remove(this.mesh);
@@ -203,11 +213,11 @@ module PoseEditor {
             });
         }
 
-        isReady(): boolean {
+        public isReady(): boolean {
             return this.ready;
         }
 
-        modelData(): any {
+        public modelData(): any {
             var joints = this.mesh.skeleton.bones.map((bone) => {
                 return {
                     q: bone.quaternion
@@ -222,7 +232,7 @@ module PoseEditor {
             };
         }
 
-        loadModelData(data: any) {
+        public loadModelData(data: any) {
             if ( !this.ready ) {
                 return;
             }
@@ -243,18 +253,15 @@ module PoseEditor {
             this.mesh.quaternion.set(q._x, q._y, q._z, q._w);
         }
 
-        toggleIKPropagation(bone_index: number) {
+        public toggleIKPropagation(bone_index: number) {
             var bone = this.mesh.skeleton.bones[bone_index];
             bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
 
             var old_sprite = this.joint_markers[bone_index];
-            var sprite: THREE.Sprite = null;
+            var c = old_sprite.material.color.getHex()
 
-            if ( bone.userData.preventIKPropagation ) {
-                sprite = new THREE.Sprite(this.specialMarkerMat.clone());
-            } else {
-                sprite = new THREE.Sprite(this.normalMarkerMat.clone());
-            }
+            var sprite = this.createMarkerSprite(bone);
+            sprite.material.color.setHex(c);
 
             sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
             this.joint_markers[bone_index] = sprite;
@@ -263,7 +270,7 @@ module PoseEditor {
             this.scene2d.remove(old_sprite);
         }
 
-        hideMarker() {
+        public hideMarker() {
             this.showingMarker = false;
             this.setMarkerVisibility(this.showingMarker);
         }
@@ -286,6 +293,14 @@ module PoseEditor {
 
         getMarkerVisibility(): boolean {
             return this.showingMarker;
+        }
+
+        private createMarkerSprite(bone: THREE.Bone): THREE.Sprite {
+            if ( bone.userData.preventIKPropagation ) {
+                return new THREE.Sprite(this.specialMarkerMat.clone());
+            } else {
+                return new THREE.Sprite(this.normalMarkerMat.clone());
+            }
         }
 
         //

@@ -21,6 +21,12 @@ module PoseEditor {
         onTapEnd(e: any, isTouch: boolean): void {
         }
 
+        onDoubleTap(e: any, isTouch: boolean): void {
+        }
+
+        update(model: Model): void {
+        }
+
         editor: Editor;
     }
 }

@@ -16,6 +16,10 @@ var PoseEditor;
         };
         Action.prototype.onTapEnd = function (e, isTouch) {
         };
+        Action.prototype.onDoubleTap = function (e, isTouch) {
+        };
+        Action.prototype.update = function (model) {
+        };
         return Action;
     })();
     PoseEditor.Action = Action;
@@ -57,17 +61,17 @@ var PoseEditor;
             //
             this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({
                 color: 0x0000ff,
-                opacity: 0.4,
+                opacity: 0.2,
                 transparent: true
             }));
-            this.plane.visible = true;
+            this.plane.visible = false;
             this.scene.add(this.plane);
             //
             var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
             var material = new THREE.MeshBasicMaterial({ wireframe: true });
             this.targetMesh = new THREE.Mesh(sphereGeo, material);
             this.targetMesh.matrixWorldNeedsUpdate = true;
-            //this.targetSphere.visible = false;
+            this.targetMesh.visible = false;
             this.scene.add(this.targetMesh);
         }
         CursorPositionHelper.prototype.setBeginState = function (startPos) {
@@ -143,19 +147,78 @@ var PoseEditor;
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="action.ts"/>
+/// <reference path="../ext/TransformControls.d.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
     var FKAction = (function (_super) {
         __extends(FKAction, _super);
-        function FKAction(e) {
+        function FKAction(e, ctrls) {
             _super.call(this, e);
+            this.transformCtrl = ctrls;
         }
+        FKAction.prototype.onActive = function (before) {
+            var _this = this;
+            this.transformCtrl.setMode("rotate");
+            this.transformCtrl.setSpace("local");
+            this.transformCtrl.setSize(0.6);
+            this.transformCtrl.addEventListener('change', function () { return _this.onTransformCtrl(); });
+            this.transformCtrl.detach();
+            this.editor.showAllMarkerSprite();
+        };
+        FKAction.prototype.onDestroy = function () {
+            this.releaseJoint();
+            this.transformCtrl.detach();
+            this.editor.hideAllMarkerSprite();
+        };
         FKAction.prototype.onTapStart = function (e, isTouch) {
-            this.selectedMarker = this.editor.boneRay(e, isTouch);
+            var m = this.editor.selectJointMarker(e, isTouch);
+            console.log(m);
+            if (m == null)
+                return;
+            this.catchJoint(m);
         };
         FKAction.prototype.onMoving = function (e, isTouch) {
         };
         FKAction.prototype.onTapEnd = function (e, isTouch) {
+        };
+        FKAction.prototype.catchJoint = function (m) {
+            this.currentJointMarker = m;
+            this.model = this.currentJointMarker.userData.ownerModel;
+            this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
+            this.editor.selectMarkerSprite(this.currentJointMarker);
+            // set initial pose of the bone
+            this.bone.updateMatrixWorld(true);
+            var to_q = this.bone.getWorldQuaternion(null);
+            this.currentJointMarker.quaternion.copy(to_q);
+            this.transformCtrl.attach(this.currentJointMarker);
+            this.transformCtrl.update();
+        };
+        FKAction.prototype.releaseJoint = function () {
+            if (this.currentJointMarker == null)
+                return;
+            this.currentJointMarker = null;
+            this.editor.cancelAllMarkerSprite();
+        };
+        FKAction.prototype.onTransformCtrl = function () {
+            if (this.transformCtrl.axis != null) {
+                if (this.currentJointMarker != null) {
+                    // local rotation
+                    var t_r = this.bone.quaternion.clone();
+                    this.bone.quaternion.set(0, 0, 0, 0);
+                    this.bone.updateMatrixWorld(true);
+                    var w_to_l_comp_q = this.bone.getWorldQuaternion(null).inverse();
+                    this.currentJointMarker.updateMatrixWorld(true);
+                    //console.log(this.selectedSphere.rotation);
+                    var sph_q = this.currentJointMarker.getWorldQuaternion(null);
+                    // copy to the marker model
+                    this.currentJointMarker.quaternion.copy(sph_q);
+                    // update bone quaternion
+                    var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
+                    this.bone.quaternion.copy(to_q);
+                    this.bone.updateMatrixWorld(true);
+                }
+            }
+            this.transformCtrl.update();
         };
         return FKAction;
     })(PoseEditor.Action);
@@ -168,7 +231,100 @@ var PoseEditor;
         __extends(IKAction, _super);
         function IKAction(e) {
             _super.call(this, e);
+            this.isMoving = false;
         }
+        IKAction.prototype.onActive = function (before) {
+            this.editor.showAllMarkerSprite();
+        };
+        IKAction.prototype.onDestroy = function () {
+            this.releaseJoint();
+            this.editor.hideAllMarkerSprite();
+        };
+        IKAction.prototype.onTapStart = function (e, isTouch) {
+            this.isMoving = true;
+            var m = this.editor.selectJointMarker(e, isTouch);
+            if (m == null)
+                return;
+            this.catchJoint(m);
+        };
+        IKAction.prototype.onMoving = function (e, isTouch) {
+            this.moving(e, isTouch);
+        };
+        IKAction.prototype.onTapEnd = function (e, isTouch) {
+            this.isMoving = false;
+        };
+        IKAction.prototype.onDoubleTap = function (e, isTouch) {
+            if (this.currentJointMarker) {
+                var model = this.currentJointMarker.userData.ownerModel;
+                var index = this.currentJointMarker.userData.jointIndex;
+                model.toggleIKPropagation(index);
+            }
+        };
+        IKAction.prototype.update = function (model) {
+            if (this.currentJointMarker == null || !this.isMoving)
+                return;
+            if (model == this.currentJointMarker.userData.ownerModel) {
+                if (this.curPos != null) {
+                    this.ik(this.bone, this.curPos);
+                }
+            }
+        };
+        IKAction.prototype.catchJoint = function (m) {
+            this.currentJointMarker = m;
+            this.model = this.currentJointMarker.userData.ownerModel;
+            this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
+            this.editor.selectMarkerSprite(this.currentJointMarker);
+            //
+            var pos = this.currentJointMarker.position;
+            this.curPos = pos;
+            this.editor.cursorHelper.setBeginState(pos);
+        };
+        IKAction.prototype.moving = function (e, isTouch) {
+            if (this.currentJointMarker == null || !this.isMoving)
+                return;
+            var pos = this.editor.cursorToWorld(e, isTouch);
+            this.curPos = this.editor.cursorHelper.move(pos);
+        };
+        IKAction.prototype.releaseJoint = function () {
+            if (this.currentJointMarker == null)
+                return;
+            this.currentJointMarker = null;
+            this.isMoving = false;
+            this.editor.cancelAllMarkerSprite();
+        };
+        // CCD IK
+        IKAction.prototype.ik = function (selected_bone, target_pos) {
+            var c_bone = selected_bone;
+            var p_bone = c_bone.parent;
+            while (p_bone != null && p_bone.type != "SkinnedMesh") {
+                // console.log("bone!", c_bone.parent);
+                // local rotation
+                var t_r = p_bone.quaternion.clone();
+                p_bone.rotation.set(0, 0, 0);
+                p_bone.updateMatrixWorld(true);
+                var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
+                p_bone.quaternion.copy(t_r);
+                p_bone.updateMatrixWorld(true);
+                //
+                var c_b_pos = c_bone.getWorldPosition(null);
+                var p_b_pos = p_bone.getWorldPosition(null);
+                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
+                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
+                var base_bone_q = p_bone.getWorldQuaternion(null);
+                var bone_diff_q = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
+                bone_diff_q.multiply(base_bone_q);
+                var qm = new THREE.Quaternion();
+                THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
+                // update bone quaternion
+                var to_q = w_to_l_comp_q.multiply(qm).normalize();
+                // set
+                p_bone.quaternion.copy(to_q);
+                p_bone.updateMatrixWorld(true);
+                if (p_bone.userData.preventIKPropagation)
+                    break;
+                p_bone = p_bone.parent;
+            }
+        };
         return IKAction;
     })(PoseEditor.Action);
     PoseEditor.IKAction = IKAction;
@@ -208,6 +364,7 @@ var PoseEditor;
             //
             var mesh_path = model_info.modelPath;
             var texture_path = model_info.textureDir;
+            var defaultPropagation = model_info.ikDefaultPropagation;
             var init_pos = model_info.initPos;
             var init_scale = model_info.initScale;
             if (model_info.markerScale) {
@@ -256,10 +413,10 @@ var PoseEditor;
                     modelData: _this
                 };
                 //
-                _this.setupAppendixData(sprite_paths, model_info, callback);
+                _this.setupAppendixData(sprite_paths, model_info, defaultPropagation, callback);
             }, texture_path);
         }
-        Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
+        Model.prototype.setupAppendixData = function (sprite_paths, model_info, ikDefaultPropagation, callback) {
             var _this = this;
             //
             var bone_limits = model_info.boneLimits;
@@ -273,7 +430,7 @@ var PoseEditor;
                 bone.updateMatrixWorld(true);
                 bone.userData = {
                     index: index,
-                    preventIKPropagation: false,
+                    preventIKPropagation: !ikDefaultPropagation,
                     rotLimit: new RotationLimitation(),
                     rotMin: null,
                     rotMax: null
@@ -315,8 +472,9 @@ var PoseEditor;
                 color: this.normalColor
             });
             this.mesh.skeleton.bones.forEach(function (bone, index) {
-                var sprite = new THREE.Sprite(_this.normalMarkerMat.clone());
+                var sprite = _this.createMarkerSprite(bone);
                 sprite.scale.set(_this.markerScale[0], _this.markerScale[1], 1);
+                sprite.visible = false;
                 _this.joint_markers[index] = sprite;
                 _this.scene2d.add(sprite);
             });
@@ -388,13 +546,9 @@ var PoseEditor;
             var bone = this.mesh.skeleton.bones[bone_index];
             bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
             var old_sprite = this.joint_markers[bone_index];
-            var sprite = null;
-            if (bone.userData.preventIKPropagation) {
-                sprite = new THREE.Sprite(this.specialMarkerMat.clone());
-            }
-            else {
-                sprite = new THREE.Sprite(this.normalMarkerMat.clone());
-            }
+            var c = old_sprite.material.color.getHex();
+            var sprite = this.createMarkerSprite(bone);
+            sprite.material.color.setHex(c);
             sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
             this.joint_markers[bone_index] = sprite;
             this.scene2d.add(sprite);
@@ -419,6 +573,14 @@ var PoseEditor;
         };
         Model.prototype.getMarkerVisibility = function () {
             return this.showingMarker;
+        };
+        Model.prototype.createMarkerSprite = function (bone) {
+            if (bone.userData.preventIKPropagation) {
+                return new THREE.Sprite(this.specialMarkerMat.clone());
+            }
+            else {
+                return new THREE.Sprite(this.normalMarkerMat.clone());
+            }
         };
         return Model;
     })();
@@ -446,13 +608,15 @@ var PoseEditor;
         };
         MoveAction.prototype.catchModel = function (e, isTouch) {
             var mp = this.editor.selectModel(e, isTouch);
-            if (mp == null)
+            if (mp == null) {
+                this.releaseModel();
                 return;
+            }
             this.currentModel = mp[0];
-            var pos = mp[1];
-            this.offsetOrgToBone = pos.sub(this.currentModel.mesh.position);
+            var localConfPos = mp[1];
+            this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
             //
-            this.editor.cursorHelper.setBeginState(pos);
+            this.editor.cursorHelper.setBeginState(localConfPos.clone());
         };
         MoveAction.prototype.moveModel = function (e, isTouch) {
             if (this.currentModel == null)
@@ -507,7 +671,7 @@ var PoseEditor;
                 // tmp
                 this.addButton('camera', 0 /* Camera */);
                 this.addButton('move', 1 /* Move */);
-                this.addButton('fk', 2 /* FK */);
+                //this.addButton('fk', Mode.FK);
                 this.addButton('ik', 3 /* IK */);
                 //
                 window.addEventListener('resize', function () { return _this.onResize(); }, false);
@@ -600,59 +764,11 @@ var PoseEditor;
             if (config === void 0) { config = new PoseEditor.Config(); }
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
-                _this.scene.updateMatrixWorld(true);
-                _this.scene2d.updateMatrixWorld(true);
-                {
-                    var model = _this.models[0];
-                    if (model && model.isReady()) {
-                        var bone = model.mesh.skeleton.bones[14];
-                        //console.log(bone.rotation);
-                        if (_this.selectedSphere != null) {
-                            //bone.rotation.y += 0.01;
-                            bone.updateMatrixWorld(true);
-                            var bone_q = bone.getWorldQuaternion(null);
-                            // local rotation
-                            var t_r = bone.quaternion.clone();
-                            bone.quaternion.set(0, 0, 0, 0);
-                            bone.updateMatrixWorld(true);
-                            var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
-                            bone.quaternion.copy(t_r);
-                            bone.updateMatrixWorld(true);
-                            // update bone quaternion
-                            var to_q = w_to_l_comp_q.multiply(bone_q).normalize();
-                        }
-                    }
-                }
-                _this.models.forEach(function (model) {
-                    if (model.isReady()) {
-                        if (_this.dragging && model == _this.selectedSphere.userData.ownerModel) {
-                            var joint_index = _this.selectedSphere.userData.jointIndex;
-                            var bone = model.mesh.skeleton.bones[_this.selectedSphere.userData.jointIndex];
-                            if (joint_index == 0) {
-                                _this.moveCharactor(model, _this.ikTargetPosition);
-                            }
-                            else {
-                                _this.ik(bone, _this.ikTargetPosition);
-                            }
-                        }
-                        //
-                        model.mesh.skeleton.bones.forEach(function (bone, index) {
-                            var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
-                            var s_b_pos = _this.worldToScreen(b_pos);
-                            model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
-                            //
-                            var sphere = model.joint_spheres[index];
-                            sphere.position.set(b_pos.x, b_pos.y, b_pos.z);
-                        });
-                    }
-                });
+                _this.update();
                 _this.render();
             };
             //
             this.models = [];
-            //
-            this.dragging = false;
-            this.dragStart = false;
             //
             this.isOnManipurator = false;
             this.selectedSphere = null;
@@ -711,23 +827,13 @@ var PoseEditor;
                 this.scene.add(axisHelper);
             }
             //
-            this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
-            this.transformCtrl.setMode("rotate");
-            this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(0.6);
-            this.transformCtrl.detach();
-            this.transformCtrl.addEventListener('change', this.onTransformCtrl.bind(this));
-            this.scene.add(this.transformCtrl);
-            //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
             this.controls.enabled = false;
-            this.controls.addEventListener('change', function () { return _this.onControlsChange(); });
-            // plane model
-            this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({ color: 0x0000ff, opacity: 1.0, transparent: true }));
-            this.plane.visible = false;
-            this.scene.add(this.plane);
+            //
+            this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
+            this.scene.add(this.transformCtrl);
             // intersect helper
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
             // save Config
@@ -742,10 +848,10 @@ var PoseEditor;
                 rf('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
                 rf('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
                 rf('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
-                rf('dblclick', function () { return _this.toggleIKStopper(); }, false);
+                rf('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
             }
             // initialize mode
-            this.currentMode = 1 /* Move */;
+            this.currentMode = 3 /* IK */;
             this.onModeClick(this.currentMode);
             // jump into loop
             this.renderLoop();
@@ -767,7 +873,7 @@ var PoseEditor;
                     this.currentAction = new PoseEditor.MoveAction(this);
                     break;
                 case 2 /* FK */:
-                    this.currentAction = new PoseEditor.FKAction(this);
+                    this.currentAction = new PoseEditor.FKAction(this, this.transformCtrl);
                     break;
                 case 3 /* IK */:
                     this.currentAction = new PoseEditor.IKAction(this);
@@ -787,6 +893,9 @@ var PoseEditor;
         };
         Editor.prototype.onTapEnd = function (e, isTouch) {
             this.currentAction.onTapEnd(e, isTouch);
+        };
+        Editor.prototype.onDoubleTap = function (e, isTouch) {
+            this.currentAction.onDoubleTap(e, isTouch);
         };
         /// ==================================================
         /// ==================================================
@@ -819,40 +928,7 @@ var PoseEditor;
                 this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + PoseEditor.radToDeg(p_bone.rotation.z) + "<br>";
             }
         };
-        Editor.prototype.onControlsChange = function () {
-            this.transformCtrl.update();
-        };
-        Editor.prototype.onTransformCtrl = function () {
-            if (this.transformCtrl.axis != null) {
-                this.isOnManipurator = true;
-                if (this.selectedSphere != null) {
-                    var model = this.selectedSphere.userData.ownerModel;
-                    var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                    // local rotation
-                    var t_r = bone.quaternion.clone();
-                    bone.quaternion.set(0, 0, 0, 0);
-                    bone.updateMatrixWorld(true);
-                    var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
-                    this.selectedSphere.updateMatrixWorld(true);
-                    //console.log(this.selectedSphere.rotation);
-                    var sph_q = this.selectedSphere.getWorldQuaternion(null);
-                    // copy to sphere
-                    this.selectedSphere.quaternion.copy(sph_q);
-                    // update bone quaternion
-                    var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
-                    bone.quaternion.copy(to_q);
-                    bone.updateMatrixWorld(true);
-                    //
-                    if (this.config.isDebugging) {
-                        this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
-                    }
-                }
-            }
-            else {
-                this.isOnManipurator = false;
-            }
-            this.transformCtrl.update();
-        };
+        //
         Editor.prototype.selectModel = function (e, isTouch) {
             e.preventDefault();
             var pos = this.cursorToWorld(e, isTouch);
@@ -861,17 +937,17 @@ var PoseEditor;
             var mesh = intersects.length > 0 ? intersects[0].object : null;
             if (mesh == null)
                 return;
-            return [mesh.userData.modelData, intersects[0].point];
+            var modelPos = mesh.position.clone();
+            var localConfPos = intersects[0].point.clone();
+            return [mesh.userData.modelData, localConfPos];
         };
-        Editor.prototype.boneRay = function (e, isTouch) {
+        //
+        Editor.prototype.selectJointMarker = function (e, isTouch) {
             var _this = this;
-            if (this.isOnManipurator || this.dragging || this.models.length == 0) {
-                return;
-            }
             e.preventDefault();
             var pos = this.cursorToWorld(e, isTouch);
             // calc most nearest sphere
-            var l = 9999999999;
+            var l = 9999999999.9;
             var selectedMarker = null;
             var ab = pos.clone().sub(this.camera.position).normalize();
             var flattened = this.models.map(function (v) {
@@ -898,100 +974,35 @@ var PoseEditor;
             if (selectedMarker != null) {
                 this.selectedSphere = selectedMarker;
             }
-            //
-            if (this.selectedSphere != null) {
-                var model = this.selectedSphere.userData.ownerModel;
-                var bone = model.mesh.skeleton.bones[this.selectedSphere.userData.jointIndex];
-                // console.log("index: ", this.selectedSphere.userData.jointIndex);
-                // update marker sprite color
-                this.models.forEach(function (model) {
-                    model.joint_markers.forEach(function (marker) {
-                        marker.material.color.setHex(model.normalColor);
-                    });
+            return selectedMarker;
+        };
+        Editor.prototype.cancelAllMarkerSprite = function () {
+            // update marker sprite color (to not selected color)
+            this.models.forEach(function (model) {
+                model.joint_markers.forEach(function (marker) {
+                    marker.material.color.setHex(model.normalColor);
                 });
-                var index = this.selectedSphere.userData.jointIndex;
-                model.joint_markers[index].material.color.setHex(model.selectedColor);
-                //
-                this.transformCtrl.attach(this.selectedSphere);
-                this.transformCtrl.update();
-                //
-                // set ik target
-                this.ikTargetPosition = this.selectedSphere.position.clone();
-                this.ikTargetSphere.position.copy(this.ikTargetPosition);
-                // set plane
-                var c_to_p = this.controls.target.clone().sub(this.camera.position);
-                var c_to_o = this.ikTargetPosition.clone().sub(this.camera.position);
-                var n_c_to_p = c_to_p.clone().normalize();
-                var n_c_to_o = c_to_o.clone().normalize();
-                var l = c_to_o.length();
-                var len = n_c_to_o.dot(n_c_to_p) * l;
-                var tmp_pos = this.camera.position.clone();
-                tmp_pos.add(c_to_p.normalize().multiplyScalar(len));
-                this.plane.position.copy(tmp_pos);
-                this.plane.lookAt(this.camera.position);
-                if (this.config.isDebugging) {
-                    // set debug view
-                    this.boneDebugDom.style.display = "block";
-                    this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
-                }
-            }
-            else {
-                // not found
-                this.resetCtrl();
-                if (this.config.isDebugging) {
-                    this.boneDebugDom.style.display = "none";
-                }
-            }
-            return this.selectedSphere;
+            });
         };
-        Editor.prototype.moving = function (e, isTouch) {
-            if (this.dragStart == false) {
-                return;
-            }
-            // console.log("moving");
-            e.preventDefault();
-            this.dragging = true;
-            this.isOnManipurator = false;
-            this.transformCtrl.detach();
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-            var pos = this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
-            var raycaster = new THREE.Raycaster(this.camera.position, pos.sub(this.camera.position).normalize());
-            // move ik target
-            var intersects = raycaster.intersectObject(this.plane);
-            this.ikTargetPosition.copy(intersects[0].point);
-            this.ikTargetSphere.position.copy(this.ikTargetPosition);
-            //
-            if (this.config.isDebugging) {
-                if (this.selectedSphere != null) {
-                    var model = this.selectedSphere.userData.ownerModel;
-                    this.updateBoneDebugInfo(model, this.selectedSphere.userData.jointIndex);
-                }
-            }
+        Editor.prototype.selectMarkerSprite = function (markerMesh) {
+            this.cancelAllMarkerSprite();
+            var model = markerMesh.userData.ownerModel;
+            var index = markerMesh.userData.jointIndex;
+            model.joint_markers[index].material.color.setHex(model.selectedColor);
         };
-        Editor.prototype.endDragging = function () {
-            if (this.dragStart) {
-                if (this.dragging) {
-                    // reset color of markers
-                    this.models.forEach(function (model) {
-                        model.joint_markers.forEach(function (marker) {
-                            marker.material.color.setHex(model.normalColor);
-                        });
-                    });
-                }
-                this.dragStart = false;
-                this.dragging = false;
-            }
+        Editor.prototype.hideAllMarkerSprite = function () {
+            this.models.forEach(function (model) {
+                model.joint_markers.forEach(function (marker) {
+                    marker.visible = false;
+                });
+            });
         };
-        Editor.prototype.toggleIKStopper = function () {
-            if (this.selectedSphere) {
-                var model = this.selectedSphere.userData.ownerModel;
-                var i = this.selectedSphere.userData.jointIndex;
-                model.toggleIKPropagation(i);
-            }
+        Editor.prototype.showAllMarkerSprite = function () {
+            this.models.forEach(function (model) {
+                model.joint_markers.forEach(function (marker) {
+                    marker.visible = true;
+                });
+            });
         };
         Editor.prototype.onResize = function () {
             this.renderer.setSize(this.screen.width, this.screen.height);
@@ -1007,7 +1018,7 @@ var PoseEditor;
             var model = new PoseEditor.Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
                 _this.decTask();
                 // default IK stopper node indexes
-                var nx = model_info.ikStopJoints;
+                var nx = model_info.ikInversePropagationJoints;
                 nx.forEach(function (i) {
                     model.toggleIKPropagation(i);
                 });
@@ -1018,47 +1029,27 @@ var PoseEditor;
             this.models.push(model);
         };
         Editor.prototype.resetCtrl = function () {
-            this.endDragging();
             this.transformCtrl.detach();
             this.selectedSphere = null;
         };
-        Editor.prototype.moveCharactor = function (model, target_pos) {
-            var pos = target_pos.clone();
-            pos.sub(model.offsetOrgToBone);
-            model.mesh.position.copy(pos);
-        };
-        // CCD IK
-        Editor.prototype.ik = function (selected_bone, target_pos) {
-            var c_bone = selected_bone;
-            var p_bone = c_bone.parent;
-            while (p_bone != null && p_bone.type != "SkinnedMesh") {
-                // console.log("bone!", c_bone.parent);
-                // local rotation
-                var t_r = p_bone.quaternion.clone();
-                p_bone.rotation.set(0, 0, 0);
-                p_bone.updateMatrixWorld(true);
-                var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
-                p_bone.quaternion.copy(t_r);
-                p_bone.updateMatrixWorld(true);
-                //
-                var c_b_pos = c_bone.getWorldPosition(null);
-                var p_b_pos = p_bone.getWorldPosition(null);
-                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
-                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
-                var base_bone_q = p_bone.getWorldQuaternion(null);
-                var bone_diff_q = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
-                bone_diff_q.multiply(base_bone_q);
-                var qm = new THREE.Quaternion();
-                THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
-                // update bone quaternion
-                var to_q = w_to_l_comp_q.multiply(qm).normalize();
-                // set
-                p_bone.quaternion.copy(to_q);
-                p_bone.updateMatrixWorld(true);
-                if (p_bone.userData.preventIKPropagation)
-                    break;
-                p_bone = p_bone.parent;
-            }
+        Editor.prototype.update = function () {
+            var _this = this;
+            this.scene.updateMatrixWorld(true);
+            this.scene2d.updateMatrixWorld(true);
+            this.models.forEach(function (model) {
+                if (model.isReady()) {
+                    _this.currentAction.update(model);
+                    //
+                    model.mesh.skeleton.bones.forEach(function (bone, index) {
+                        var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
+                        var s_b_pos = _this.worldToScreen(b_pos);
+                        model.joint_markers[index].position.set(s_b_pos.x, s_b_pos.y, -1);
+                        //
+                        var markerMesh = model.joint_spheres[index];
+                        markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
+                    });
+                }
+            });
         };
         Editor.prototype.render = function () {
             this.renderer.clear();

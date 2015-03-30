@@ -17,7 +17,8 @@ module PoseEditor {
     export class ModelInfo {
         modelPath: string;
         textureDir: string;
-        ikStopJoints: Array<number>;
+        ikDefaultPropagation: boolean;
+        ikInversePropagationJoints: Array<number>;
         boneLimits: {[key: number]: Array<Array<number>>;};
         baseJointId: number;
         initPos: Array<number>;

@@ -16,11 +16,11 @@ module PoseEditor {
                 new THREE.PlaneBufferGeometry(2000, 2000, 8, 8),
                 new THREE.MeshBasicMaterial({
                     color: 0x0000ff,
-                    opacity: 0.4,
+                    opacity: 0.2,
                     transparent: true
                 })
             );
-            this.plane.visible = true;
+            this.plane.visible = false;
             this.scene.add(this.plane);
 
             //
@@ -28,7 +28,7 @@ module PoseEditor {
             var material = new THREE.MeshBasicMaterial({wireframe: true});
             this.targetMesh = new THREE.Mesh(sphereGeo, material);
             this.targetMesh.matrixWorldNeedsUpdate = true;
-            //this.targetSphere.visible = false;
+            this.targetMesh.visible = false;
             this.scene.add(this.targetMesh);
         }
 

@@ -9,7 +9,7 @@ module PoseEditor {
             this.controls = c;
         }
 
-        onActive(before: CameraAction) {
+        onActive(before: Action) {
             this.controls.enabled = true;
         }
 

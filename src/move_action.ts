@@ -25,15 +25,18 @@ module PoseEditor {
 
         private catchModel(e: any, isTouch: boolean) {
             var mp = this.editor.selectModel(e, isTouch)
-            if (mp == null) return;
+            if (mp == null) {
+                this.releaseModel();
+                return;
+            }
 
             this.currentModel = mp[0];
-            var pos = mp[1];
+            var localConfPos = mp[1];
 
-            this.offsetOrgToBone = pos.sub(this.currentModel.mesh.position);
+            this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
 
             //
-            this.editor.cursorHelper.setBeginState(pos);
+            this.editor.cursorHelper.setBeginState(localConfPos.clone());
         }
 
         private moveModel(e: any, isTouch: boolean) {
