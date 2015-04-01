@@ -48,10 +48,8 @@ module PoseEditor {
             public didAction(act: Action) {
                 if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
                     // remove all action to redo
-                    this.history.splice(
-                        this.currentStep,
-                        this.history.length-this.currentStep
-                    );
+                    var deleteFrom = this.currentStep + 1;
+                    this.history.splice(deleteFrom, this.history.length-deleteFrom);
                 }
 
                 this.history.push(act);
