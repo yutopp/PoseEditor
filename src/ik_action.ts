@@ -16,12 +16,10 @@ module PoseEditor {
         }
 
         onTapStart(e: any, isTouch: boolean): void {
+            this.catchJoint(this.editor.selectJointMarker(e, isTouch));
+
+            if (this.currentJointMarker == null) return;
             this.isMoving = true;
-
-            var m = this.editor.selectJointMarker(e, isTouch)
-            if (m == null) return;
-
-            this.catchJoint(m);
 
             this.beforeModelStatus = this.model.modelData();
         }
@@ -31,10 +29,10 @@ module PoseEditor {
         }
 
         onTapEnd(e: any, isTouch: boolean): void {
+            if (this.currentJointMarker == null || !this.isMoving) return;
             this.isMoving = false;
 
-            if (this.currentJointMarker == null) return;
-
+            // record action
             var currentModelStatus = this.model.modelData();
             this.editor.history.didAction( new TimeMachine.ChangeModelStatusAction(
                 this.model,
@@ -44,12 +42,12 @@ module PoseEditor {
         }
 
         onDoubleTap(e: any, isTouch: boolean): void {
-            if (this.currentJointMarker) {
-                var model = this.currentJointMarker.userData.ownerModel;
-                var index = this.currentJointMarker.userData.jointIndex;
+            if (this.currentJointMarker == null) return;
 
-                model.toggleIKPropagation(index);
-            }
+            var model = this.currentJointMarker.userData.ownerModel;
+            var index = this.currentJointMarker.userData.jointIndex;
+
+            model.toggleIKPropagation(index);
         }
 
         update(model: Model): void {
@@ -65,6 +63,11 @@ module PoseEditor {
 
         private catchJoint(m: THREE.Object3D) {
             this.currentJointMarker = m;
+            if (this.currentJointMarker == null) {
+                this.releaseJoint();
+                return;
+            }
+
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
@@ -84,8 +87,6 @@ module PoseEditor {
         }
 
         private releaseJoint() {
-            if (this.currentJointMarker == null) return;
-
             this.currentJointMarker = null;
             this.isMoving = false;
 

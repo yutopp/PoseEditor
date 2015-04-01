@@ -241,29 +241,29 @@ var PoseEditor;
             this.editor.hideAllMarkerSprite();
         };
         IKAction.prototype.onTapStart = function (e, isTouch) {
-            this.isMoving = true;
-            var m = this.editor.selectJointMarker(e, isTouch);
-            if (m == null)
+            this.catchJoint(this.editor.selectJointMarker(e, isTouch));
+            if (this.currentJointMarker == null)
                 return;
-            this.catchJoint(m);
+            this.isMoving = true;
             this.beforeModelStatus = this.model.modelData();
         };
         IKAction.prototype.onMoving = function (e, isTouch) {
             this.moving(e, isTouch);
         };
         IKAction.prototype.onTapEnd = function (e, isTouch) {
-            this.isMoving = false;
-            if (this.currentJointMarker == null)
+            if (this.currentJointMarker == null || !this.isMoving)
                 return;
+            this.isMoving = false;
+            // record action
             var currentModelStatus = this.model.modelData();
             this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
         };
         IKAction.prototype.onDoubleTap = function (e, isTouch) {
-            if (this.currentJointMarker) {
-                var model = this.currentJointMarker.userData.ownerModel;
-                var index = this.currentJointMarker.userData.jointIndex;
-                model.toggleIKPropagation(index);
-            }
+            if (this.currentJointMarker == null)
+                return;
+            var model = this.currentJointMarker.userData.ownerModel;
+            var index = this.currentJointMarker.userData.jointIndex;
+            model.toggleIKPropagation(index);
         };
         IKAction.prototype.update = function (model) {
             if (this.currentJointMarker == null || !this.isMoving)
@@ -276,6 +276,10 @@ var PoseEditor;
         };
         IKAction.prototype.catchJoint = function (m) {
             this.currentJointMarker = m;
+            if (this.currentJointMarker == null) {
+                this.releaseJoint();
+                return;
+            }
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
@@ -291,8 +295,6 @@ var PoseEditor;
             this.curPos = this.editor.cursorHelper.move(pos);
         };
         IKAction.prototype.releaseJoint = function () {
-            if (this.currentJointMarker == null)
-                return;
             this.currentJointMarker = null;
             this.isMoving = false;
             this.editor.cancelAllMarkerSprite();
@@ -843,7 +845,8 @@ var PoseEditor;
             Machine.prototype.didAction = function (act) {
                 if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
                     // remove all action to redo
-                    this.history.splice(this.currentStep, this.history.length - this.currentStep);
+                    var deleteFrom = this.currentStep + 1;
+                    this.history.splice(deleteFrom, this.history.length - deleteFrom);
                 }
                 this.history.push(act);
                 this.currentStep++;
