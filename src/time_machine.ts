@@ -30,38 +30,36 @@ module PoseEditor {
 
         export class Machine {
             public undo() {
-                if (this.currentStep == 0) return;
+                if (this.currentStep < 0) return;
 
-                this.currentStep--;
+                if (this.currentStep >= this.history.length) this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
+                this.currentStep--;
             }
 
             public redo() {
-                if (this.currentStep >= this.maxStep) return;
+                if (this.currentStep >= this.history.length) return;
 
+                if (this.currentStep < 0) this.currentStep = 0;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
             }
 
             public didAction(act: Action) {
-                if (this.currentStep < this.maxStep) {
+                if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
                     // remove all action to redo
                     this.history.splice(
                         this.currentStep,
                         this.history.length-this.currentStep
                     );
-
-                    this.maxStep = this.currentStep;
                 }
 
                 this.history.push(act);
-                this.maxStep++;
                 this.currentStep++;
             }
 
             private history: Array<Action> = [];
-            private currentStep = 0;
-            private maxStep = 0;
+            private currentStep = -1;
         }
 
     }

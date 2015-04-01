@@ -9,13 +9,13 @@ module PoseEditor {
     }
 
     export interface JointStatus {
-        quaternion: THREE.Quaternion
+        quaternion: Array<number>
     }
 
     export interface ModelStatus {
         name: string;
-        position: THREE.Vector3;
-        quaternion: THREE.Quaternion;
+        position: Array<number>;
+        quaternion: Array<number>;
         joints: Array<JointStatus>;
     }
 
@@ -241,38 +241,37 @@ module PoseEditor {
 
         public modelData(): ModelStatus {
             var joints = this.mesh.skeleton.bones.map((bone) => {
+                var q = bone.quaternion;
                 return {
-                    quaternion: bone.quaternion.clone()
+                    quaternion: [q.x, q.y, q.z, q.w]
                 };
             });
 
+            var p = this.mesh.position;
+            var q = this.mesh.quaternion;
             return {
                 name: this.name,
-                position: this.mesh.position.clone(),
-                quaternion: this.mesh.quaternion.clone(),
+                position: [p.x, p.y, p.z],
+                quaternion: [q.x, q.y, q.z, q.w],
                 joints: joints
             };
         }
 
         public loadModelData(status: ModelStatus) {
-            if (!this.ready) {
-                return;
-            }
+            if (!this.ready) return;
+
+            var joints = status.joints;
+            joints.forEach((joint: JointStatus, index: number) => {
+                var q = joint.quaternion;
+
+                var target_q = this.mesh.skeleton.bones[index].quaternion;
+                target_q.set(q[0], q[1], q[2], q[3]);
+            });
 
             var p = status.position;
             var q = status.quaternion;
-            var joints = status.joints;
-
-            for (var key in joints) {
-                var joint = joints[key];
-                var t_q = joint.quaternion;
-
-                var s_q = this.mesh.skeleton.bones[key].quaternion;
-                s_q.set(t_q.x, t_q.y, t_q.z, t_q.w);
-            }
-
-            this.mesh.position.set(p.x, p.y, p.z);
-            this.mesh.quaternion.set(q.x, q.y, q.z, q.w);
+            this.mesh.position.set(p[0], p[1], p[2]);
+            this.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
         }
 
 

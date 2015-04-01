@@ -279,7 +279,6 @@ var PoseEditor;
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
-            console.log(this.currentJointMarker.userData.jointIndex);
             //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
@@ -530,32 +529,34 @@ var PoseEditor;
         };
         Model.prototype.modelData = function () {
             var joints = this.mesh.skeleton.bones.map(function (bone) {
+                var q = bone.quaternion;
                 return {
-                    quaternion: bone.quaternion.clone()
+                    quaternion: [q.x, q.y, q.z, q.w]
                 };
             });
+            var p = this.mesh.position;
+            var q = this.mesh.quaternion;
             return {
                 name: this.name,
-                position: this.mesh.position.clone(),
-                quaternion: this.mesh.quaternion.clone(),
+                position: [p.x, p.y, p.z],
+                quaternion: [q.x, q.y, q.z, q.w],
                 joints: joints
             };
         };
         Model.prototype.loadModelData = function (status) {
-            if (!this.ready) {
+            var _this = this;
+            if (!this.ready)
                 return;
-            }
+            var joints = status.joints;
+            joints.forEach(function (joint, index) {
+                var q = joint.quaternion;
+                var target_q = _this.mesh.skeleton.bones[index].quaternion;
+                target_q.set(q[0], q[1], q[2], q[3]);
+            });
             var p = status.position;
             var q = status.quaternion;
-            var joints = status.joints;
-            for (var key in joints) {
-                var joint = joints[key];
-                var t_q = joint.quaternion;
-                var s_q = this.mesh.skeleton.bones[key].quaternion;
-                s_q.set(t_q.x, t_q.y, t_q.z, t_q.w);
-            }
-            this.mesh.position.set(p.x, p.y, p.z);
-            this.mesh.quaternion.set(q.x, q.y, q.z, q.w);
+            this.mesh.position.set(p[0], p[1], p[2]);
+            this.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
         };
         Model.prototype.toggleIKPropagation = function (bone_index) {
             var bone = this.mesh.skeleton.bones[bone_index];
@@ -821,29 +822,30 @@ var PoseEditor;
         var Machine = (function () {
             function Machine() {
                 this.history = [];
-                this.currentStep = 0;
-                this.maxStep = 0;
+                this.currentStep = -1;
             }
             Machine.prototype.undo = function () {
-                if (this.currentStep == 0)
+                if (this.currentStep < 0)
                     return;
-                this.currentStep--;
+                if (this.currentStep >= this.history.length)
+                    this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
+                this.currentStep--;
             };
             Machine.prototype.redo = function () {
-                if (this.currentStep >= this.maxStep)
+                if (this.currentStep >= this.history.length)
                     return;
+                if (this.currentStep < 0)
+                    this.currentStep = 0;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
             };
             Machine.prototype.didAction = function (act) {
-                if (this.currentStep < this.maxStep) {
+                if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
                     // remove all action to redo
                     this.history.splice(this.currentStep, this.history.length - this.currentStep);
-                    this.maxStep = this.currentStep;
                 }
                 this.history.push(act);
-                this.maxStep++;
                 this.currentStep++;
             };
             return Machine;
