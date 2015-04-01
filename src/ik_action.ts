@@ -69,7 +69,6 @@ module PoseEditor {
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
 
-            console.log(this.currentJointMarker.userData.jointIndex);
             //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
