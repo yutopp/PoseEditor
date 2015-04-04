@@ -164,6 +164,129 @@ var PoseEditor;
     }
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
+var PoseEditor;
+(function (PoseEditor) {
+    var EventDispatcher = (function () {
+        function EventDispatcher() {
+            /// ==================================================
+            /// Stack of Actions (execute from top to bottom)
+            /// �� top     | ...    | index: n
+            ///           | ...    | index: 1
+            /// �� bottom  | Camera | index: 0
+            /// ==================================================
+            this.currentActions = [];
+        }
+        EventDispatcher.prototype.setup = function (editor, trans, ctrls, dom) {
+            var _this = this;
+            this.editor = editor;
+            this.transformCtrl = trans;
+            this.controls = ctrls;
+            // add camera
+            /// | Camera |
+            var camAction = new PoseEditor.CameraAction(this.editor, this.controls);
+            this.currentActions.push(camAction);
+            camAction.onActive();
+            // setup events hooks
+            //
+            dom.addEventListener('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
+            dom.addEventListener('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
+            dom.addEventListener('mousemove', function (e) { return _this.onMoving(e, false); }, false);
+            dom.addEventListener('touchmove', function (e) { return _this.onMoving(e, true); }, false);
+            dom.addEventListener('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
+            dom.addEventListener('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
+            dom.addEventListener('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
+            dom.addEventListener('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
+            dom.addEventListener('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
+        };
+        EventDispatcher.prototype.onModeSelect = function (mode) {
+            var _this = this;
+            switch (mode) {
+                case 0 /* Camera */:
+                    /// | Camera |
+                    this.destroyActionFrom(1);
+                    break;
+                case 1 /* Move */:
+                    /// | Move   |
+                    /// | Camera |
+                    this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
+                    break;
+                case 2 /* FK */:
+                    /// | FK     |
+                    /// | Camera |
+                    this.makeStandardModeForm('fk_action', function () { return new PoseEditor.FKAction(_this.editor, _this.transformCtrl); });
+                    break;
+                case 3 /* IK */:
+                    /// | IK     |
+                    /// | Camera |
+                    this.makeStandardModeForm('ik_action', function () { return new PoseEditor.IKAction(_this.editor); });
+                    break;
+                default:
+                    console.error('unexpected mode');
+            }
+        };
+        // make standard form likes below
+        /// | EXPECTED |
+        /// | Camera   |
+        EventDispatcher.prototype.makeStandardModeForm = function (actionName, factory) {
+            // stack has some actions except for Camera
+            if (this.currentActions.length > 1) {
+                if (this.currentActions[1].name() != actionName) {
+                    this.destroyActionFrom(1);
+                }
+                else {
+                    // if stack of actions is already expected form, so do nothing
+                    if (this.currentActions.length == 2)
+                        return;
+                    // stack has extra actions, so delete them
+                    this.destroyActionFrom(2);
+                    return;
+                }
+            }
+            // push new action
+            var action = factory();
+            this.currentActions.push(action);
+            action.onActive();
+        };
+        EventDispatcher.prototype.execActions = function (func) {
+            for (var i = this.currentActions.length - 1; i >= 0; --i) {
+                func(this.currentActions[i]);
+            }
+        };
+        EventDispatcher.prototype.dispatchActions = function (func) {
+            var i;
+            for (i = this.currentActions.length - 1; i >= 0; --i) {
+                var doNextAction = func(this.currentActions[i], true);
+                if (!doNextAction)
+                    break;
+            }
+            for (; i >= 0; --i) {
+                func(this.currentActions[i], false);
+            }
+        };
+        EventDispatcher.prototype.destroyActionFrom = function (index) {
+            var rest = this.currentActions.splice(index, this.currentActions.length - index);
+            rest.forEach(function (act) { return act.onDestroy(); });
+        };
+        EventDispatcher.prototype.onTapStart = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onTapStart(e, isTouch, a); });
+        };
+        EventDispatcher.prototype.onMoving = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onMoving(e, isTouch, a); });
+        };
+        EventDispatcher.prototype.onTapEnd = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onTapEnd(e, isTouch, a); });
+        };
+        EventDispatcher.prototype.onDoubleTap = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onDoubleTap(e, isTouch, a); });
+        };
+        return EventDispatcher;
+    })();
+    PoseEditor.EventDispatcher = EventDispatcher;
+})(PoseEditor || (PoseEditor = {}));
 /// <reference path="action.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
 var PoseEditor;
@@ -538,7 +661,8 @@ var PoseEditor;
                     jointIndex: index,
                     ownerModel: _this
                 };
-                markerMesh.visible = true;
+                //markerMesh.visible = true;
+                markerMesh.visible = false;
                 _this.joint_spheres[index] = markerMesh; // TODO: rename
                 _this.scene.add(markerMesh);
             });
@@ -894,129 +1018,6 @@ var PoseEditor;
         })();
         TimeMachine.Machine = Machine;
     })(TimeMachine = PoseEditor.TimeMachine || (PoseEditor.TimeMachine = {}));
-})(PoseEditor || (PoseEditor = {}));
-var PoseEditor;
-(function (PoseEditor) {
-    var EventDispatcher = (function () {
-        function EventDispatcher() {
-            /// ==================================================
-            /// Stack of Actions (execute from top to bottom)
-            /// �� top     | ...    | index: n
-            ///           | ...    | index: 1
-            /// �� bottom  | Camera | index: 0
-            /// ==================================================
-            this.currentActions = [];
-        }
-        EventDispatcher.prototype.setup = function (editor, trans, ctrls, dom) {
-            var _this = this;
-            this.editor = editor;
-            this.transformCtrl = trans;
-            this.controls = ctrls;
-            // add camera
-            /// | Camera |
-            var camAction = new PoseEditor.CameraAction(this.editor, this.controls);
-            this.currentActions.push(camAction);
-            camAction.onActive();
-            // setup events hooks
-            //
-            dom.addEventListener('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
-            dom.addEventListener('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
-            dom.addEventListener('mousemove', function (e) { return _this.onMoving(e, false); }, false);
-            dom.addEventListener('touchmove', function (e) { return _this.onMoving(e, true); }, false);
-            dom.addEventListener('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
-            dom.addEventListener('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
-            dom.addEventListener('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
-            dom.addEventListener('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
-            dom.addEventListener('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
-        };
-        EventDispatcher.prototype.onModeSelect = function (mode) {
-            var _this = this;
-            switch (mode) {
-                case 0 /* Camera */:
-                    /// | Camera |
-                    this.destroyActionFrom(1);
-                    break;
-                case 1 /* Move */:
-                    /// | Move   |
-                    /// | Camera |
-                    this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
-                    break;
-                case 2 /* FK */:
-                    /// | FK     |
-                    /// | Camera |
-                    this.makeStandardModeForm('fk_action', function () { return new PoseEditor.FKAction(_this.editor, _this.transformCtrl); });
-                    break;
-                case 3 /* IK */:
-                    /// | IK     |
-                    /// | Camera |
-                    this.makeStandardModeForm('ik_action', function () { return new PoseEditor.IKAction(_this.editor); });
-                    break;
-                default:
-                    console.error('unexpected mode');
-            }
-        };
-        // make standard form likes below
-        /// | EXPECTED |
-        /// | Camera   |
-        EventDispatcher.prototype.makeStandardModeForm = function (actionName, factory) {
-            // stack has some actions except for Camera
-            if (this.currentActions.length > 1) {
-                if (this.currentActions[1].name() != actionName) {
-                    this.destroyActionFrom(1);
-                }
-                else {
-                    // if stack of actions is already expected form, so do nothing
-                    if (this.currentActions.length == 2)
-                        return;
-                    // stack has extra actions, so delete them
-                    this.destroyActionFrom(2);
-                    return;
-                }
-            }
-            // push new action
-            var action = factory();
-            this.currentActions.push(action);
-            action.onActive();
-        };
-        EventDispatcher.prototype.execActions = function (func) {
-            for (var i = this.currentActions.length - 1; i >= 0; --i) {
-                func(this.currentActions[i]);
-            }
-        };
-        EventDispatcher.prototype.dispatchActions = function (func) {
-            var i;
-            for (i = this.currentActions.length - 1; i >= 0; --i) {
-                var doNextAction = func(this.currentActions[i], true);
-                if (!doNextAction)
-                    break;
-            }
-            for (; i >= 0; --i) {
-                func(this.currentActions[i], false);
-            }
-        };
-        EventDispatcher.prototype.destroyActionFrom = function (index) {
-            var rest = this.currentActions.splice(index, this.currentActions.length - index);
-            rest.forEach(function (act) { return act.onDestroy(); });
-        };
-        EventDispatcher.prototype.onTapStart = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onTapStart(e, isTouch, a); });
-        };
-        EventDispatcher.prototype.onMoving = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onMoving(e, isTouch, a); });
-        };
-        EventDispatcher.prototype.onTapEnd = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onTapEnd(e, isTouch, a); });
-        };
-        EventDispatcher.prototype.onDoubleTap = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onDoubleTap(e, isTouch, a); });
-        };
-        return EventDispatcher;
-    })();
-    PoseEditor.EventDispatcher = EventDispatcher;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="../typings/threejs/three-orbitcontrols.d.ts"/>

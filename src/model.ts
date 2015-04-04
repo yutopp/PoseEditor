@@ -206,7 +206,8 @@ module PoseEditor {
                     ownerModel: this,
                 };
 
-                markerMesh.visible = true;
+                //markerMesh.visible = true;
+                markerMesh.visible = false;
                 this.joint_spheres[index] = markerMesh;    // TODO: rename
                 this.scene.add(markerMesh);
             });
