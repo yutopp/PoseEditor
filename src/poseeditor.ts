@@ -9,10 +9,13 @@
 /// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
 /// <reference path="time_machine.ts"/>
+/// <reference path="event_dispatcher.ts"/>
 /// <reference path="etc.ts"/>
 
 module PoseEditor {
     export class Editor {
+        private eventDispatcher: EventDispatcher;
+
         constructor(
             parentDomId: string,
             modelInfoTable: {[key: string]: ModelInfo;},
@@ -20,10 +23,15 @@ module PoseEditor {
             defaultCamera: CameraConfig = new CameraConfig(),
             config: Config = new Config()
         ) {
+            //
+            this.eventDispatcher = new EventDispatcher();
+
             // setup screen
             this.screen = new Screen.ScreenController(parentDomId, config);
             this.screen.addCallback('resize', () => this.onResize());
-            this.screen.addCallback('onmodeclick', (m: Screen.Mode) => this.onModeClick(m));
+            this.screen.addCallback('onmodeclick', (m: Screen.Mode) => {
+                this.eventDispatcher.onModeSelect(m)
+            });
             this.screen.addCallback('onundo', () => this.history.undo());
             this.screen.addCallback('onredo', () => this.history.redo());
 
@@ -108,81 +116,20 @@ module PoseEditor {
             this.config = config;
 
             //
-            {
-                var dom = this.renderer.domElement;
-                dom.addEventListener('mousedown', (e) => this.onTapStart(e, false), false);
-                dom.addEventListener('touchstart', (e) => this.onTapStart(e, true), false);
-
-                dom.addEventListener('mousemove', (e) => this.onMoving(e, false), false);
-                dom.addEventListener('touchmove', (e) => this.onMoving(e, true), false);
-
-                dom.addEventListener('mouseup', (e) => this.onTapEnd(e, false), false);
-                dom.addEventListener('mouseleave', (e) => this.onTapEnd(e, true), false);
-                dom.addEventListener('touchend', (e) => this.onTapEnd(e, true), false);
-                dom.addEventListener('touchcancel', (e) => this.onTapEnd(e, true), false);
-
-                dom.addEventListener('dblclick', (e) => this.onDoubleTap(e, false), false);
-            }
+            this.eventDispatcher.setup(
+                this,
+                this.transformCtrl,
+                this.controls,
+                this.renderer.domElement
+            );
 
             //
             this.history = new TimeMachine.Machine();
-
-            // initialize mode
-            this.currentMode = Screen.Mode.Camera;
-            this.onModeClick(this.currentMode);
 
             // jump into loop
             this.renderLoop();
         }
 
-        /// ==================================================
-        /// ==================================================
-        private onModeClick(mode: Screen.Mode): void {
-            var beforeAction = this.currentAction;
-            if ( beforeAction != null ) {
-                beforeAction.onDestroy();
-            }
-
-            this.currentMode = mode;
-            switch(this.currentMode) {
-            case Screen.Mode.Camera:
-                this.currentAction = new CameraAction(this, this.controls);
-                break;
-            case Screen.Mode.Move:
-                this.currentAction = new MoveAction(this);
-                break;
-            case Screen.Mode.FK:
-                this.currentAction = new FKAction(this, this.transformCtrl);
-                break;
-            case Screen.Mode.IK:
-                this.currentAction = new IKAction(this);
-                break;
-            default:
-                console.error('unexpected mode');
-            }
-            this.currentAction.onActive(beforeAction);
-        }
-
-        private onTapStart(e: any, isTouch: boolean): void {
-            e.preventDefault();
-            this.currentAction.onTapStart(e, isTouch);
-        }
-
-        private onMoving(e: any, isTouch: boolean): void {
-            e.preventDefault();
-            this.currentAction.onMoving(e, isTouch);
-        }
-
-        private onTapEnd(e: any, isTouch: boolean): void {
-            e.preventDefault();
-            this.currentAction.onTapEnd(e, isTouch);
-        }
-
-        private onDoubleTap(e: any, isTouch: boolean): void {
-            e.preventDefault();
-            this.currentAction.onDoubleTap(e, isTouch);
-        }
-        /// ==================================================
         /// ==================================================
 
 
@@ -388,10 +335,9 @@ module PoseEditor {
         private update() {
             this.scene.updateMatrixWorld(true);
             this.scene2d.updateMatrixWorld(true);
-
             this.models.forEach((model) => {
                 if ( model.isReady() ) {
-                    this.currentAction.update(model);
+                    this.eventDispatcher.execActions((act: Action) => act.update(model));
 
                     //
                     model.availableBones.forEach((bone) => {

@@ -13,12 +13,21 @@ module PoseEditor {
             return "camera";
         }
 
-        public onActive(before: Action) {
+        public onActive() {
             this.controls.enabled = true;
         }
 
-        public onDestroy() {
-            this.controls.enabled = false;
+        public onTapStart(e: any, isTouch: boolean, isActive: boolean): boolean {
+            this.controls.enabled = isActive;
+            if ( this.controls.enabled ) {
+                (<any>this.controls).beginControl(e);   // ;(
+            }
+
+            return true;
+        }
+
+        public onTapEnd(e: any, isTouch: boolean): boolean {
+            return true;
         }
 
         private controls: THREE.OrbitControls;

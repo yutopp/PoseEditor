@@ -8,7 +8,7 @@ module PoseEditor {
             return "";
         }
 
-        public onActive(before: Action): void {
+        public onActive(): void {
             console.log("base::onActive");
         }
 
@@ -16,19 +16,24 @@ module PoseEditor {
             console.log("base::onDestroy");
         }
 
-        public onTapStart(e: any, isTouch: boolean): void {
+        public onTapStart(e: any, isTouch: boolean, isActive: boolean): boolean {
+            return true;
         }
 
-        public onMoving(e: any, isTouch: boolean): void {
+        public onMoving(e: any, isTouch: boolean, isActive: boolean): boolean {
+            return true;
         }
 
-        public onTapEnd(e: any, isTouch: boolean): void {
+        public onTapEnd(e: any, isTouch: boolean, isActive: boolean): boolean {
+            return true;
         }
 
-        public onDoubleTap(e: any, isTouch: boolean): void {
+        public onDoubleTap(e: any, isTouch: boolean, isActive: boolean): boolean {
+            return true;
         }
 
-        public update(model: Model): void {
+        public update(model: Model): boolean {
+            return true;
         }
 
         protected editor: Editor;

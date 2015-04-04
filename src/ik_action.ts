@@ -10,7 +10,7 @@ module PoseEditor {
             return "ik_action";
         }
 
-        public onActive(before: Action): void {
+        public onActive(): void {
             this.editor.showAllMarkerSprite();
         }
 
@@ -19,21 +19,23 @@ module PoseEditor {
             this.editor.hideAllMarkerSprite();
         }
 
-        public onTapStart(e: any, isTouch: boolean): void {
+        public onTapStart(e: any, isTouch: boolean): boolean {
             this.catchJoint(this.editor.selectJointMarker(e, isTouch));
 
-            if (this.currentJointMarker == null) return;
+            if (this.currentJointMarker == null) return true; // pass events to other action
             this.isMoving = true;
 
             this.beforeModelStatus = this.model.modelData();
+
+            return false;
         }
 
-        public onMoving(e: any, isTouch: boolean): void {
-            this.moving(e, isTouch);
+        public onMoving(e: any, isTouch: boolean): boolean {
+            return this.moving(e, isTouch);
         }
 
-        public onTapEnd(e: any, isTouch: boolean): void {
-            if (this.currentJointMarker == null || !this.isMoving) return;
+        public onTapEnd(e: any, isTouch: boolean): boolean {
+            if (this.currentJointMarker == null || !this.isMoving) return true;
             this.isMoving = false;
 
             // record action
@@ -43,25 +45,31 @@ module PoseEditor {
                 this.beforeModelStatus,
                 currentModelStatus
             ));
+
+            return false;
         }
 
-        public onDoubleTap(e: any, isTouch: boolean): void {
-            if (this.currentJointMarker == null) return;
+        public onDoubleTap(e: any, isTouch: boolean): boolean {
+            if (this.currentJointMarker == null) return true;
 
             var model = this.currentJointMarker.userData.ownerModel;
             var index = this.currentJointMarker.userData.jointIndex;
 
             model.toggleIKPropagation(index);
+
+            return false;
         }
 
-        public update(model: Model): void {
-            if (this.currentJointMarker == null || !this.isMoving) return;
+        public update(model: Model): boolean {
+            if (this.currentJointMarker == null || !this.isMoving) return true;
 
             if (model == this.currentJointMarker.userData.ownerModel) {
                 if (this.curPos != null) {
                     this.ik(this.bone, this.curPos);
                 }
             }
+
+            return true;
         }
 
 
@@ -84,10 +92,12 @@ module PoseEditor {
         }
 
         private moving(e: any, isTouch: boolean) {
-            if (this.currentJointMarker == null || !this.isMoving) return;
+            if (this.currentJointMarker == null || !this.isMoving) return true;
 
             var pos = this.editor.cursorToWorld(e, isTouch);
             this.curPos = this.editor.cursorHelper.move(pos);
+
+            return false;
         }
 
         private releaseJoint() {

@@ -13,7 +13,7 @@ module PoseEditor {
             return "fk_action";
         }
 
-        public onActive(before: Action): void {
+        public onActive(): void {
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
             this.transformCtrl.setSize(0.6);
@@ -31,20 +31,22 @@ module PoseEditor {
             this.editor.hideAllMarkerSprite();
         }
 
-        public onTapStart(e: any, isTouch: boolean): void {
+        public onTapStart(e: any, isTouch: boolean): boolean {
             var m = this.editor.selectJointMarker(e, isTouch)
             console.log(m);
-            if (m == null) return;
+            if (m == null) return true;
 
             this.catchJoint(m);
+
+            return false;
+        }
+/*
+        public onMoving(e: any, isTouch: boolean): boolean {
         }
 
-        public onMoving(e: any, isTouch: boolean): void {
+        public onTapEnd(e: any, isTouch: boolean): boolean {
         }
-
-        public onTapEnd(e: any, isTouch: boolean): void {
-        }
-
+*/
 
         private catchJoint(m: THREE.Object3D) {
             this.currentJointMarker = m;

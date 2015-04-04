@@ -350,11 +350,8 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 	}
 
-	function onMouseDown( event ) {
-
-		if ( scope.enabled === false ) return;
-		event.preventDefault();
-
+    // modified...
+    this.beginControl = function( event ) {
 		if ( event.button === scope.mouseButtons.ORBIT ) {
 			if ( scope.noRotate === true ) return;
 
@@ -380,10 +377,17 @@ THREE.OrbitControls = function ( object, domElement ) {
 
 		if ( state !== STATE.NONE ) {
 			document.addEventListener( 'mousemove', onMouseMove, false );
-			document.addEventListener( 'mouseup', onMouseUp, false );
+		    document.addEventListener( 'mouseup', onMouseUp, false );
 			scope.dispatchEvent( startEvent );
 		}
+    }
 
+	function onMouseDown( event ) {
+
+		if ( scope.enabled === false ) return;
+		event.preventDefault();
+
+        scope.beginControl( event );
 	}
 
 	function onMouseMove( event ) {
@@ -522,7 +526,6 @@ THREE.OrbitControls = function ( object, domElement ) {
 	}
 
 	function touchstart( event ) {
-
 		if ( scope.enabled === false ) return;
 
 		switch ( event.touches.length ) {
