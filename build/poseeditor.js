@@ -4,6 +4,9 @@ var PoseEditor;
         function Action(e) {
             this.editor = e;
         }
+        Action.prototype.name = function () {
+            return "";
+        };
         Action.prototype.onActive = function (before) {
             console.log("base::onActive");
         };
@@ -40,6 +43,9 @@ var PoseEditor;
             // copy ownership
             this.controls = c;
         }
+        CameraAction.prototype.name = function () {
+            return "camera";
+        };
         CameraAction.prototype.onActive = function (before) {
             this.controls.enabled = true;
         };
@@ -156,6 +162,9 @@ var PoseEditor;
             _super.call(this, e);
             this.transformCtrl = ctrls;
         }
+        FKAction.prototype.name = function () {
+            return "fk_action";
+        };
         FKAction.prototype.onActive = function (before) {
             var _this = this;
             this.transformCtrl.setMode("rotate");
@@ -233,6 +242,9 @@ var PoseEditor;
             _super.call(this, e);
             this.isMoving = false;
         }
+        IKAction.prototype.name = function () {
+            return "ik_action";
+        };
         IKAction.prototype.onActive = function (before) {
             this.editor.showAllMarkerSprite();
         };
@@ -612,6 +624,9 @@ var PoseEditor;
         function MoveAction(e) {
             _super.call(this, e);
         }
+        MoveAction.prototype.name = function () {
+            return "move";
+        };
         MoveAction.prototype.onDestroy = function () {
             this.releaseModel();
         };

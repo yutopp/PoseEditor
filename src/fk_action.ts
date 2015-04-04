@@ -9,7 +9,11 @@ module PoseEditor {
             this.transformCtrl = ctrls;
         }
 
-        onActive(before: Action): void {
+        public name(): string {
+            return "fk_action";
+        }
+
+        public onActive(before: Action): void {
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
             this.transformCtrl.setSize(0.6);
@@ -20,14 +24,14 @@ module PoseEditor {
             this.editor.showAllMarkerSprite();
         }
 
-        onDestroy(): void {
+        public onDestroy(): void {
             this.releaseJoint();
             this.transformCtrl.detach();
 
             this.editor.hideAllMarkerSprite();
         }
 
-        onTapStart(e: any, isTouch: boolean): void {
+        public onTapStart(e: any, isTouch: boolean): void {
             var m = this.editor.selectJointMarker(e, isTouch)
             console.log(m);
             if (m == null) return;
@@ -35,10 +39,10 @@ module PoseEditor {
             this.catchJoint(m);
         }
 
-        onMoving(e: any, isTouch: boolean): void {
+        public onMoving(e: any, isTouch: boolean): void {
         }
 
-        onTapEnd(e: any, isTouch: boolean): void {
+        public onTapEnd(e: any, isTouch: boolean): void {
         }
 
 

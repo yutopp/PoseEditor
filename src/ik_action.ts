@@ -6,16 +6,20 @@ module PoseEditor {
             super(e);
         }
 
-        onActive(before: Action): void {
+        public name(): string {
+            return "ik_action";
+        }
+
+        public onActive(before: Action): void {
             this.editor.showAllMarkerSprite();
         }
 
-        onDestroy(): void {
+        public onDestroy(): void {
             this.releaseJoint();
             this.editor.hideAllMarkerSprite();
         }
 
-        onTapStart(e: any, isTouch: boolean): void {
+        public onTapStart(e: any, isTouch: boolean): void {
             this.catchJoint(this.editor.selectJointMarker(e, isTouch));
 
             if (this.currentJointMarker == null) return;
@@ -24,11 +28,11 @@ module PoseEditor {
             this.beforeModelStatus = this.model.modelData();
         }
 
-        onMoving(e: any, isTouch: boolean): void {
+        public onMoving(e: any, isTouch: boolean): void {
             this.moving(e, isTouch);
         }
 
-        onTapEnd(e: any, isTouch: boolean): void {
+        public onTapEnd(e: any, isTouch: boolean): void {
             if (this.currentJointMarker == null || !this.isMoving) return;
             this.isMoving = false;
 
@@ -41,7 +45,7 @@ module PoseEditor {
             ));
         }
 
-        onDoubleTap(e: any, isTouch: boolean): void {
+        public onDoubleTap(e: any, isTouch: boolean): void {
             if (this.currentJointMarker == null) return;
 
             var model = this.currentJointMarker.userData.ownerModel;
@@ -50,7 +54,7 @@ module PoseEditor {
             model.toggleIKPropagation(index);
         }
 
-        update(model: Model): void {
+        public update(model: Model): void {
             if (this.currentJointMarker == null || !this.isMoving) return;
 
             if (model == this.currentJointMarker.userData.ownerModel) {

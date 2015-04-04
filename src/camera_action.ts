@@ -9,11 +9,15 @@ module PoseEditor {
             this.controls = c;
         }
 
-        onActive(before: Action) {
+        public name(): string {
+            return "camera";
+        }
+
+        public onActive(before: Action) {
             this.controls.enabled = true;
         }
 
-        onDestroy() {
+        public onDestroy() {
             this.controls.enabled = false;
         }
 

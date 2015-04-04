@@ -6,19 +6,23 @@ module PoseEditor {
             super(e);
         }
 
-        onDestroy(): void {
+        public name(): string {
+            return "move";
+        }
+
+        public onDestroy(): void {
             this.releaseModel();
         }
 
-        onTapStart(e: any, isTouch: boolean): void {
+        public onTapStart(e: any, isTouch: boolean): void {
             this.catchModel(e, isTouch);
         }
 
-        onMoving(e: any, isTouch: boolean): void {
+        public onMoving(e: any, isTouch: boolean): void {
             this.moveModel(e, isTouch);
         }
 
-        onTapEnd(e: any, isTouch: boolean): void {
+        public onTapEnd(e: any, isTouch: boolean): void {
             this.releaseModel();
         }
 
