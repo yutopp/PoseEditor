@@ -133,8 +133,19 @@ $(function() {
     "sport_man": {
       modelPath: "bower_components/poseeditor/models/model/model.js",
       textureDir: "bower_components/poseeditor/models/model/",
-      ikStopJoints: [32, 13, 1, 5, 9, 50, 12, 31, 22, 28, 25, 16, 19, 47, 41, 44, 38, 35],
-      boneLimits: {},
+      ikDefaultPropagation: false,
+      ikInversePropagationJoints: [],
+      hiddenJoints: [
+        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+        35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+      ],
+      presets: {
+      },
+      boneLimits: {
+        32: [[-160, 17], [-7, 5.7], [-74.4, 148.9]],
+        33: [[0, 166], [-22.9, 11.4], [-34.3, 51.5]],
+        34: [[-17, 34.3], [34.3, 68.7], [-126, -17]]
+      },
       baseJointId: 0,
       initPos: [0, 0, 0],
       initScale: [1, 1, 1],
