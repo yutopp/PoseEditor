@@ -198,27 +198,31 @@ var PoseEditor;
             dom.addEventListener('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
             dom.addEventListener('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
         };
-        EventDispatcher.prototype.onModeSelect = function (mode) {
+        EventDispatcher.prototype.onModeSelect = function (mode, screen) {
             var _this = this;
             switch (mode) {
                 case 0 /* Camera */:
                     /// | Camera |
                     this.destroyActionFrom(1);
+                    screen.selectModeUI('camera');
                     break;
                 case 1 /* Move */:
                     /// | Move   |
                     /// | Camera |
                     this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
+                    screen.selectModeUI('move');
                     break;
                 case 2 /* FK */:
                     /// | FK     |
                     /// | Camera |
                     this.makeStandardModeForm('fk_action', function () { return new PoseEditor.FKAction(_this.editor, _this.transformCtrl); });
+                    screen.selectModeUI('fk');
                     break;
                 case 3 /* IK */:
                     /// | IK     |
                     /// | Camera |
                     this.makeStandardModeForm('ik_action', function () { return new PoseEditor.IKAction(_this.editor); });
+                    screen.selectModeUI('ik');
                     break;
                 default:
                     console.error('unexpected mode');
@@ -827,11 +831,101 @@ var PoseEditor;
             Mode[Mode["IK"] = 3] = "IK";
         })(Screen.Mode || (Screen.Mode = {}));
         var Mode = Screen.Mode;
+        var ControlPanel = (function () {
+            function ControlPanel(screen) {
+                var _this = this;
+                this.toggleDom = {};
+                this.Doms = {};
+                this.screen = screen;
+                //
+                this.panelDom = document.createElement("div");
+                {
+                    var s = this.panelDom.style;
+                    s.position = "absolute";
+                    s.right = "0";
+                    s.width = (this.screen.width / 10) + "px";
+                    s.height = "100%";
+                    s.backgroundColor = "#fff";
+                    s.opacity = "0.8";
+                }
+                this.screen.targetDom.appendChild(this.panelDom);
+                //
+                this.addButton(function (dom) {
+                    dom.value = 'camera';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
+                    });
+                    _this.toggleDom['camera'] = dom;
+                });
+                //
+                this.addButton(function (dom) {
+                    dom.value = 'move';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
+                    });
+                    _this.toggleDom['move'] = dom;
+                });
+                /*
+                //
+                this.addButton((dom) => {
+                    dom.value = 'FK';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onmodeclick", Mode.FK);
+                    });
+
+                    this.toggleDom['fk'] = dom;
+                });
+                */
+                //
+                this.addButton(function (dom) {
+                    dom.value = 'IK';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 3 /* IK */);
+                    });
+                    _this.toggleDom['ik'] = dom;
+                });
+                //
+                this.addButton(function (dom) {
+                    dom.value = 'Undo';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onundo");
+                    });
+                    dom.disabled = true;
+                    _this.Doms['undo'] = dom;
+                });
+                //
+                this.addButton(function (dom) {
+                    dom.value = 'Redo';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onredo");
+                    });
+                    dom.disabled = true;
+                    _this.Doms['redo'] = dom;
+                });
+            }
+            ControlPanel.prototype.addButton = function (callback) {
+                var dom = document.createElement("input");
+                dom.type = "button";
+                callback(dom);
+                this.panelDom.appendChild(dom);
+            };
+            ControlPanel.prototype.selectModeUI = function (mode) {
+                for (var key in this.toggleDom) {
+                    this.toggleDom[key].disabled = false;
+                }
+                this.toggleDom[mode].disabled = true;
+            };
+            ControlPanel.prototype.changeUIStatus = function (name, callback) {
+                var dom = this.Doms[name];
+                if (dom == null)
+                    return false;
+                return callback(dom);
+            };
+            return ControlPanel;
+        })();
         var ScreenController = (function () {
             function ScreenController(parentDomId, config) {
                 var _this = this;
-                this.modeChangerDom = [];
-                this.systemDom = [];
                 //
                 this.events = {};
                 //
@@ -850,19 +944,24 @@ var PoseEditor;
                 if (config.loadingImagePath) {
                     this.loadingDom = document.createElement("img");
                     this.loadingDom.src = config.loadingImagePath;
+                    this.loadingDom.style.position = 'absolute';
+                    this.loadingDom.style.padding = "10px";
+                    this.loadingDom.style.borderRadius = "5px";
+                    this.loadingDom.style.backgroundColor = "#fff";
                     this.loadingDom.style.display = "none";
                     this.targetDom.appendChild(this.loadingDom);
                 }
-                // tmp
-                this.addButton('camera', 0 /* Camera */);
-                this.addButton('move', 1 /* Move */);
-                //this.addButton('fk', Mode.FK);
-                this.addButton('ik', 3 /* IK */);
-                this.addUndoButton();
-                this.addRedoButton();
+                //
+                this.controlPanel = new ControlPanel(this);
                 //
                 window.addEventListener('resize', function () { return _this.onResize(); }, false);
             }
+            ScreenController.prototype.selectModeUI = function (mode) {
+                this.controlPanel.selectModeUI(mode);
+            };
+            ScreenController.prototype.changeUIStatus = function (name, callback) {
+                return this.controlPanel.changeUIStatus(name, callback);
+            };
             ScreenController.prototype.appendChild = function (dom) {
                 this.targetDom.appendChild(dom);
             };
@@ -883,10 +982,6 @@ var PoseEditor;
             ScreenController.prototype.showLoadingDom = function () {
                 if (this.loadingDom.style) {
                     this.loadingDom.style.display = "inline";
-                    this.loadingDom.style.position = 'absolute';
-                    this.loadingDom.style.padding = "10px";
-                    this.loadingDom.style.borderRadius = "5px";
-                    this.loadingDom.style.backgroundColor = "#fff";
                     var x = Math.abs(this.targetDom.offsetWidth - this.loadingDom.offsetWidth) / 2;
                     var y = Math.abs(this.targetDom.offsetHeight - this.loadingDom.offsetHeight) / 2;
                     this.loadingDom.style.left = x + 'px';
@@ -897,39 +992,6 @@ var PoseEditor;
                 if (this.loadingDom.style) {
                     this.loadingDom.style.display = "none";
                 }
-            };
-            ScreenController.prototype.addButton = function (title, m) {
-                var _this = this;
-                var dom = document.createElement("input");
-                dom.type = "button";
-                dom.value = title;
-                dom.addEventListener("click", function () {
-                    _this.dispatchCallback("onmodeclick", m);
-                });
-                this.targetDom.appendChild(dom);
-                this.modeChangerDom.push(dom);
-            };
-            ScreenController.prototype.addUndoButton = function () {
-                var _this = this;
-                var dom = document.createElement("input");
-                dom.type = "button";
-                dom.value = "Undo";
-                dom.addEventListener("click", function () {
-                    _this.dispatchCallback("onundo");
-                });
-                this.targetDom.appendChild(dom);
-                this.modeChangerDom.push(dom);
-            };
-            ScreenController.prototype.addRedoButton = function () {
-                var _this = this;
-                var dom = document.createElement("input");
-                dom.type = "button";
-                dom.value = "Redo";
-                dom.addEventListener("click", function () {
-                    _this.dispatchCallback("onredo");
-                });
-                this.targetDom.appendChild(dom);
-                this.modeChangerDom.push(dom);
             };
             ScreenController.prototype.addCallback = function (type, f) {
                 if (this.events[type] == null) {
@@ -985,17 +1047,19 @@ var PoseEditor;
         })(Action);
         TimeMachine.ChangeModelStatusAction = ChangeModelStatusAction;
         var Machine = (function () {
-            function Machine() {
+            function Machine(screen) {
                 this.history = [];
                 this.currentStep = -1;
+                this.screen = screen; // TO data binding... (nullable)
             }
             Machine.prototype.undo = function () {
-                if (this.currentStep < 0)
+                if (this.currentStep < 0 || this.history.length == 0)
                     return;
                 if (this.currentStep >= this.history.length)
                     this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
                 this.currentStep--;
+                this.updateUI();
             };
             Machine.prototype.redo = function () {
                 if (this.currentStep >= this.history.length)
@@ -1004,6 +1068,7 @@ var PoseEditor;
                     this.currentStep = 0;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
+                this.updateUI();
             };
             Machine.prototype.didAction = function (act) {
                 if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
@@ -1013,6 +1078,29 @@ var PoseEditor;
                 }
                 this.history.push(act);
                 this.currentStep++;
+                this.updateUI();
+            };
+            Machine.prototype.updateUI = function () {
+                var _this = this;
+                if (this.screen) {
+                    this.screen.changeUIStatus('undo', function (dom) {
+                        if (_this.currentStep >= 0) {
+                            dom.disabled = false;
+                        }
+                        else {
+                            dom.disabled = true;
+                        }
+                    });
+                    this.screen.changeUIStatus('redo', function (dom) {
+                        var isFirstTime = _this.currentStep == 0 && _this.history.length == 1; // ;( FIX
+                        if (!isFirstTime && _this.currentStep < _this.history.length) {
+                            dom.disabled = false;
+                        }
+                        else {
+                            dom.disabled = true;
+                        }
+                    });
+                }
             };
             return Machine;
         })();
@@ -1047,21 +1135,21 @@ var PoseEditor;
             //
             this.models = [];
             //
-            this.isOnManipurator = false;
-            this.selectedSphere = null;
-            //
             this.loadingTasks = 0;
             this.boneDebugDom = null;
-            //
-            this.eventDispatcher = new PoseEditor.EventDispatcher();
             // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
+            this.eventDispatcher = new PoseEditor.EventDispatcher();
+            this.history = new PoseEditor.TimeMachine.Machine(this.screen);
+            // setup screen
             this.screen.addCallback('resize', function () { return _this.onResize(); });
             this.screen.addCallback('onmodeclick', function (m) {
-                _this.eventDispatcher.onModeSelect(m);
+                _this.eventDispatcher.onModeSelect(m, _this.screen);
             });
             this.screen.addCallback('onundo', function () { return _this.history.undo(); });
             this.screen.addCallback('onredo', function () { return _this.history.redo(); });
+            // setup
+            this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
             //
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
@@ -1123,8 +1211,6 @@ var PoseEditor;
             this.config = config;
             //
             this.eventDispatcher.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
-            //
-            this.history = new PoseEditor.TimeMachine.Machine();
             // jump into loop
             this.renderLoop();
         }
@@ -1201,9 +1287,6 @@ var PoseEditor;
                 }
             });
             //console.log(l);
-            if (selectedMarker != null) {
-                this.selectedSphere = selectedMarker;
-            }
             return selectedMarker;
         };
         Editor.prototype.cancelAllMarkerSprite = function () {
@@ -1265,7 +1348,6 @@ var PoseEditor;
         };
         Editor.prototype.resetCtrl = function () {
             this.transformCtrl.detach();
-            this.selectedSphere = null;
         };
         Editor.prototype.update = function () {
             var _this = this;
@@ -1414,20 +1496,23 @@ var PoseEditor;
             this.resetCtrl();
         };
         Editor.prototype.removeSelectedModel = function () {
-            if (this.selectedSphere != null) {
+            // TODO: fix
+            /*
+            if ( this.selectedSphere != null ) {
                 var model = this.selectedSphere.userData.ownerModel;
                 var index = this.models.indexOf(model);
-                if (index != -1) {
+                if ( index != -1 ) {
                     this.removeModel(index);
                 }
             }
+            */
         };
         Editor.prototype.makeDataUrl = function (type) {
             //
             var vis = this.models.map(function (m) { return m.getMarkerVisibility(); });
             this.models.forEach(function (m) { return m.setMarkerVisibility(false); });
-            var ss = this.selectedSphere;
-            this.transformCtrl.detach();
+            // var ss = this.selectedSphere;
+            // this.transformCtrl.detach();
             //
             this.render();
             var data = this.renderer.domElement.toDataURL(type);
@@ -1435,9 +1520,9 @@ var PoseEditor;
             this.models.forEach(function (m, i) {
                 m.setMarkerVisibility(vis[i]);
             });
-            if (ss) {
-                this.transformCtrl.attach(ss);
-            }
+            // if ( ss ) {
+            // this.transformCtrl.attach(ss);
+            // }
             return data;
         };
         Editor.prototype.incTask = function () {
