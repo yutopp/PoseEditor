@@ -14,8 +14,6 @@
 
 module PoseEditor {
     export class Editor {
-        private eventDispatcher: EventDispatcher;
-
         constructor(
             parentDomId: string,
             modelInfoTable: {[key: string]: ModelInfo;},
@@ -23,17 +21,21 @@ module PoseEditor {
             defaultCamera: CameraConfig = new CameraConfig(),
             config: Config = new Config()
         ) {
-            //
-            this.eventDispatcher = new EventDispatcher();
-
             // setup screen
             this.screen = new Screen.ScreenController(parentDomId, config);
+            this.eventDispatcher = new EventDispatcher();
+            this.history = new TimeMachine.Machine(this.screen);
+
+            // setup screen
             this.screen.addCallback('resize', () => this.onResize());
             this.screen.addCallback('onmodeclick', (m: Screen.Mode) => {
-                this.eventDispatcher.onModeSelect(m)
+                this.eventDispatcher.onModeSelect(m, this.screen);
             });
             this.screen.addCallback('onundo', () => this.history.undo());
             this.screen.addCallback('onredo', () => this.history.redo());
+
+            // setup
+            this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
 
             //
             this.modelInfoTable = modelInfoTable;
@@ -123,8 +125,7 @@ module PoseEditor {
                 this.renderer.domElement
             );
 
-            //
-            this.history = new TimeMachine.Machine();
+
 
             // jump into loop
             this.renderLoop();
@@ -229,9 +230,6 @@ module PoseEditor {
                 }
             });
             //console.log(l);
-            if ( selectedMarker != null ) {
-                this.selectedSphere = selectedMarker;
-            }
 
             return selectedMarker;
         }
@@ -313,11 +311,7 @@ module PoseEditor {
 
 
         private resetCtrl() {
-
             this.transformCtrl.detach();
-
-
-            this.selectedSphere = null;
         }
 
 
@@ -517,6 +511,8 @@ module PoseEditor {
         }
 
         public removeSelectedModel() {
+            // TODO: fix
+            /*
             if ( this.selectedSphere != null ) {
                 var model = this.selectedSphere.userData.ownerModel;
                 var index = this.models.indexOf(model);
@@ -524,6 +520,7 @@ module PoseEditor {
                     this.removeModel(index);
                 }
             }
+            */
         }
 
         private makeDataUrl(type: string): string {
@@ -531,8 +528,8 @@ module PoseEditor {
             var vis = this.models.map((m) => m.getMarkerVisibility());
             this.models.forEach((m) => m.setMarkerVisibility(false));
 
-            var ss = this.selectedSphere;
-            this.transformCtrl.detach();
+            // var ss = this.selectedSphere;
+            // this.transformCtrl.detach();
 
             //
             this.render();
@@ -543,9 +540,9 @@ module PoseEditor {
             this.models.forEach((m, i) => {
                 m.setMarkerVisibility(vis[i]);
             });
-            if ( ss ) {
-                this.transformCtrl.attach(ss);
-            }
+            // if ( ss ) {
+            // this.transformCtrl.attach(ss);
+            // }
 
             return data;
         }
@@ -573,9 +570,7 @@ module PoseEditor {
 
         //
         private screen: Screen.ScreenController;
-        private currentMode: Screen.Mode;
-        private currentAction: Action;
-
+        private eventDispatcher: EventDispatcher;
         public history: TimeMachine.Machine;
 
         //
@@ -596,6 +591,7 @@ module PoseEditor {
         private ambientLight: THREE.AmbientLight;
         private transformCtrl: THREE.TransformControls;
         private controls: THREE.OrbitControls;
+        public cursorHelper: CursorPositionHelper;
 
         //
         private scene2d: THREE.Scene;
@@ -604,13 +600,6 @@ module PoseEditor {
         //
         private gridHelper: THREE.GridHelper;
 
-
-
-        //
-        private isOnManipurator: boolean = false;
-        private selectedSphere: THREE.Object3D = null;
-
-
         //
         private loadingTasks = 0;
 
@@ -618,7 +607,5 @@ module PoseEditor {
 
         //
         private config: Config;
-
-        cursorHelper: CursorPositionHelper;
     }
 }

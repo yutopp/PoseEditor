@@ -29,12 +29,18 @@ module PoseEditor {
 
 
         export class Machine {
+            constructor(screen: Screen.ScreenController) {
+                this.screen = screen; // TO data binding... (nullable)
+            }
+
             public undo() {
-                if (this.currentStep < 0) return;
+                if (this.currentStep < 0 || this.history.length == 0) return;
 
                 if (this.currentStep >= this.history.length) this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
                 this.currentStep--;
+
+                this.updateUI();
             }
 
             public redo() {
@@ -43,6 +49,8 @@ module PoseEditor {
                 if (this.currentStep < 0) this.currentStep = 0;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
+
+                this.updateUI();
             }
 
             public didAction(act: Action) {
@@ -54,10 +62,37 @@ module PoseEditor {
 
                 this.history.push(act);
                 this.currentStep++;
+
+                this.updateUI();
+            }
+
+            private updateUI() {
+                if (this.screen) {
+                    this.screen.changeUIStatus('undo', (dom: HTMLElement) => {
+                        if ( this.currentStep >= 0 ) {
+                            dom.disabled = false;
+                        } else {
+                            dom.disabled = true;
+                        }
+                    });
+
+                    this.screen.changeUIStatus('redo', (dom: HTMLElement) => {
+                        var isFirstTime
+                            = this.currentStep == 0 && this.history.length == 1; // ;( FIX
+
+                        if ( !isFirstTime && this.currentStep < this.history.length ) {
+                            dom.disabled = false;
+                        } else {
+                            dom.disabled = true;
+                        }
+                    });
+                }
             }
 
             private history: Array<Action> = [];
             private currentStep = -1;
+
+            private screen: Screen.ScreenController;
         }
 
     }

@@ -11,6 +11,119 @@ module PoseEditor {
             loadingImagePath: string;
         }
 
+        class ControlPanel {
+            constructor( screen: ScreenController ) {
+                this.screen = screen;
+
+                //
+                this.panelDom = document.createElement("div");
+                {
+                    var s = this.panelDom.style;
+                    s.position = "absolute";
+                    s.right = "0";
+                    s.width = <number>(this.screen.width / 10) + "px";
+                    s.height = "100%";
+                    s.backgroundColor = "#fff";
+                    s.opacity = "0.8";
+                }
+                this.screen.targetDom.appendChild(this.panelDom);
+
+                //
+                this.addButton((dom) => {
+                    dom.value = 'camera';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onmodeclick", Mode.Camera);
+                    });
+
+                    this.toggleDom['camera'] = dom;
+                });
+
+                //
+                this.addButton((dom) => {
+                    dom.value = 'move';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onmodeclick", Mode.Move);
+                    });
+
+                    this.toggleDom['move'] = dom;
+                });
+
+                /*
+                //
+                this.addButton((dom) => {
+                    dom.value = 'FK';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onmodeclick", Mode.FK);
+                    });
+
+                    this.toggleDom['fk'] = dom;
+                });
+                */
+
+                //
+                this.addButton((dom) => {
+                    dom.value = 'IK';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onmodeclick", Mode.IK);
+                    });
+
+                    this.toggleDom['ik'] = dom;
+                });
+
+                                //
+                this.addButton((dom) => {
+                    dom.value = 'Undo';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onundo");
+                    });
+
+                    dom.disabled = true;
+                    this.Doms['undo'] = dom;
+                });
+
+                                //
+                this.addButton((dom) => {
+                    dom.value = 'Redo';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onredo");
+                    });
+
+                    dom.disabled = true;
+                    this.Doms['redo'] = dom;
+                });
+            }
+
+            private addButton(callback: (d: HTMLInputElement) => void): void {
+                var dom = document.createElement("input");
+                dom.type = "button";
+                callback(dom);
+
+                this.panelDom.appendChild(dom);
+            }
+
+            public selectModeUI(mode: string) {
+                for( var key in this.toggleDom ) {
+                    this.toggleDom[key].disabled = false;
+                }
+
+                this.toggleDom[mode].disabled = true;
+            }
+
+            public changeUIStatus(name: string, callback: (dom: HTMLElement) => any) {
+                var dom = this.Doms[name];
+                if (dom == null) return false;
+
+                return callback(dom);
+            }
+
+            private screen: ScreenController;
+            private panelDom: HTMLElement;
+
+            private toggleDom: {[key: string]: HTMLElement} = {};
+            private Doms: {[key: string]: HTMLElement} = {};
+        }
+
+
         export class ScreenController {
             constructor(
                 parentDomId: string,
@@ -18,7 +131,7 @@ module PoseEditor {
             ) {
                 //
                 var parentDom = document.getElementById(parentDomId);
-                if (parentDom == null) {
+                if ( parentDom == null ) {
                     console.log("parent dom was not found...");
                 }
                 this.targetDom = parentDom ? parentDom : document.body;
@@ -32,22 +145,29 @@ module PoseEditor {
                 if ( config.loadingImagePath ) {
                     this.loadingDom = document.createElement("img");
                     this.loadingDom.src = config.loadingImagePath;
+                    this.loadingDom.style.position = 'absolute';
+                    this.loadingDom.style.padding = "10px";
+                    this.loadingDom.style.borderRadius = "5px";
+                    this.loadingDom.style.backgroundColor = "#fff";
+
                     this.loadingDom.style.display = "none";
 
                     this.targetDom.appendChild(this.loadingDom);
                 }
 
-                // tmp
-                this.addButton('camera', Mode.Camera);
-                this.addButton('move', Mode.Move);
-                //this.addButton('fk', Mode.FK);
-                this.addButton('ik', Mode.IK);
-
-                this.addUndoButton();
-                this.addRedoButton();
+                //
+                this.controlPanel = new ControlPanel(this);
 
                 //
                 window.addEventListener('resize', () => this.onResize(), false);
+            }
+
+            public selectModeUI(mode: string) {
+                this.controlPanel.selectModeUI(mode);
+            }
+
+            public changeUIStatus(name: string, callback: (dom: HTMLElement) => any) {
+                return this.controlPanel.changeUIStatus(name, callback);
             }
 
             public appendChild(dom: any): void {
@@ -75,10 +195,6 @@ module PoseEditor {
             public showLoadingDom() {
                 if ( this.loadingDom.style ) {
                     this.loadingDom.style.display = "inline";
-                    this.loadingDom.style.position = 'absolute';
-                    this.loadingDom.style.padding = "10px";
-                    this.loadingDom.style.borderRadius = "5px";
-                    this.loadingDom.style.backgroundColor = "#fff";
 
                     var x = Math.abs(this.targetDom.offsetWidth - this.loadingDom.offsetWidth) / 2;
                     var y = Math.abs(this.targetDom.offsetHeight - this.loadingDom.offsetHeight) / 2;
@@ -94,45 +210,6 @@ module PoseEditor {
                 }
             }
 
-            private addButton(title: string, m: Mode): void {
-                var dom = document.createElement("input");
-                dom.type = "button";
-                dom.value = title;
-                dom.addEventListener("click", () => {
-                    this.dispatchCallback("onmodeclick", m);
-                });
-
-                this.targetDom.appendChild(dom);
-
-                this.modeChangerDom.push(dom);
-            }
-
-            private addUndoButton() {
-                var dom = document.createElement("input");
-                dom.type = "button";
-                dom.value = "Undo";
-                dom.addEventListener("click", () => {
-                    this.dispatchCallback("onundo");
-                });
-
-                this.targetDom.appendChild(dom);
-
-                this.modeChangerDom.push(dom);
-            }
-
-            private addRedoButton() {
-                var dom = document.createElement("input");
-                dom.type = "button";
-                dom.value = "Redo";
-                dom.addEventListener("click", () => {
-                    this.dispatchCallback("onredo");
-                });
-
-                this.targetDom.appendChild(dom);
-
-                this.modeChangerDom.push(dom);
-            }
-
             public addCallback(type: string, f: any): void {
                 if ( this.events[type] == null ) {
                     this.events[type] = [];
@@ -140,7 +217,7 @@ module PoseEditor {
                 this.events[type].push(f);
             }
 
-            private dispatchCallback(type: string, ...args: any[]): void {
+            public dispatchCallback(type: string, ...args: any[]): void {
                 if ( this.events[type] != null ) {
                     this.events[type].forEach((f: any) => {
                         f.apply({}, args);
@@ -148,10 +225,10 @@ module PoseEditor {
                 }
             }
 
+
             //
             public targetDom: HTMLElement;
-            private modeChangerDom: Array<HTMLElement> = [];
-            private systemDom: Array<HTMLElement> = [];
+            private controlPanel: ControlPanel;
 
             //
             private events: {[key: string]: Array<any>} = {};
@@ -162,7 +239,7 @@ module PoseEditor {
             public aspect: number;
 
             //
-            private loadingDom: any = null;
+            private loadingDom: HTMLImageElement = null;
         }
     }
 }

@@ -32,11 +32,12 @@ module PoseEditor {
             dom.addEventListener('dblclick', (e) => this.onDoubleTap(e, false), false);
         }
 
-        public onModeSelect(mode: Screen.Mode): void {
+        public onModeSelect(mode: Screen.Mode, screen: Screen.ScreenController): void {
             switch(mode) {
             case Screen.Mode.Camera:
                 /// | Camera |
                 this.destroyActionFrom(1);
+                screen.selectModeUI('camera')
                 break;
 
             case Screen.Mode.Move:
@@ -46,6 +47,7 @@ module PoseEditor {
                     'move',
                     () => new MoveAction(this.editor)
                 );
+                screen.selectModeUI('move')
                 break;
 
             case Screen.Mode.FK:
@@ -55,6 +57,7 @@ module PoseEditor {
                     'fk_action',
                     () => new FKAction(this.editor, this.transformCtrl)
                 );
+                screen.selectModeUI('fk')
                 break;
 
             case Screen.Mode.IK:
@@ -64,6 +67,7 @@ module PoseEditor {
                     'ik_action',
                     () => new IKAction(this.editor)
                 );
+                screen.selectModeUI('ik')
                 break;
 
             default:
