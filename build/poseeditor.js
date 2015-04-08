@@ -824,6 +824,30 @@ var PoseEditor;
 (function (PoseEditor) {
     var Screen;
     (function (Screen) {
+        var EventDispatcher = (function () {
+            function EventDispatcher() {
+                //
+                this.events = {};
+            }
+            EventDispatcher.prototype.addCallback = function (type, f) {
+                if (this.events[type] == null) {
+                    this.events[type] = [];
+                }
+                this.events[type].push(f);
+            };
+            EventDispatcher.prototype.dispatchCallback = function (type) {
+                var args = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    args[_i - 1] = arguments[_i];
+                }
+                if (this.events[type] != null) {
+                    this.events[type].forEach(function (f) {
+                        f.apply({}, args);
+                    });
+                }
+            };
+            return EventDispatcher;
+        })();
         (function (Mode) {
             Mode[Mode["Camera"] = 0] = "Camera";
             Mode[Mode["Move"] = 1] = "Move";
@@ -831,11 +855,177 @@ var PoseEditor;
             Mode[Mode["IK"] = 3] = "IK";
         })(Screen.Mode || (Screen.Mode = {}));
         var Mode = Screen.Mode;
+        var Dialog = (function (_super) {
+            __extends(Dialog, _super);
+            function Dialog(parentDom) {
+                var _this = this;
+                _super.call(this);
+                this.actions = [];
+                this.parentDom = parentDom;
+                // base element
+                this.baseDom = document.createElement("div");
+                this.baseDom.style.position = 'absolute';
+                //this.baseDom.style.padding = "10px";
+                this.baseDom.style.borderRadius = "5px";
+                this.baseDom.style.backgroundColor = "#fff";
+                this.baseDom.style.display = 'none';
+                // container element
+                this.containerDom = document.createElement("div");
+                {
+                    var d = this.containerDom;
+                }
+                this.baseDom.appendChild(this.containerDom);
+                // selection element
+                this.selectionDom = document.createElement("div");
+                {
+                    var d = this.selectionDom;
+                    d.style.backgroundColor = "#00f";
+                    {
+                        var dom = document.createElement("input");
+                        dom.type = "button";
+                        dom.value = 'submit';
+                        dom.addEventListener("click", function () {
+                            var table = {};
+                            _this.getElementValues(table);
+                            _this.disposeAllElements();
+                            _this.dispatchCallback('onsubmit', table);
+                            _this.hide();
+                        });
+                        d.appendChild(dom);
+                    }
+                    {
+                        var dom = document.createElement("input");
+                        dom.type = "button";
+                        dom.value = 'cancel';
+                        dom.addEventListener("click", function () {
+                            _this.disposeAllElements();
+                            _this.dispatchCallback('oncancel');
+                            _this.hide();
+                        });
+                        d.appendChild(dom);
+                    }
+                }
+                this.baseDom.appendChild(this.selectionDom);
+                //
+                this.updatePosisionAndSize();
+            }
+            Dialog.prototype.updatePosisionAndSize = function () {
+                this.updateSize();
+                this.updatePosision();
+            };
+            Dialog.prototype.updatePosision = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                var px = Math.abs(offsetW - this.width) / 2;
+                var py = Math.abs(offsetH - this.height) / 2;
+                this.baseDom.style.marginLeft = px + 'px';
+                this.baseDom.style.marginTop = py + 'px';
+            };
+            Dialog.prototype.updateSize = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                this.width = Math.max(offsetW - 40, 40);
+                this.height = Math.max(offsetH - 40, 40);
+                this.baseDom.style.width = this.width + 'px';
+                this.baseDom.style.height = this.height + 'px';
+            };
+            Dialog.prototype.show = function () {
+                this.baseDom.style.display = 'inline';
+                this.dispatchCallback('show');
+            };
+            Dialog.prototype.hide = function () {
+                this.baseDom.style.display = 'none';
+                this.dispatchCallback('hide');
+            };
+            Dialog.prototype.setValues = function (data) {
+                var _this = this;
+                if (data) {
+                    data.forEach(function (v) {
+                        var type = v.type;
+                        var name = v.name;
+                        switch (type) {
+                            case 'radio':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct radio boxes
+                                    var num = v.value.length;
+                                    var checkedIndex = v.checked;
+                                    for (var i = 0; i < num; ++i) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+                                        var labelDom = document.createElement("label");
+                                        labelDom.innerText = label;
+                                        var inputDom = document.createElement("input");
+                                        inputDom.type = 'radio';
+                                        inputDom.name = 'poseeditor-' + name;
+                                        inputDom.value = value;
+                                        if (i == checkedIndex) {
+                                            inputDom.checked = true;
+                                        }
+                                        labelDom.appendChild(inputDom);
+                                        wrapperDom.appendChild(labelDom);
+                                    }
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var radios = document.getElementsByName(domName);
+                                    var format = "";
+                                    for (var i = 0; i < radios.length; ++i) {
+                                        var radio = radios[i];
+                                        if (radio.checked) {
+                                            format = radio.value;
+                                            break;
+                                        }
+                                    }
+                                    return format;
+                                });
+                                break;
+                            default:
+                                console.warn('unsupported: ' + type);
+                                break;
+                        }
+                    });
+                }
+            };
+            Dialog.prototype.addElement = function (name, createDom, clawlAction) {
+                var _this = this;
+                //
+                var wrapperDom = document.createElement("div");
+                createDom(wrapperDom);
+                this.containerDom.appendChild(wrapperDom);
+                //
+                var action = {
+                    destruction: function () {
+                        _this.containerDom.removeChild(wrapperDom);
+                    },
+                    crawl: function (table) {
+                        var result = clawlAction();
+                        table[name] = result;
+                    }
+                };
+                this.actions.push(action);
+            };
+            Dialog.prototype.disposeAllElements = function () {
+                this.actions.forEach(function (a) { return a.destruction(); });
+                this.actions = [];
+            };
+            Dialog.prototype.getElementValues = function (table) {
+                this.actions.forEach(function (a) { return a.crawl(table); });
+            };
+            return Dialog;
+        })(EventDispatcher);
+        var ControlDialog = (function (_super) {
+            __extends(ControlDialog, _super);
+            function ControlDialog(parentDom) {
+                _super.call(this, parentDom);
+            }
+            return ControlDialog;
+        })(Dialog);
         var ControlPanel = (function () {
             function ControlPanel(screen) {
                 var _this = this;
                 this.toggleDom = {};
-                this.Doms = {};
+                this.doms = {};
+                this.dialogs = {};
                 this.screen = screen;
                 //
                 this.panelDom = document.createElement("div");
@@ -846,24 +1036,21 @@ var PoseEditor;
                     s.width = (this.screen.width / 10) + "px";
                     s.height = "100%";
                     s.backgroundColor = "#fff";
-                    s.opacity = "0.8";
                 }
                 this.screen.targetDom.appendChild(this.panelDom);
                 //
-                this.addButton(function (dom) {
+                this.toggleDom['camera'] = this.addButton(function (dom) {
                     dom.value = 'camera';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
                     });
-                    _this.toggleDom['camera'] = dom;
                 });
                 //
-                this.addButton(function (dom) {
+                this.toggleDom['move'] = this.addButton(function (dom) {
                     dom.value = 'move';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
                     });
-                    _this.toggleDom['move'] = dom;
                 });
                 /*
                 //
@@ -877,30 +1064,45 @@ var PoseEditor;
                 });
                 */
                 //
-                this.addButton(function (dom) {
+                this.toggleDom['ik'] = this.addButton(function (dom) {
                     dom.value = 'IK';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 3 /* IK */);
                     });
-                    _this.toggleDom['ik'] = dom;
                 });
                 //
-                this.addButton(function (dom) {
+                this.doms['undo'] = this.addButton(function (dom) {
                     dom.value = 'Undo';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onundo");
                     });
                     dom.disabled = true;
-                    _this.Doms['undo'] = dom;
                 });
                 //
-                this.addButton(function (dom) {
+                this.doms['redo'] = this.addButton(function (dom) {
                     dom.value = 'Redo';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onredo");
                     });
                     dom.disabled = true;
-                    _this.Doms['redo'] = dom;
+                });
+                this.dialogs['download'] = this.addDialog(function (c) {
+                    // onshowdownload event
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showdownload', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('ondownload', data);
+                    });
+                });
+                this.doms['download'] = this.addButton(function (dom) {
+                    dom.value = 'Download';
+                    dom.addEventListener("click", function () {
+                        // call onshowdownload
+                        _this.dialogs['download'].show();
+                    });
                 });
             }
             ControlPanel.prototype.addButton = function (callback) {
@@ -908,6 +1110,13 @@ var PoseEditor;
                 dom.type = "button";
                 callback(dom);
                 this.panelDom.appendChild(dom);
+                return dom;
+            };
+            ControlPanel.prototype.addDialog = function (callback) {
+                var ctrl = new ControlDialog(this.screen.targetDom);
+                callback(ctrl);
+                this.screen.targetDom.appendChild(ctrl.baseDom);
+                return ctrl;
             };
             ControlPanel.prototype.selectModeUI = function (mode) {
                 for (var key in this.toggleDom) {
@@ -916,18 +1125,18 @@ var PoseEditor;
                 this.toggleDom[mode].disabled = true;
             };
             ControlPanel.prototype.changeUIStatus = function (name, callback) {
-                var dom = this.Doms[name];
+                var dom = this.doms[name];
                 if (dom == null)
                     return false;
                 return callback(dom);
             };
             return ControlPanel;
         })();
-        var ScreenController = (function () {
+        var ScreenController = (function (_super) {
+            __extends(ScreenController, _super);
             function ScreenController(parentDomId, config) {
                 var _this = this;
-                //
-                this.events = {};
+                _super.call(this);
                 //
                 this.loadingDom = null;
                 //
@@ -993,25 +1202,8 @@ var PoseEditor;
                     this.loadingDom.style.display = "none";
                 }
             };
-            ScreenController.prototype.addCallback = function (type, f) {
-                if (this.events[type] == null) {
-                    this.events[type] = [];
-                }
-                this.events[type].push(f);
-            };
-            ScreenController.prototype.dispatchCallback = function (type) {
-                var args = [];
-                for (var _i = 1; _i < arguments.length; _i++) {
-                    args[_i - 1] = arguments[_i];
-                }
-                if (this.events[type] != null) {
-                    this.events[type].forEach(function (f) {
-                        f.apply({}, args);
-                    });
-                }
-            };
             return ScreenController;
-        })();
+        })(EventDispatcher);
         Screen.ScreenController = ScreenController;
     })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
@@ -1148,6 +1340,12 @@ var PoseEditor;
             });
             this.screen.addCallback('onundo', function () { return _this.history.undo(); });
             this.screen.addCallback('onredo', function () { return _this.history.redo(); });
+            this.screen.addCallback('showdownload', function (f) {
+                _this.setDownloadTypes(f);
+            });
+            this.screen.addCallback('ondownload', function (data) {
+                _this.onDownload(data);
+            });
             // setup
             this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
             //
@@ -1404,6 +1602,24 @@ var PoseEditor;
         };
         // ==================================================
         // ==================================================
+        Editor.prototype.setDownloadTypes = function (f) {
+            var order = [
+                {
+                    type: 'radio',
+                    name: 'format',
+                    value: ['png', 'jpeg', 'json'],
+                    label: ['PNG', 'JPEG', 'JSON'],
+                    checked: 0
+                }
+            ];
+            f(order);
+        };
+        Editor.prototype.onDownload = function (data) {
+            var type = data['format'];
+            if (type == null)
+                return; // TODO: notice error
+            this.download(type);
+        };
         Editor.prototype.toDataUrl = function (type) {
             if (type === void 0) { type = 'png'; }
             switch (type) {
@@ -1416,6 +1632,17 @@ var PoseEditor;
                 default:
                     throw new Error("File format '" + type + "' is not supported");
             }
+        };
+        Editor.prototype.download = function (type) {
+            if (type === void 0) { type = 'png'; }
+            var dataUrl = this.toDataUrl(type);
+            // ???: :(
+            var a = document.createElement("a");
+            a.download = "poseeditor"; // workaround for typescript...
+            a.title = "download snapshot";
+            a.href = dataUrl;
+            a.click();
+            delete a;
         };
         Editor.prototype.getSceneInfo = function () {
             return {

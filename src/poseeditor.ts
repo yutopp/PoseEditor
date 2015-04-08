@@ -34,6 +34,13 @@ module PoseEditor {
             this.screen.addCallback('onundo', () => this.history.undo());
             this.screen.addCallback('onredo', () => this.history.redo());
 
+            this.screen.addCallback('showdownload', (f: (d: any) => void) => {
+                this.setDownloadTypes(f);
+            });
+            this.screen.addCallback('ondownload', (data: any) => {
+                this.onDownload(data);
+            });
+
             // setup
             this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
 
@@ -397,6 +404,26 @@ module PoseEditor {
 
         // ==================================================
         // ==================================================
+        private setDownloadTypes(f:(d: any) => void) {
+            var order = [
+                {
+                    type: 'radio',
+                    name: 'format',
+                    value: ['png', 'jpeg', 'json'],
+                    label: ['PNG', 'JPEG', 'JSON'],
+                    checked: 0
+                }
+            ];
+
+            f(order);
+        }
+
+        private onDownload(data: any) {
+            var type = <string>data['format'];
+            if ( type == null ) return; // TODO: notice error
+
+            this.download(type);
+        }
 
         public toDataUrl(type: string = 'png') {
             switch(type) {
@@ -410,9 +437,21 @@ module PoseEditor {
                 return "data: text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.getSceneInfo()));
 
             default:
-
                 throw new Error("File format '" + type + "' is not supported");
             }
+        }
+
+        public download(type: string = 'png') {
+            var dataUrl = this.toDataUrl(type);
+
+            // ???: :(
+            var a = document.createElement("a");
+            (<any>a).download = "poseeditor";   // workaround for typescript...
+            a.title = "download snapshot";
+            a.href = dataUrl;
+            a.click();
+
+            delete a;
         }
 
         public getSceneInfo(): any {
