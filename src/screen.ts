@@ -152,7 +152,6 @@ module PoseEditor {
                                 (wrapperDom: HTMLElement) => {
                                     // construct radio boxes
                                     var num = <number>v.value.length;
-                                    var checkedIndex = <number>v.checked;
 
                                     for( var i=0; i<num; ++i ) {
                                         var value = v.value[i];
@@ -167,8 +166,10 @@ module PoseEditor {
                                         inputDom.type = 'radio';
                                         inputDom.name = 'poseeditor-' + name;
                                         inputDom.value = value;
-                                        if ( i == checkedIndex ) {
-                                            inputDom.checked = true;
+                                        if ( v.selectedValue ) {
+                                            if ( value == v.selectedValue ) {
+                                                inputDom.checked = true;
+                                            }
                                         }
 
                                         labelDom.appendChild(inputDom);
@@ -201,7 +202,6 @@ module PoseEditor {
                                 (wrapperDom: HTMLElement) => {
                                     // construct radio boxes
                                     var num = <number>v.value.length;
-                                    var checkedIndex = <number>v.checked;
 
                                     var selectDom
                                         = document.createElement("select");
@@ -216,8 +216,10 @@ module PoseEditor {
                                         optionDom.value = value;
                                         optionDom.innerText = label;
 
-                                        if ( i == checkedIndex ) {
-                                            optionDom.selected = true;
+                                        if ( v.selectedValue ) {
+                                            if ( value == v.selectedValue ) {
+                                                optionDom.selected = true;
+                                            }
                                         }
 
                                         selectDom.appendChild(optionDom);

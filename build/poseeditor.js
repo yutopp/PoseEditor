@@ -948,7 +948,6 @@ var PoseEditor;
                                 _this.addElement(name, function (wrapperDom) {
                                     // construct radio boxes
                                     var num = v.value.length;
-                                    var checkedIndex = v.checked;
                                     for (var i = 0; i < num; ++i) {
                                         var value = v.value[i];
                                         var label = v.label[i];
@@ -958,8 +957,10 @@ var PoseEditor;
                                         inputDom.type = 'radio';
                                         inputDom.name = 'poseeditor-' + name;
                                         inputDom.value = value;
-                                        if (i == checkedIndex) {
-                                            inputDom.checked = true;
+                                        if (v.selectedValue) {
+                                            if (value == v.selectedValue) {
+                                                inputDom.checked = true;
+                                            }
                                         }
                                         labelDom.appendChild(inputDom);
                                         wrapperDom.appendChild(labelDom);
@@ -992,8 +993,10 @@ var PoseEditor;
                                         var optionDom = document.createElement("option");
                                         optionDom.value = value;
                                         optionDom.innerText = label;
-                                        if (i == checkedIndex) {
-                                            optionDom.selected = true;
+                                        if (v.selectedValue) {
+                                            if (value == v.selectedValue) {
+                                                optionDom.selected = true;
+                                            }
                                         }
                                         selectDom.appendChild(optionDom);
                                     }
@@ -1379,6 +1382,8 @@ var PoseEditor;
             //
             this.loadingTasks = 0;
             this.boneDebugDom = null;
+            //
+            this.currentValues = {};
             // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
             this.eventDispatcher = new PoseEditor.EventDispatcher();
@@ -1665,7 +1670,7 @@ var PoseEditor;
                     name: 'format',
                     value: ['png', 'jpeg', 'json'],
                     label: ['PNG', 'JPEG', 'JSON'],
-                    checked: 0
+                    selectedValue: this.currentValues['format']
                 }
             ];
             f(order);
@@ -1674,6 +1679,7 @@ var PoseEditor;
             var type = data['format'];
             if (type == null)
                 return; // TODO: notice error
+            this.currentValues['format'] = type;
             this.download(type);
         };
         Editor.prototype.toDataUrl = function (type) {
@@ -1713,7 +1719,7 @@ var PoseEditor;
                     name: 'modelName',
                     value: value,
                     label: label,
-                    checked: 0
+                    selectedValue: this.currentValues['modelName']
                 }
             ];
             f(order);
@@ -1722,6 +1728,7 @@ var PoseEditor;
             var name = data['modelName'];
             if (name == null)
                 return; // TODO: notice error
+            this.currentValues['modelName'] = name;
             this.appendModel(name, function (model, error) {
                 if (error) {
                     console.log("error: ", error);

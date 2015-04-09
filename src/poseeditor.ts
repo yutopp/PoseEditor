@@ -418,7 +418,7 @@ module PoseEditor {
                     name: 'format',
                     value: ['png', 'jpeg', 'json'],
                     label: ['PNG', 'JPEG', 'JSON'],
-                    checked: 0
+                    selectedValue: this.currentValues['format']
                 }
             ];
 
@@ -428,6 +428,7 @@ module PoseEditor {
         private onDownload(data: any) {
             var type = <string>data['format'];
             if ( type == null ) return; // TODO: notice error
+            this.currentValues['format'] = type
 
             this.download(type);
         }
@@ -476,7 +477,7 @@ module PoseEditor {
                     name: 'modelName',
                     value: value,
                     label: label,
-                    checked: 0
+                    selectedValue: this.currentValues['modelName']
                 }
             ];
 
@@ -486,6 +487,7 @@ module PoseEditor {
         private onAddModel(data: any) {
             var name = <string>data['modelName'];
             if ( name == null ) return; // TODO: notice error
+            this.currentValues['modelName'] = name;
 
             this.appendModel(name, (model: Model, error: string) => {
                 if ( error ) {
@@ -689,5 +691,8 @@ module PoseEditor {
 
         //
         private config: Config;
+
+        //
+        private currentValues: {[key: string]: any} = {};
     }
 }
