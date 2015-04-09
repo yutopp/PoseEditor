@@ -33,14 +33,6 @@
          }
 
 
-         function changeBGColorAndAlpha() {
-           if ( editor != null ) {
-             var color_dom = document.getElementById("bg_color");
-             var alpha_dom = document.getElementById("bg_alpha");
-
-             editor.setClearColor(parseInt(color_dom.value, 16), parseFloat(alpha_dom.value));
-           }
-         }
 
          function shareScene() {
            var address = 'http://yutopp.github.io/PoseEditor/';
@@ -117,10 +109,6 @@
 
         <br>
 
-        <label><input type="checkbox" id="toggle_marker" onClick="toggleMarker()" checked>マーカー</label>
 
-        <br>
-        <label>色<input type="text" id="bg_color" value="0x777777" onChange="changeBGColorAndAlpha()"></label>
-        <label>アルファ<input type="text" id="bg_alpha" value="1.0" onChange="changeBGColorAndAlpha<script src="
     </body>
 </html>

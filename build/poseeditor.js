@@ -1047,6 +1047,28 @@ var PoseEditor;
                                     return select.options[index].value;
                                 });
                                 break;
+                            case 'input':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct input box
+                                    var labelDom = document.createElement("label");
+                                    labelDom.innerText = v.label;
+                                    var inputDom = document.createElement("input");
+                                    inputDom.name = 'poseeditor-' + name;
+                                    inputDom.value = v.value;
+                                    labelDom.appendChild(inputDom);
+                                    wrapperDom.appendChild(labelDom);
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects = document.getElementsByName(domName);
+                                    if (selects.length != 1) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+                                    var input = selects[0];
+                                    return input.value;
+                                });
+                                break;
                             default:
                                 console.warn('unsupported: ' + type);
                                 break;
@@ -1154,8 +1176,8 @@ var PoseEditor;
                     });
                     dom.disabled = true;
                 });
+                ///
                 this.dialogs['download'] = this.addDialog(function (c) {
-                    // onshowdownload event
                     c.addCallback('show', function () {
                         _this.screen.dispatchCallback('showdownload', function (data) {
                             c.setValues(data);
@@ -1168,12 +1190,12 @@ var PoseEditor;
                 this.doms['download'] = this.addButton(function (dom) {
                     dom.value = 'Download';
                     dom.addEventListener("click", function () {
-                        // call onshowdownload
                         _this.dialogs['download'].show();
                     });
                 });
+                ///
+                ///
                 this.dialogs['addmodel'] = this.addDialog(function (c) {
-                    // onshowdownload event
                     c.addCallback('show', function () {
                         _this.screen.dispatchCallback('showaddmodel', function (data) {
                             c.setValues(data);
@@ -1186,10 +1208,10 @@ var PoseEditor;
                 this.doms['addmodel'] = this.addButton(function (dom) {
                     dom.value = 'AddModel';
                     dom.addEventListener("click", function () {
-                        // call onshowdownload
                         _this.dialogs['addmodel'].show();
                     });
                 });
+                ///
                 this.doms['deletemodel'] = this.addButton(function (dom) {
                     dom.value = 'DeleteModel';
                     dom.addEventListener("click", function () {
@@ -1197,6 +1219,25 @@ var PoseEditor;
                     });
                     dom.disabled = true;
                 });
+                ///
+                this.dialogs['config'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showconfig', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+                this.doms['config'] = this.addButton(function (dom) {
+                    dom.value = 'Config';
+                    dom.addEventListener("click", function () {
+                        // call onshowdownload
+                        _this.dialogs['config'].show();
+                    });
+                });
+                ///
             }
             ControlPanel.prototype.addButton = function (callback) {
                 var dom = document.createElement("input");
@@ -1450,6 +1491,12 @@ var PoseEditor;
             this.screen.addCallback('ondeletemodel', function (data) {
                 _this.onDeleteModel();
             });
+            this.screen.addCallback('showconfig', function (f) {
+                _this.setConfigTypes(f);
+            });
+            this.screen.addCallback('onconfig', function (data) {
+                _this.onConfig(data);
+            });
             // setup
             this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
             //
@@ -1511,6 +1558,8 @@ var PoseEditor;
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
             // save Config
             this.config = config;
+            this.currentValues['bgColorHex'] = config.backgroundColorHex;
+            this.currentValues['bgAlpha'] = config.backgroundAlpha;
             //
             this.eventDispatcher.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
             // jump into loop
@@ -1800,6 +1849,37 @@ var PoseEditor;
                 this.removeModel(this.selectedModel);
             }
         };
+        Editor.prototype.setConfigTypes = function (f) {
+            var order = [
+                {
+                    type: 'input',
+                    name: 'bgColorHex',
+                    value: '0x' + this.currentValues['bgColorHex'].toString(16),
+                    label: '色'
+                },
+                {
+                    type: 'input',
+                    name: 'bgAlpha',
+                    value: this.currentValues['bgAlpha'].toFixed(6),
+                    label: 'アルファ'
+                }
+            ];
+            f(order);
+        };
+        Editor.prototype.onConfig = function (data) {
+            ///
+            // colors
+            var bgColorHex = data['bgColorHex'];
+            if (bgColorHex) {
+                this.currentValues['bgColorHex'] = parseInt(bgColorHex, 16);
+            }
+            var bgAlpha = data['bgAlpha'];
+            if (bgAlpha) {
+                this.currentValues['bgAlpha'] = parseFloat(bgAlpha);
+            }
+            this.setClearColor(this.currentValues['bgColorHex'], this.currentValues['bgAlpha']);
+            ///
+        };
         Editor.prototype.getSceneInfo = function () {
             return {
                 'camera': {
@@ -1877,6 +1957,7 @@ var PoseEditor;
             model.destruct();
             this.models.splice(index, 1);
             this.resetCtrl();
+            this.setSelectedModel(null);
         };
         Editor.prototype.removeModel = function (model) {
             var index = this.models.indexOf(model);

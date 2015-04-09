@@ -52,6 +52,15 @@ module PoseEditor {
                 this.onDeleteModel();
             });
 
+            this.screen.addCallback('showconfig', (f: (d: any) => void) => {
+                this.setConfigTypes(f);
+            });
+            this.screen.addCallback('onconfig', (data: any) => {
+                this.onConfig(data);
+            });
+
+
+
             // setup
             this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
 
@@ -135,6 +144,9 @@ module PoseEditor {
             // save Config
             this.config = config;
 
+            this.currentValues['bgColorHex'] = config.backgroundColorHex;
+            this.currentValues['bgAlpha'] = config.backgroundAlpha;
+
             //
             this.eventDispatcher.setup(
                 this,
@@ -142,8 +154,6 @@ module PoseEditor {
                 this.controls,
                 this.renderer.domElement
             );
-
-
 
             // jump into loop
             this.renderLoop();
@@ -526,6 +536,46 @@ module PoseEditor {
         }
 
 
+        private setConfigTypes(f:(d: any) => void) {
+            var order = [
+                {
+                    type: 'input',
+                    name: 'bgColorHex',
+                    value: '0x' + this.currentValues['bgColorHex'].toString(16),
+                    label: '色',
+                },
+                {
+                    type: 'input',
+                    name: 'bgAlpha',
+                    value: this.currentValues['bgAlpha'].toFixed(6),
+                    label: 'アルファ',
+                }
+            ];
+
+            f(order);
+        }
+
+        private onConfig(data: any) {
+            ///
+            // colors
+            var bgColorHex = <string>data['bgColorHex'];
+            if ( bgColorHex ) {
+                this.currentValues['bgColorHex'] = parseInt(bgColorHex, 16);
+            }
+
+            var bgAlpha = <string>data['bgAlpha'];
+            if ( bgAlpha ) {
+                this.currentValues['bgAlpha'] = parseFloat(bgAlpha);
+            }
+
+            this.setClearColor(
+                this.currentValues['bgColorHex'],
+                this.currentValues['bgAlpha']
+            );
+            ///
+        }
+
+
         public getSceneInfo(): any {
             return {
                 'camera' : {
@@ -619,6 +669,8 @@ module PoseEditor {
 
             this.models.splice(index, 1);
             this.resetCtrl();
+
+            this.setSelectedModel(null);
         }
 
         public removeModel(model: Model) {

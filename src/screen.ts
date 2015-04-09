@@ -245,6 +245,40 @@ module PoseEditor {
                             );
                             break;
 
+                        case 'input':
+                            this.addElement(
+                                name,
+                                (wrapperDom: HTMLElement) => {
+                                    // construct input box
+                                    var labelDom
+                                        = document.createElement("label");
+                                    labelDom.innerText = v.label;
+
+                                    var inputDom
+                                        = document.createElement("input");
+                                    inputDom.name = 'poseeditor-' + name;
+                                    inputDom.value = v.value;
+
+                                    labelDom.appendChild(inputDom);
+                                    wrapperDom.appendChild(labelDom);
+                                },
+                                () => {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects
+                                        = document.getElementsByName(domName);
+                                    if ( selects.length != 1 ) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+
+                                    var input = <HTMLInputElement>selects[0];
+
+                                    return input.value;
+                                }
+                            );
+                            break;
+
                         default:
                             console.warn('unsupported: ' + type);
                             break;
@@ -377,8 +411,8 @@ module PoseEditor {
                     dom.disabled = true;
                 });
 
+                ///
                 this.dialogs['download'] = this.addDialog((c) => {
-                    // onshowdownload event
                     c.addCallback('show', () => {
                         this.screen.dispatchCallback('showdownload', (data: any) => {
                             c.setValues(data);
@@ -393,14 +427,13 @@ module PoseEditor {
                 this.doms['download'] = this.addButton((dom) => {
                     dom.value = 'Download';
                     dom.addEventListener("click", () => {
-                        // call onshowdownload
                         this.dialogs['download'].show();
                     });
                 });
+                ///
 
-
+                ///
                 this.dialogs['addmodel'] = this.addDialog((c) => {
-                    // onshowdownload event
                     c.addCallback('show', () => {
                         this.screen.dispatchCallback('showaddmodel', (data: any) => {
                             c.setValues(data);
@@ -415,10 +448,10 @@ module PoseEditor {
                 this.doms['addmodel'] = this.addButton((dom) => {
                     dom.value = 'AddModel';
                     dom.addEventListener("click", () => {
-                        // call onshowdownload
                         this.dialogs['addmodel'].show();
                     });
                 });
+                ///
 
                 this.doms['deletemodel'] = this.addButton((dom) => {
                     dom.value = 'DeleteModel';
@@ -428,6 +461,28 @@ module PoseEditor {
 
                     dom.disabled = true;
                 });
+
+                ///
+                this.dialogs['config'] = this.addDialog((c) => {
+                    c.addCallback('show', () => {
+                        this.screen.dispatchCallback('showconfig', (data: any) => {
+                            c.setValues(data);
+                        });
+                    });
+
+                    c.addCallback('onsubmit', (data: any) => {
+                        this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+
+                this.doms['config'] = this.addButton((dom) => {
+                    dom.value = 'Config';
+                    dom.addEventListener("click", () => {
+                        // call onshowdownload
+                        this.dialogs['config'].show();
+                    });
+                });
+                ///
             }
 
             private addButton(callback: (d: HTMLInputElement) => void) {
