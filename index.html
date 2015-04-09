@@ -53,44 +53,10 @@
                     <div class="row">
                         <div id="for_pose" style="width: 100%; height: 400px"></div>
                     </div>
-                    <div class="row">
-                        <input type="button" value="add model" onClick="addModel()" class="btn btn-success">
-                        <input type="button" value="remove model" onClick="removeModel()" class="btn btn-danger">
-                    </div>
                 </div>
+
                 <div class="col-md-5 col-lg-5">
-                    <form role="form">
-                        <div class="form-group">
-                            <label>Background Color</label>
-                            <input type="text" id="bg_color" value="0x777777" onChange="changeBGColorAndAlpha()">
-                        </div>
-                        <div class="form-group">
-                            <label>Background Alpha</label>
-                            <input type="text" id="bg_alpha" value="1.0" onChange="changeBGColorAndAlpha()">
-                        </div>
-
-                        <div class="checkbox">
-                            <label><input type="checkbox" id="toggle_marker" onClick="toggleMarker()" checked>Show Joint Marker</label>
-                        </div>
-                    </form>
-
                     <!-- input type="button" value="Share this Scene with Twitter" onClick="shareScene()" class="btn btn-primary"-->
-
-                    <h3>Download</h3>
-                    <div class="radio">
-                        <label><input type="radio" name="format" value="png" checked>PNG</label>
-                    </div>
-                    <div class="radio">
-                        <label><input type="radio" name="format" value="jpeg">JPEG</label>
-                    </div>
-                    <div class="radio">
-                        <label><input type="radio" name="format" value="json">JSON</label>
-                    </div>
-                    <input type="button" value="Download" onClick="downloadImage()" class="btn btn-primary">
-
-                    <h3>Load</h3>
-                    <input type="file" id="scene_input" style="display:none" onchange="handleSceneFiles(this.files)">
-                    <input type="button" value="Load Scene from JSON" onClick="$('#scene_input').click()" class="btn btn-success">
 
                     <h3>Embed</h3>
                     <form class="form-horizontal" role="form">

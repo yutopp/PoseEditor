@@ -548,41 +548,64 @@ var PoseEditor;
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material;
                 if (materials !== undefined) {
-                    if (materials.length > 1) {
-                        material = new THREE.MeshFaceMaterial(materials);
-                        material.materials.forEach(function (mat) {
-                            mat.skinning = true;
+                    _this.defaultMat = [];
+                    material = new THREE.MeshFaceMaterial(materials);
+                    material.materials.forEach(function (mat) {
+                        mat.skinning = true;
+                        _this.defaultMat.push({
+                            opacity: mat.opacity,
+                            transparent: mat.transparent
                         });
-                    }
-                    else {
-                        material = materials[0];
-                        material.setValues({ skinning: true });
-                    }
+                    });
                 }
                 else {
                     material = new THREE.MeshLambertMaterial({
                         color: 0xffffff,
                         skinning: true
                     });
+                    _this.defaultMat = {
+                        opacity: material.opacity,
+                        transparent: material.transparent
+                    };
                 }
                 // create mesh data
-                _this.mesh = new THREE.SkinnedMesh(geometry, material, false);
+                _this.mesh = new THREE.SkinnedMesh(geometry, material);
                 if (init_pos) {
                     _this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
                 }
                 if (init_scale) {
                     _this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
                 }
-                // add mesh to model
-                _this.scene.add(_this.mesh);
-                // bind this model data to the mesh
+                //
                 _this.mesh.userData = {
                     modelData: _this
                 };
+                // add mesh to model
+                _this.scene.add(_this.mesh);
                 //
                 _this.setupAppendixData(sprite_paths, model_info, callback);
             }, texture_path);
         }
+        Model.prototype.selectionState = function (isActive) {
+            var _this = this;
+            if (this.defaultMat == null)
+                return;
+            var C = 0.7;
+            if (this.mesh.material.type == 'MeshFaceMaterial') {
+                this.mesh.material.materials.forEach(function (mat, i) {
+                    var opacity = isActive ? C : _this.defaultMat[i].opacity;
+                    var transparent = isActive ? true : _this.defaultMat[i].transparent;
+                    mat.opacity = opacity;
+                    mat.transparent = transparent;
+                });
+            }
+            else {
+                var opacity = isActive ? C : this.defaultMat.opacity;
+                var transparent = isActive ? true : this.defaultMat.transparent;
+                this.mesh.material.opacity = opacity;
+                this.mesh.material.transparent = transparent;
+            }
+        };
         Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
             var _this = this;
             //
@@ -690,6 +713,14 @@ var PoseEditor;
         Model.prototype.isReady = function () {
             return this.ready;
         };
+        /*
+                public wireframe(e: boolean = null): boolean {
+                    if ( e == null ) return this.mesh.material.wireframe;
+        
+                    this.mesh.wireframe = e;
+                    return null;
+                }
+        */
         Model.prototype.modelData = function () {
             var joints = this.mesh.skeleton.bones.map(function (bone) {
                 var q = bone.quaternion;
@@ -778,6 +809,7 @@ var PoseEditor;
         };
         MoveAction.prototype.onDestroy = function () {
             this.releaseModel();
+            this.editor.setSelectedModel(null);
         };
         MoveAction.prototype.onTapStart = function (e, isTouch) {
             return this.catchModel(e, isTouch);
@@ -792,11 +824,13 @@ var PoseEditor;
             var mp = this.editor.selectModel(e, isTouch);
             if (mp == null) {
                 this.releaseModel();
+                this.editor.setSelectedModel(null);
                 return true;
             }
             this.currentModel = mp[0];
             var localConfPos = mp[1];
             this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
+            this.editor.setSelectedModel(this.currentModel);
             //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());
             return false;
@@ -824,6 +858,30 @@ var PoseEditor;
 (function (PoseEditor) {
     var Screen;
     (function (Screen) {
+        var EventDispatcher = (function () {
+            function EventDispatcher() {
+                //
+                this.events = {};
+            }
+            EventDispatcher.prototype.addCallback = function (type, f) {
+                if (this.events[type] == null) {
+                    this.events[type] = [];
+                }
+                this.events[type].push(f);
+            };
+            EventDispatcher.prototype.dispatchCallback = function (type) {
+                var args = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    args[_i - 1] = arguments[_i];
+                }
+                if (this.events[type] != null) {
+                    this.events[type].forEach(function (f) {
+                        f.apply({}, args);
+                    });
+                }
+            };
+            return EventDispatcher;
+        })();
         (function (Mode) {
             Mode[Mode["Camera"] = 0] = "Camera";
             Mode[Mode["Move"] = 1] = "Move";
@@ -831,11 +889,233 @@ var PoseEditor;
             Mode[Mode["IK"] = 3] = "IK";
         })(Screen.Mode || (Screen.Mode = {}));
         var Mode = Screen.Mode;
+        var Dialog = (function (_super) {
+            __extends(Dialog, _super);
+            function Dialog(parentDom) {
+                var _this = this;
+                _super.call(this);
+                this.actions = [];
+                this.parentDom = parentDom;
+                // base element
+                this.baseDom = document.createElement("div");
+                this.baseDom.style.position = 'absolute';
+                //this.baseDom.style.padding = "10px";
+                this.baseDom.style.borderRadius = "5px";
+                this.baseDom.style.backgroundColor = "#fff";
+                this.baseDom.style.display = 'none';
+                // container element
+                this.containerDom = document.createElement("div");
+                {
+                    var d = this.containerDom;
+                }
+                this.baseDom.appendChild(this.containerDom);
+                // selection element
+                this.selectionDom = document.createElement("div");
+                {
+                    var d = this.selectionDom;
+                    d.style.backgroundColor = "#00f";
+                    {
+                        var dom = document.createElement("input");
+                        dom.type = "button";
+                        dom.value = 'submit';
+                        dom.addEventListener("click", function () {
+                            var table = {};
+                            _this.getElementValues(table);
+                            _this.disposeAllElements();
+                            _this.dispatchCallback('onsubmit', table);
+                            _this.hide();
+                        });
+                        d.appendChild(dom);
+                    }
+                    {
+                        var dom = document.createElement("input");
+                        dom.type = "button";
+                        dom.value = 'cancel';
+                        dom.addEventListener("click", function () {
+                            _this.disposeAllElements();
+                            _this.dispatchCallback('oncancel');
+                            _this.hide();
+                        });
+                        d.appendChild(dom);
+                    }
+                }
+                this.baseDom.appendChild(this.selectionDom);
+                //
+                this.updatePosisionAndSize();
+            }
+            Dialog.prototype.updatePosisionAndSize = function () {
+                this.updateSize();
+                this.updatePosision();
+            };
+            Dialog.prototype.updatePosision = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                var px = Math.abs(offsetW - this.width) / 2;
+                var py = Math.abs(offsetH - this.height) / 2;
+                this.baseDom.style.marginLeft = px + 'px';
+                this.baseDom.style.marginTop = py + 'px';
+            };
+            Dialog.prototype.updateSize = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                this.width = Math.max(offsetW - 40, 40);
+                this.height = Math.max(offsetH - 40, 40);
+                this.baseDom.style.width = this.width + 'px';
+                this.baseDom.style.height = this.height + 'px';
+            };
+            Dialog.prototype.show = function () {
+                this.baseDom.style.display = 'inline';
+                this.dispatchCallback('show');
+            };
+            Dialog.prototype.hide = function () {
+                this.baseDom.style.display = 'none';
+                this.dispatchCallback('hide');
+            };
+            Dialog.prototype.setValues = function (data) {
+                var _this = this;
+                if (data) {
+                    data.forEach(function (v) {
+                        var type = v.type;
+                        var name = v.name;
+                        switch (type) {
+                            case 'radio':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct radio boxes
+                                    var num = v.value.length;
+                                    for (var i = 0; i < num; ++i) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+                                        var labelDom = document.createElement("label");
+                                        labelDom.innerText = label;
+                                        var inputDom = document.createElement("input");
+                                        inputDom.type = 'radio';
+                                        inputDom.name = 'poseeditor-' + name;
+                                        inputDom.value = value;
+                                        if (v.selectedValue) {
+                                            if (value == v.selectedValue) {
+                                                inputDom.checked = true;
+                                            }
+                                        }
+                                        labelDom.appendChild(inputDom);
+                                        wrapperDom.appendChild(labelDom);
+                                    }
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var radios = document.getElementsByName(domName);
+                                    var format = "";
+                                    for (var i = 0; i < radios.length; ++i) {
+                                        var radio = radios[i];
+                                        if (radio.checked) {
+                                            format = radio.value;
+                                            break;
+                                        }
+                                    }
+                                    return format;
+                                });
+                                break;
+                            case 'select':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct radio boxes
+                                    var num = v.value.length;
+                                    var selectDom = document.createElement("select");
+                                    selectDom.name = 'poseeditor-' + name;
+                                    for (var i = 0; i < num; ++i) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+                                        var optionDom = document.createElement("option");
+                                        optionDom.value = value;
+                                        optionDom.innerText = label;
+                                        if (v.selectedValue) {
+                                            if (value == v.selectedValue) {
+                                                optionDom.selected = true;
+                                            }
+                                        }
+                                        selectDom.appendChild(optionDom);
+                                    }
+                                    wrapperDom.appendChild(selectDom);
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects = document.getElementsByName(domName);
+                                    if (selects.length != 1) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+                                    var select = selects[0];
+                                    var index = select.selectedIndex;
+                                    return select.options[index].value;
+                                });
+                                break;
+                            case 'input':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct input box
+                                    var labelDom = document.createElement("label");
+                                    labelDom.innerText = v.label;
+                                    var inputDom = document.createElement("input");
+                                    inputDom.name = 'poseeditor-' + name;
+                                    inputDom.value = v.value;
+                                    labelDom.appendChild(inputDom);
+                                    wrapperDom.appendChild(labelDom);
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects = document.getElementsByName(domName);
+                                    if (selects.length != 1) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+                                    var input = selects[0];
+                                    return input.value;
+                                });
+                                break;
+                            default:
+                                console.warn('unsupported: ' + type);
+                                break;
+                        }
+                    });
+                }
+            };
+            Dialog.prototype.addElement = function (name, createDom, clawlAction) {
+                var _this = this;
+                //
+                var wrapperDom = document.createElement("div");
+                createDom(wrapperDom);
+                this.containerDom.appendChild(wrapperDom);
+                //
+                var action = {
+                    destruction: function () {
+                        _this.containerDom.removeChild(wrapperDom);
+                    },
+                    crawl: function (table) {
+                        var result = clawlAction();
+                        table[name] = result;
+                    }
+                };
+                this.actions.push(action);
+            };
+            Dialog.prototype.disposeAllElements = function () {
+                this.actions.forEach(function (a) { return a.destruction(); });
+                this.actions = [];
+            };
+            Dialog.prototype.getElementValues = function (table) {
+                this.actions.forEach(function (a) { return a.crawl(table); });
+            };
+            return Dialog;
+        })(EventDispatcher);
+        var ControlDialog = (function (_super) {
+            __extends(ControlDialog, _super);
+            function ControlDialog(parentDom) {
+                _super.call(this, parentDom);
+            }
+            return ControlDialog;
+        })(Dialog);
         var ControlPanel = (function () {
             function ControlPanel(screen) {
                 var _this = this;
                 this.toggleDom = {};
-                this.Doms = {};
+                this.doms = {};
+                this.dialogs = {};
                 this.screen = screen;
                 //
                 this.panelDom = document.createElement("div");
@@ -846,24 +1126,21 @@ var PoseEditor;
                     s.width = (this.screen.width / 10) + "px";
                     s.height = "100%";
                     s.backgroundColor = "#fff";
-                    s.opacity = "0.8";
                 }
                 this.screen.targetDom.appendChild(this.panelDom);
                 //
-                this.addButton(function (dom) {
+                this.toggleDom['camera'] = this.addButton(function (dom) {
                     dom.value = 'camera';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
                     });
-                    _this.toggleDom['camera'] = dom;
                 });
                 //
-                this.addButton(function (dom) {
-                    dom.value = 'move';
+                this.toggleDom['move'] = this.addButton(function (dom) {
+                    dom.value = 'move/select';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
                     });
-                    _this.toggleDom['move'] = dom;
                 });
                 /*
                 //
@@ -877,30 +1154,111 @@ var PoseEditor;
                 });
                 */
                 //
-                this.addButton(function (dom) {
+                this.toggleDom['ik'] = this.addButton(function (dom) {
                     dom.value = 'IK';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 3 /* IK */);
                     });
-                    _this.toggleDom['ik'] = dom;
                 });
                 //
-                this.addButton(function (dom) {
+                this.doms['undo'] = this.addButton(function (dom) {
                     dom.value = 'Undo';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onundo");
                     });
                     dom.disabled = true;
-                    _this.Doms['undo'] = dom;
                 });
                 //
-                this.addButton(function (dom) {
+                this.doms['redo'] = this.addButton(function (dom) {
                     dom.value = 'Redo';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onredo");
                     });
                     dom.disabled = true;
-                    _this.Doms['redo'] = dom;
+                });
+                ///
+                this.dialogs['download'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showdownload', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('ondownload', data);
+                    });
+                });
+                this.doms['download'] = this.addButton(function (dom) {
+                    dom.value = 'Download';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['download'].show();
+                    });
+                });
+                ///
+                ///
+                this.dialogs['addmodel'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showaddmodel', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onaddmodel', data);
+                    });
+                });
+                this.doms['addmodel'] = this.addButton(function (dom) {
+                    dom.value = 'AddModel';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['addmodel'].show();
+                    });
+                });
+                ///
+                this.doms['deletemodel'] = this.addButton(function (dom) {
+                    dom.value = 'DeleteModel';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("ondeletemodel");
+                    });
+                    dom.disabled = true;
+                });
+                ///
+                this.dialogs['config'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showconfig', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+                this.doms['config'] = this.addButton(function (dom) {
+                    dom.value = 'Config';
+                    dom.addEventListener("click", function () {
+                        // call onshowdownload
+                        _this.dialogs['config'].show();
+                    });
+                });
+                ///
+                this.doms['restore'] = this.addButton(function (dom) {
+                    dom.value = 'Restore';
+                    // to open the file dialog
+                    var fileInput = document.createElement("input");
+                    fileInput.type = 'file';
+                    fileInput.style.display = 'none';
+                    fileInput.onchange = function (e) {
+                        var files = fileInput.files;
+                        if (files.length != 1) {
+                            return false;
+                        }
+                        var file = files[0];
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var data = reader.result;
+                            _this.screen.dispatchCallback('onrestore', data);
+                        };
+                        reader.readAsText(file);
+                    };
+                    dom.appendChild(fileInput);
+                    dom.addEventListener("click", function () { return fileInput.click(); });
                 });
             }
             ControlPanel.prototype.addButton = function (callback) {
@@ -908,6 +1266,13 @@ var PoseEditor;
                 dom.type = "button";
                 callback(dom);
                 this.panelDom.appendChild(dom);
+                return dom;
+            };
+            ControlPanel.prototype.addDialog = function (callback) {
+                var ctrl = new ControlDialog(this.screen.targetDom);
+                callback(ctrl);
+                this.screen.targetDom.appendChild(ctrl.baseDom);
+                return ctrl;
             };
             ControlPanel.prototype.selectModeUI = function (mode) {
                 for (var key in this.toggleDom) {
@@ -916,18 +1281,18 @@ var PoseEditor;
                 this.toggleDom[mode].disabled = true;
             };
             ControlPanel.prototype.changeUIStatus = function (name, callback) {
-                var dom = this.Doms[name];
+                var dom = this.doms[name];
                 if (dom == null)
                     return false;
                 return callback(dom);
             };
             return ControlPanel;
         })();
-        var ScreenController = (function () {
+        var ScreenController = (function (_super) {
+            __extends(ScreenController, _super);
             function ScreenController(parentDomId, config) {
                 var _this = this;
-                //
-                this.events = {};
+                _super.call(this);
                 //
                 this.loadingDom = null;
                 //
@@ -993,25 +1358,8 @@ var PoseEditor;
                     this.loadingDom.style.display = "none";
                 }
             };
-            ScreenController.prototype.addCallback = function (type, f) {
-                if (this.events[type] == null) {
-                    this.events[type] = [];
-                }
-                this.events[type].push(f);
-            };
-            ScreenController.prototype.dispatchCallback = function (type) {
-                var args = [];
-                for (var _i = 1; _i < arguments.length; _i++) {
-                    args[_i - 1] = arguments[_i];
-                }
-                if (this.events[type] != null) {
-                    this.events[type].forEach(function (f) {
-                        f.apply({}, args);
-                    });
-                }
-            };
             return ScreenController;
-        })();
+        })(EventDispatcher);
         Screen.ScreenController = ScreenController;
     })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
@@ -1137,6 +1485,8 @@ var PoseEditor;
             //
             this.loadingTasks = 0;
             this.boneDebugDom = null;
+            //
+            this.currentValues = {};
             // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
             this.eventDispatcher = new PoseEditor.EventDispatcher();
@@ -1148,6 +1498,30 @@ var PoseEditor;
             });
             this.screen.addCallback('onundo', function () { return _this.history.undo(); });
             this.screen.addCallback('onredo', function () { return _this.history.redo(); });
+            this.screen.addCallback('showdownload', function (f) {
+                _this.setDownloadTypes(f);
+            });
+            this.screen.addCallback('ondownload', function (data) {
+                _this.onDownload(data);
+            });
+            this.screen.addCallback('showaddmodel', function (f) {
+                _this.setAddModelTypes(f);
+            });
+            this.screen.addCallback('onaddmodel', function (data) {
+                _this.onAddModel(data);
+            });
+            this.screen.addCallback('ondeletemodel', function (data) {
+                _this.onDeleteModel();
+            });
+            this.screen.addCallback('showconfig', function (f) {
+                _this.setConfigTypes(f);
+            });
+            this.screen.addCallback('onconfig', function (data) {
+                _this.onConfig(data);
+            });
+            this.screen.addCallback('onrestore', function (data) {
+                _this.onRestore(data);
+            });
             // setup
             this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
             //
@@ -1209,6 +1583,8 @@ var PoseEditor;
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
             // save Config
             this.config = config;
+            this.currentValues['bgColorHex'] = config.backgroundColorHex;
+            this.currentValues['bgAlpha'] = config.backgroundAlpha;
             //
             this.eventDispatcher.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
             // jump into loop
@@ -1252,7 +1628,7 @@ var PoseEditor;
             var intersects = raycaster.intersectObjects(this.models.map(function (m) { return m.mesh; }));
             var mesh = intersects.length > 0 ? intersects[0].object : null;
             if (mesh == null)
-                return;
+                return null;
             var modelPos = mesh.position.clone();
             var localConfPos = intersects[0].point.clone();
             return [mesh.userData.modelData, localConfPos];
@@ -1288,6 +1664,23 @@ var PoseEditor;
             });
             //console.log(l);
             return selectedMarker;
+        };
+        //
+        Editor.prototype.setSelectedModel = function (m) {
+            var _this = this;
+            // cancel selection
+            if (this.selectedModel) {
+                this.selectedModel.selectionState(false);
+            }
+            this.selectedModel = m;
+            if (this.selectedModel) {
+                // select
+                this.selectedModel.selectionState(true);
+            }
+            // UI operation
+            this.screen.changeUIStatus('deletemodel', function (dom) {
+                dom.disabled = _this.selectedModel == null;
+            });
         };
         Editor.prototype.cancelAllMarkerSprite = function () {
             // update marker sprite color (to not selected color)
@@ -1404,6 +1797,25 @@ var PoseEditor;
         };
         // ==================================================
         // ==================================================
+        Editor.prototype.setDownloadTypes = function (f) {
+            var order = [
+                {
+                    type: 'radio',
+                    name: 'format',
+                    value: ['png', 'jpeg', 'json'],
+                    label: ['PNG', 'JPEG', 'JSON'],
+                    selectedValue: this.currentValues['format']
+                }
+            ];
+            f(order);
+        };
+        Editor.prototype.onDownload = function (data) {
+            var type = data['format'];
+            if (type == null)
+                return; // TODO: notice error
+            this.currentValues['format'] = type;
+            this.download(type);
+        };
         Editor.prototype.toDataUrl = function (type) {
             if (type === void 0) { type = 'png'; }
             switch (type) {
@@ -1416,6 +1828,88 @@ var PoseEditor;
                 default:
                     throw new Error("File format '" + type + "' is not supported");
             }
+        };
+        Editor.prototype.download = function (type) {
+            if (type === void 0) { type = 'png'; }
+            var dataUrl = this.toDataUrl(type);
+            // ???: :(
+            var a = document.createElement("a");
+            a.download = "poseeditor"; // workaround for typescript...
+            a.title = "download snapshot";
+            a.href = dataUrl;
+            a.click();
+            delete a;
+        };
+        Editor.prototype.setAddModelTypes = function (f) {
+            var value = [];
+            var label = [];
+            for (var key in this.modelInfoTable) {
+                value.push(key);
+                label.push(key); // TODO: change
+            }
+            var order = [
+                {
+                    type: 'select',
+                    name: 'modelName',
+                    value: value,
+                    label: label,
+                    selectedValue: this.currentValues['modelName']
+                }
+            ];
+            f(order);
+        };
+        Editor.prototype.onAddModel = function (data) {
+            var name = data['modelName'];
+            if (name == null)
+                return; // TODO: notice error
+            this.currentValues['modelName'] = name;
+            this.appendModel(name, function (model, error) {
+                if (error) {
+                    console.log("error: ", error);
+                }
+            });
+        };
+        Editor.prototype.onDeleteModel = function () {
+            if (this.selectedModel) {
+                this.removeModel(this.selectedModel);
+            }
+        };
+        Editor.prototype.setConfigTypes = function (f) {
+            var order = [
+                {
+                    type: 'input',
+                    name: 'bgColorHex',
+                    value: '0x' + this.currentValues['bgColorHex'].toString(16),
+                    label: '色'
+                },
+                {
+                    type: 'input',
+                    name: 'bgAlpha',
+                    value: this.currentValues['bgAlpha'].toFixed(6),
+                    label: 'アルファ'
+                }
+            ];
+            f(order);
+        };
+        Editor.prototype.onConfig = function (data) {
+            ///
+            // colors
+            var bgColorHex = data['bgColorHex'];
+            if (bgColorHex) {
+                this.currentValues['bgColorHex'] = parseInt(bgColorHex, 16);
+            }
+            var bgAlpha = data['bgAlpha'];
+            if (bgAlpha) {
+                this.currentValues['bgAlpha'] = parseFloat(bgAlpha);
+            }
+            this.setClearColor(this.currentValues['bgColorHex'], this.currentValues['bgAlpha']);
+            ///
+        };
+        Editor.prototype.onRestore = function (data) {
+            var jsonString = data;
+            if (jsonString == null)
+                return;
+            this.loadSceneDataFromString(jsonString);
         };
         Editor.prototype.getSceneInfo = function () {
             return {
@@ -1489,23 +1983,18 @@ var PoseEditor;
             this.models = [];
             this.resetCtrl();
         };
-        Editor.prototype.removeModel = function (index) {
+        Editor.prototype.removeModelByIndex = function (index) {
             var model = this.models[index];
             model.destruct();
             this.models.splice(index, 1);
             this.resetCtrl();
+            this.setSelectedModel(null);
         };
-        Editor.prototype.removeSelectedModel = function () {
-            // TODO: fix
-            /*
-            if ( this.selectedSphere != null ) {
-                var model = this.selectedSphere.userData.ownerModel;
-                var index = this.models.indexOf(model);
-                if ( index != -1 ) {
-                    this.removeModel(index);
-                }
+        Editor.prototype.removeModel = function (model) {
+            var index = this.models.indexOf(model);
+            if (index != -1) {
+                this.removeModelByIndex(index);
             }
-            */
         };
         Editor.prototype.makeDataUrl = function (type) {
             //

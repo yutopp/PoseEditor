@@ -1,34 +1,5 @@
 var editor = null;
 
-function downloadImage() {
-  if ( editor != null ) {
-    var a = document.createElement("a");
-    a.download = "poseeditor";
-    a.title = "download snapshot";
-
-    var radio = document.getElementsByName("format");
-    var format = "";
-    for(var i=0; i<radio.length; i++) {
-      if (radio[i].checked) {
-        format = radio[i].value
-        break;
-      }
-    }
-    console.log("format: ", format);
-
-    a.href = editor.toDataUrl(format);
-    a.click();
-
-    delete a;
-  }
-}
-
-function loadSceneDataFromEncodedData(json_string) {
-  if ( editor != null ) {
-    editor.loadSceneDataFromString(json_string);
-  }
-}
-
 function generateEmbeddedCode() {
   if ( editor != null ) {
     var s = JSON.stringify(editor.getSceneInfo());
@@ -61,37 +32,6 @@ function generateEmbeddedCode() {
   }
 }
 
-function toggleMarker() {
-  if ( editor != null ) {
-    editor.toggleMarker();
-  }
-}
-
-function addModel() {
-  if ( editor != null ) {
-    editor.appendModel("sport_man", function(model, error) {
-      if (error) {
-        console.log("error: ", error);
-      }
-    });
-  }
-}
-
-function removeModel() {
-  if ( editor != null ) {
-    editor.removeSelectedModel();
-  }
-}
-
-function changeBGColorAndAlpha() {
-  if ( editor != null ) {
-    var color_dom = document.getElementById("bg_color");
-    var alpha_dom = document.getElementById("bg_alpha");
-
-    editor.setClearColor(parseInt(color_dom.value, 16), parseFloat(alpha_dom.value));
-  }
-}
-
 function shareScene() {
   var address = 'http://yutopp.github.io/PoseEditor/';
   if ( editor != null ) {
@@ -101,21 +41,6 @@ function shareScene() {
   }
 }
 
-function handleSceneFiles(files) {
-  if ( files.length != 1 ) {
-    return false;
-  }
-  var file = files[0];
-
-  var reader = new FileReader();
-  reader.onload = (function(e) {
-                     loadSceneDataFromEncodedData(e.target.result);
-                     console.log("Scene loaded.");
-                   });
-  reader.readAsText(file);
-
-  return true;
-}
 
 $(function() {
   var config = new PoseEditor.Config();
