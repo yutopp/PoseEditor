@@ -41,6 +41,13 @@ module PoseEditor {
                 this.onDownload(data);
             });
 
+            this.screen.addCallback('showaddmodel', (f: (d: any) => void) => {
+                this.setAddModelTypes(f);
+            });
+            this.screen.addCallback('onaddmodel', (data: any) => {
+                this.onAddModel(data);
+            });
+
             // setup
             this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
 
@@ -453,6 +460,42 @@ module PoseEditor {
 
             delete a;
         }
+
+
+        private setAddModelTypes(f:(d: any) => void) {
+            var value: Array<string> = [];
+            var label: Array<string> = [];
+            for( var key in this.modelInfoTable ) {
+                value.push(key);
+                label.push(key); // TODO: change
+            }
+
+            var order = [
+                {
+                    type: 'select',
+                    name: 'modelName',
+                    value: value,
+                    label: label,
+                    checked: 0
+                }
+            ];
+
+            f(order);
+        }
+
+        private onAddModel(data: any) {
+            var name = <string>data['modelName'];
+            if ( name == null ) return; // TODO: notice error
+
+            this.appendModel(name, (model: Model, error: string) => {
+                if ( error ) {
+                    console.log("error: ", error);
+                }
+            });
+        }
+
+
+
 
         public getSceneInfo(): any {
             return {

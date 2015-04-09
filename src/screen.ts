@@ -195,6 +195,54 @@ module PoseEditor {
                             );
                             break;
 
+                        case 'select':
+                            this.addElement(
+                                name,
+                                (wrapperDom: HTMLElement) => {
+                                    // construct radio boxes
+                                    var num = <number>v.value.length;
+                                    var checkedIndex = <number>v.checked;
+
+                                    var selectDom
+                                        = document.createElement("select");
+                                    selectDom.name = 'poseeditor-' + name;
+
+                                    for( var i=0; i<num; ++i ) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+
+                                        var optionDom
+                                            = document.createElement("option");
+                                        optionDom.value = value;
+                                        optionDom.innerText = label;
+
+                                        if ( i == checkedIndex ) {
+                                            optionDom.selected = true;
+                                        }
+
+                                        selectDom.appendChild(optionDom);
+                                    }
+
+                                    wrapperDom.appendChild(selectDom);
+                                },
+                                () => {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects
+                                        = document.getElementsByName(domName);
+                                    if ( selects.length != 1 ) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+
+                                    var select = <HTMLSelectElement>selects[0];
+                                    var index = select.selectedIndex;
+
+                                    return select.options[index].value;
+                                }
+                            );
+                            break;
+
                         default:
                             console.warn('unsupported: ' + type);
                             break;
@@ -345,6 +393,28 @@ module PoseEditor {
                     dom.addEventListener("click", () => {
                         // call onshowdownload
                         this.dialogs['download'].show();
+                    });
+                });
+
+
+                this.dialogs['addmodel'] = this.addDialog((c) => {
+                    // onshowdownload event
+                    c.addCallback('show', () => {
+                        this.screen.dispatchCallback('showaddmodel', (data: any) => {
+                            c.setValues(data);
+                        });
+                    });
+
+                    c.addCallback('onsubmit', (data: any) => {
+                        this.screen.dispatchCallback('onaddmodel', data);
+                    });
+                });
+
+                this.doms['addmodel'] = this.addButton((dom) => {
+                    dom.value = 'AddModel';
+                    dom.addEventListener("click", () => {
+                        // call onshowdownload
+                        this.dialogs['addmodel'].show();
                     });
                 });
             }

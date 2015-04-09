@@ -979,6 +979,38 @@ var PoseEditor;
                                     return format;
                                 });
                                 break;
+                            case 'select':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct radio boxes
+                                    var num = v.value.length;
+                                    var checkedIndex = v.checked;
+                                    var selectDom = document.createElement("select");
+                                    selectDom.name = 'poseeditor-' + name;
+                                    for (var i = 0; i < num; ++i) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+                                        var optionDom = document.createElement("option");
+                                        optionDom.value = value;
+                                        optionDom.innerText = label;
+                                        if (i == checkedIndex) {
+                                            optionDom.selected = true;
+                                        }
+                                        selectDom.appendChild(optionDom);
+                                    }
+                                    wrapperDom.appendChild(selectDom);
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects = document.getElementsByName(domName);
+                                    if (selects.length != 1) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+                                    var select = selects[0];
+                                    var index = select.selectedIndex;
+                                    return select.options[index].value;
+                                });
+                                break;
                             default:
                                 console.warn('unsupported: ' + type);
                                 break;
@@ -1102,6 +1134,24 @@ var PoseEditor;
                     dom.addEventListener("click", function () {
                         // call onshowdownload
                         _this.dialogs['download'].show();
+                    });
+                });
+                this.dialogs['addmodel'] = this.addDialog(function (c) {
+                    // onshowdownload event
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showaddmodel', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onaddmodel', data);
+                    });
+                });
+                this.doms['addmodel'] = this.addButton(function (dom) {
+                    dom.value = 'AddModel';
+                    dom.addEventListener("click", function () {
+                        // call onshowdownload
+                        _this.dialogs['addmodel'].show();
                     });
                 });
             }
@@ -1345,6 +1395,12 @@ var PoseEditor;
             });
             this.screen.addCallback('ondownload', function (data) {
                 _this.onDownload(data);
+            });
+            this.screen.addCallback('showaddmodel', function (f) {
+                _this.setAddModelTypes(f);
+            });
+            this.screen.addCallback('onaddmodel', function (data) {
+                _this.onAddModel(data);
             });
             // setup
             this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
@@ -1643,6 +1699,34 @@ var PoseEditor;
             a.href = dataUrl;
             a.click();
             delete a;
+        };
+        Editor.prototype.setAddModelTypes = function (f) {
+            var value = [];
+            var label = [];
+            for (var key in this.modelInfoTable) {
+                value.push(key);
+                label.push(key); // TODO: change
+            }
+            var order = [
+                {
+                    type: 'select',
+                    name: 'modelName',
+                    value: value,
+                    label: label,
+                    checked: 0
+                }
+            ];
+            f(order);
+        };
+        Editor.prototype.onAddModel = function (data) {
+            var name = data['modelName'];
+            if (name == null)
+                return; // TODO: notice error
+            this.appendModel(name, function (model, error) {
+                if (error) {
+                    console.log("error: ", error);
+                }
+            });
         };
         Editor.prototype.getSceneInfo = function () {
             return {
