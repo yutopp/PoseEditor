@@ -12,6 +12,7 @@ module PoseEditor {
 
         public onDestroy(): void {
             this.releaseModel();
+            this.editor.setSelectedModel(null);
         }
 
         public onTapStart(e: any, isTouch: boolean): boolean {
@@ -31,6 +32,7 @@ module PoseEditor {
             var mp = this.editor.selectModel(e, isTouch)
             if (mp == null) {
                 this.releaseModel();
+                this.editor.setSelectedModel(null);
                 return true;
             }
 
@@ -38,6 +40,7 @@ module PoseEditor {
             var localConfPos = mp[1];
 
             this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
+            this.editor.setSelectedModel(this.currentModel);
 
             //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());

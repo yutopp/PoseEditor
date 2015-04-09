@@ -56,26 +56,32 @@ module PoseEditor {
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material: any;
                 if ( materials !== undefined ) {
-                    if ( materials.length > 1 ) {
-                        material = new THREE.MeshFaceMaterial(materials);
-                        material.materials.forEach((mat: any) => {
-                            mat.skinning = true;
-                        });
+                    this.defaultMat = []
 
-                    } else {
-                        material = materials[0];
-                        material.setValues({skinning: true});
-                    }
+                    material = new THREE.MeshFaceMaterial(materials);
+                    material.materials.forEach((mat: any) => {
+                        mat.skinning = true;
+
+                        this.defaultMat.push({
+                            opacity: mat.opacity,
+                            transparent: mat.transparent
+                        });
+                    });
 
                 } else {
                     material = new THREE.MeshLambertMaterial({
                         color: 0xffffff,
                         skinning: true
                     });
+
+                    this.defaultMat = {
+                        opacity: material.opacity,
+                        transparent: material.transparent
+                    };
                 }
 
                 // create mesh data
-                this.mesh = new THREE.SkinnedMesh(geometry, material, false);
+                this.mesh = new THREE.SkinnedMesh(geometry, material);
                 if ( init_pos ) {
                     this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
                 }
@@ -83,13 +89,13 @@ module PoseEditor {
                     this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
                 }
 
-                // add mesh to model
-                this.scene.add(this.mesh);
-
-                // bind this model data to the mesh
+                //
                 this.mesh.userData = {
                     modelData: this
-                }
+                };
+
+                // add mesh to model
+                this.scene.add(this.mesh);
 
                 //
                 this.setupAppendixData(
@@ -99,6 +105,30 @@ module PoseEditor {
                 );
 
             }, texture_path);
+        }
+
+        public selectionState(isActive: boolean) {
+            if ( this.defaultMat == null ) return;
+            var C = 0.7;
+
+            if ( this.mesh.material.type == 'MeshFaceMaterial' ) {
+                (<THREE.MeshFaceMaterial>this.mesh.material).materials.forEach(
+                    (mat: any, i: number) => {
+                        var opacity = isActive ? C : this.defaultMat[i].opacity;
+                        var transparent = isActive ? true : this.defaultMat[i].transparent;
+
+                        mat.opacity = opacity;
+                        mat.transparent = transparent;
+                    }
+                );
+
+            } else {
+                var opacity = isActive ? C : this.defaultMat.opacity;
+                var transparent = isActive ? true : this.defaultMat.transparent;
+
+                this.mesh.material.opacity = opacity;
+                this.mesh.material.transparent = transparent;
+            }
         }
 
         private setupAppendixData(
@@ -237,8 +267,14 @@ module PoseEditor {
         public isReady(): boolean {
             return this.ready;
         }
+/*
+        public wireframe(e: boolean = null): boolean {
+            if ( e == null ) return this.mesh.material.wireframe;
 
-
+            this.mesh.wireframe = e;
+            return null;
+        }
+*/
 
         public modelData(): ModelStatus {
             var joints = this.mesh.skeleton.bones.map((bone) => {
@@ -363,5 +399,6 @@ module PoseEditor {
 
         //
         private markerScale: Array<number>;
+        private defaultMat: any;
     }
 }

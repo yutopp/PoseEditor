@@ -548,41 +548,64 @@ var PoseEditor;
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material;
                 if (materials !== undefined) {
-                    if (materials.length > 1) {
-                        material = new THREE.MeshFaceMaterial(materials);
-                        material.materials.forEach(function (mat) {
-                            mat.skinning = true;
+                    _this.defaultMat = [];
+                    material = new THREE.MeshFaceMaterial(materials);
+                    material.materials.forEach(function (mat) {
+                        mat.skinning = true;
+                        _this.defaultMat.push({
+                            opacity: mat.opacity,
+                            transparent: mat.transparent
                         });
-                    }
-                    else {
-                        material = materials[0];
-                        material.setValues({ skinning: true });
-                    }
+                    });
                 }
                 else {
                     material = new THREE.MeshLambertMaterial({
                         color: 0xffffff,
                         skinning: true
                     });
+                    _this.defaultMat = {
+                        opacity: material.opacity,
+                        transparent: material.transparent
+                    };
                 }
                 // create mesh data
-                _this.mesh = new THREE.SkinnedMesh(geometry, material, false);
+                _this.mesh = new THREE.SkinnedMesh(geometry, material);
                 if (init_pos) {
                     _this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
                 }
                 if (init_scale) {
                     _this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
                 }
-                // add mesh to model
-                _this.scene.add(_this.mesh);
-                // bind this model data to the mesh
+                //
                 _this.mesh.userData = {
                     modelData: _this
                 };
+                // add mesh to model
+                _this.scene.add(_this.mesh);
                 //
                 _this.setupAppendixData(sprite_paths, model_info, callback);
             }, texture_path);
         }
+        Model.prototype.selectionState = function (isActive) {
+            var _this = this;
+            if (this.defaultMat == null)
+                return;
+            var C = 0.7;
+            if (this.mesh.material.type == 'MeshFaceMaterial') {
+                this.mesh.material.materials.forEach(function (mat, i) {
+                    var opacity = isActive ? C : _this.defaultMat[i].opacity;
+                    var transparent = isActive ? true : _this.defaultMat[i].transparent;
+                    mat.opacity = opacity;
+                    mat.transparent = transparent;
+                });
+            }
+            else {
+                var opacity = isActive ? C : this.defaultMat.opacity;
+                var transparent = isActive ? true : this.defaultMat.transparent;
+                this.mesh.material.opacity = opacity;
+                this.mesh.material.transparent = transparent;
+            }
+        };
         Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
             var _this = this;
             //
@@ -690,6 +713,14 @@ var PoseEditor;
         Model.prototype.isReady = function () {
             return this.ready;
         };
+        /*
+                public wireframe(e: boolean = null): boolean {
+                    if ( e == null ) return this.mesh.material.wireframe;
+        
+                    this.mesh.wireframe = e;
+                    return null;
+                }
+        */
         Model.prototype.modelData = function () {
             var joints = this.mesh.skeleton.bones.map(function (bone) {
                 var q = bone.quaternion;
@@ -778,6 +809,7 @@ var PoseEditor;
         };
         MoveAction.prototype.onDestroy = function () {
             this.releaseModel();
+            this.editor.setSelectedModel(null);
         };
         MoveAction.prototype.onTapStart = function (e, isTouch) {
             return this.catchModel(e, isTouch);
@@ -792,11 +824,13 @@ var PoseEditor;
             var mp = this.editor.selectModel(e, isTouch);
             if (mp == null) {
                 this.releaseModel();
+                this.editor.setSelectedModel(null);
                 return true;
             }
             this.currentModel = mp[0];
             var localConfPos = mp[1];
             this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
+            this.editor.setSelectedModel(this.currentModel);
             //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());
             return false;
@@ -984,7 +1018,6 @@ var PoseEditor;
                                 _this.addElement(name, function (wrapperDom) {
                                     // construct radio boxes
                                     var num = v.value.length;
-                                    var checkedIndex = v.checked;
                                     var selectDom = document.createElement("select");
                                     selectDom.name = 'poseeditor-' + name;
                                     for (var i = 0; i < num; ++i) {
@@ -1082,7 +1115,7 @@ var PoseEditor;
                 });
                 //
                 this.toggleDom['move'] = this.addButton(function (dom) {
-                    dom.value = 'move';
+                    dom.value = 'move/select';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
                     });
@@ -1156,6 +1189,13 @@ var PoseEditor;
                         // call onshowdownload
                         _this.dialogs['addmodel'].show();
                     });
+                });
+                this.doms['deletemodel'] = this.addButton(function (dom) {
+                    dom.value = 'DeleteModel';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("ondeletemodel");
+                    });
+                    dom.disabled = true;
                 });
             }
             ControlPanel.prototype.addButton = function (callback) {
@@ -1407,6 +1447,9 @@ var PoseEditor;
             this.screen.addCallback('onaddmodel', function (data) {
                 _this.onAddModel(data);
             });
+            this.screen.addCallback('ondeletemodel', function (data) {
+                _this.onDeleteModel();
+            });
             // setup
             this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
             //
@@ -1511,7 +1554,7 @@ var PoseEditor;
             var intersects = raycaster.intersectObjects(this.models.map(function (m) { return m.mesh; }));
             var mesh = intersects.length > 0 ? intersects[0].object : null;
             if (mesh == null)
-                return;
+                return null;
             var modelPos = mesh.position.clone();
             var localConfPos = intersects[0].point.clone();
             return [mesh.userData.modelData, localConfPos];
@@ -1547,6 +1590,23 @@ var PoseEditor;
             });
             //console.log(l);
             return selectedMarker;
+        };
+        //
+        Editor.prototype.setSelectedModel = function (m) {
+            var _this = this;
+            // cancel selection
+            if (this.selectedModel) {
+                this.selectedModel.selectionState(false);
+            }
+            this.selectedModel = m;
+            if (this.selectedModel) {
+                // select
+                this.selectedModel.selectionState(true);
+            }
+            // UI operation
+            this.screen.changeUIStatus('deletemodel', function (dom) {
+                dom.disabled = _this.selectedModel == null;
+            });
         };
         Editor.prototype.cancelAllMarkerSprite = function () {
             // update marker sprite color (to not selected color)
@@ -1735,6 +1795,11 @@ var PoseEditor;
                 }
             });
         };
+        Editor.prototype.onDeleteModel = function () {
+            if (this.selectedModel) {
+                this.removeModel(this.selectedModel);
+            }
+        };
         Editor.prototype.getSceneInfo = function () {
             return {
                 'camera': {
@@ -1807,23 +1872,17 @@ var PoseEditor;
             this.models = [];
             this.resetCtrl();
         };
-        Editor.prototype.removeModel = function (index) {
+        Editor.prototype.removeModelByIndex = function (index) {
             var model = this.models[index];
             model.destruct();
             this.models.splice(index, 1);
             this.resetCtrl();
         };
-        Editor.prototype.removeSelectedModel = function () {
-            // TODO: fix
-            /*
-            if ( this.selectedSphere != null ) {
-                var model = this.selectedSphere.userData.ownerModel;
-                var index = this.models.indexOf(model);
-                if ( index != -1 ) {
-                    this.removeModel(index);
-                }
+        Editor.prototype.removeModel = function (model) {
+            var index = this.models.indexOf(model);
+            if (index != -1) {
+                this.removeModelByIndex(index);
             }
-            */
         };
         Editor.prototype.makeDataUrl = function (type) {
             //

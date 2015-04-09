@@ -33,13 +33,6 @@
          }
 
 
-         function removeModel() {
-           // basic example
-           if ( editor != null ) {
-             editor.removeSelectedModel();
-           }
-         }
-
          function changeBGColorAndAlpha() {
            if ( editor != null ) {
              var color_dom = document.getElementById("bg_color");
@@ -125,9 +118,6 @@
         <br>
 
         <label><input type="checkbox" id="toggle_marker" onClick="toggleMarker()" checked>マーカー</label>
-
-        <br>
-        <input type="button" value="選択しているモデルを削除" onClick="removeModel()">
 
         <br>
         <label>色<input type="text" id="bg_color" value="0x777777" onChange="changeBGColorAndAlpha()"></label>

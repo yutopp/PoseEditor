@@ -331,7 +331,7 @@ module PoseEditor {
 
                 //
                 this.toggleDom['move'] = this.addButton((dom) => {
-                    dom.value = 'move';
+                    dom.value = 'move/select';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onmodeclick", Mode.Move);
                     });
@@ -418,6 +418,15 @@ module PoseEditor {
                         // call onshowdownload
                         this.dialogs['addmodel'].show();
                     });
+                });
+
+                this.doms['deletemodel'] = this.addButton((dom) => {
+                    dom.value = 'DeleteModel';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("ondeletemodel");
+                    });
+
+                    dom.disabled = true;
                 });
             }
 

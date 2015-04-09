@@ -48,6 +48,10 @@ module PoseEditor {
                 this.onAddModel(data);
             });
 
+            this.screen.addCallback('ondeletemodel', (data: any) => {
+                this.onDeleteModel();
+            });
+
             // setup
             this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
 
@@ -202,7 +206,7 @@ module PoseEditor {
                 this.models.map((m) => m.mesh)
             );
             var mesh = intersects.length > 0 ? intersects[0].object : null;
-            if ( mesh == null ) return
+            if ( mesh == null ) return null;
 
             var modelPos = mesh.position.clone();
             var localConfPos = intersects[0].point.clone();
@@ -246,6 +250,25 @@ module PoseEditor {
             //console.log(l);
 
             return selectedMarker;
+        }
+
+        //
+        public setSelectedModel(m: Model) {
+            // cancel selection
+            if ( this.selectedModel ) {
+                this.selectedModel.selectionState(false);
+            }
+            this.selectedModel = m;
+
+            if ( this.selectedModel ) {
+                // select
+                this.selectedModel.selectionState(true);
+            }
+
+            // UI operation
+            this.screen.changeUIStatus('deletemodel', (dom: HTMLElement) => {
+                dom.disabled = this.selectedModel == null;
+            });
         }
 
         public cancelAllMarkerSprite() {
@@ -496,7 +519,11 @@ module PoseEditor {
             });
         }
 
-
+        private onDeleteModel() {
+            if ( this.selectedModel ) {
+                this.removeModel(this.selectedModel);
+            }
+        }
 
 
         public getSceneInfo(): any {
@@ -586,7 +613,7 @@ module PoseEditor {
             this.resetCtrl();
         }
 
-        public removeModel(index: number) {
+        public removeModelByIndex(index: number) {
             var model = this.models[index];
             model.destruct();
 
@@ -594,17 +621,11 @@ module PoseEditor {
             this.resetCtrl();
         }
 
-        public removeSelectedModel() {
-            // TODO: fix
-            /*
-            if ( this.selectedSphere != null ) {
-                var model = this.selectedSphere.userData.ownerModel;
-                var index = this.models.indexOf(model);
-                if ( index != -1 ) {
-                    this.removeModel(index);
-                }
+        public removeModel(model: Model) {
+            var index = this.models.indexOf(model);
+            if ( index != -1 ) {
+                this.removeModelByIndex(index);
             }
-            */
         }
 
         private makeDataUrl(type: string): string {
@@ -664,6 +685,7 @@ module PoseEditor {
 
         //
         private models: Array<Model> = [];
+        private selectedModel: Model;
 
         //
         private renderer: THREE.WebGLRenderer;
@@ -675,14 +697,12 @@ module PoseEditor {
         private ambientLight: THREE.AmbientLight;
         private transformCtrl: THREE.TransformControls;
         private controls: THREE.OrbitControls;
+        private gridHelper: THREE.GridHelper;
         public cursorHelper: CursorPositionHelper;
 
         //
         private scene2d: THREE.Scene;
         private camera2d: THREE.OrthographicCamera;
-
-        //
-        private gridHelper: THREE.GridHelper;
 
         //
         private loadingTasks = 0;
