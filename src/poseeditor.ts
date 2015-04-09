@@ -59,7 +59,9 @@ module PoseEditor {
                 this.onConfig(data);
             });
 
-
+            this.screen.addCallback('onrestore', (data: any) => {
+                this.onRestore(data);
+            });
 
             // setup
             this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
@@ -573,6 +575,13 @@ module PoseEditor {
                 this.currentValues['bgAlpha']
             );
             ///
+        }
+
+        private onRestore(data: any) {
+            var jsonString = <string>data;
+            if ( jsonString == null ) return;
+
+            this.loadSceneDataFromString(jsonString);
         }
 
 

@@ -483,6 +483,32 @@ module PoseEditor {
                     });
                 });
                 ///
+
+                this.doms['restore'] = this.addButton((dom) => {
+                    dom.value = 'Restore';
+
+                    // to open the file dialog
+                    var fileInput = document.createElement("input");
+                    fileInput.type = 'file';
+                    fileInput.style.display = 'none';
+                    fileInput.onchange = (e: Event) => {
+                        var files = fileInput.files;
+                        if ( files.length != 1 ) {
+                            return false;
+                        }
+                        var file = files[0];
+
+                        var reader = new FileReader();
+                        reader.onload = (e: Event) => {
+                            var data = reader.result;
+                            this.screen.dispatchCallback('onrestore', data);
+                        };
+                        reader.readAsText(file);
+                    };
+                    dom.appendChild(fileInput);
+
+                    dom.addEventListener("click", () => fileInput.click());
+                });
             }
 
             private addButton(callback: (d: HTMLInputElement) => void) {

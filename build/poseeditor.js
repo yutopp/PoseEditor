@@ -1238,6 +1238,28 @@ var PoseEditor;
                     });
                 });
                 ///
+                this.doms['restore'] = this.addButton(function (dom) {
+                    dom.value = 'Restore';
+                    // to open the file dialog
+                    var fileInput = document.createElement("input");
+                    fileInput.type = 'file';
+                    fileInput.style.display = 'none';
+                    fileInput.onchange = function (e) {
+                        var files = fileInput.files;
+                        if (files.length != 1) {
+                            return false;
+                        }
+                        var file = files[0];
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var data = reader.result;
+                            _this.screen.dispatchCallback('onrestore', data);
+                        };
+                        reader.readAsText(file);
+                    };
+                    dom.appendChild(fileInput);
+                    dom.addEventListener("click", function () { return fileInput.click(); });
+                });
             }
             ControlPanel.prototype.addButton = function (callback) {
                 var dom = document.createElement("input");
@@ -1496,6 +1518,9 @@ var PoseEditor;
             });
             this.screen.addCallback('onconfig', function (data) {
                 _this.onConfig(data);
+            });
+            this.screen.addCallback('onrestore', function (data) {
+                _this.onRestore(data);
             });
             // setup
             this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
@@ -1879,6 +1904,12 @@ var PoseEditor;
             }
             this.setClearColor(this.currentValues['bgColorHex'], this.currentValues['bgAlpha']);
             ///
+        };
+        Editor.prototype.onRestore = function (data) {
+            var jsonString = data;
+            if (jsonString == null)
+                return;
+            this.loadSceneDataFromString(jsonString);
         };
         Editor.prototype.getSceneInfo = function () {
             return {
