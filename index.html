@@ -32,16 +32,6 @@
            }
          }
 
-         function appendModel() {
-           // basic example
-           if ( editor != null ) {
-             editor.appendModel("sport_man", function(model, error) {
-               if (error) {
-                 console.log("error: ", error);
-               }
-             });
-           }
-         }
 
          function removeModel() {
            // basic example
@@ -137,7 +127,6 @@
         <label><input type="checkbox" id="toggle_marker" onClick="toggleMarker()" checked>マーカー</label>
 
         <br>
-        <input type="button" value="モデルを追加" onClick="appendModel()">
         <input type="button" value="選択しているモデルを削除" onClick="removeModel()">
 
         <br>
