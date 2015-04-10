@@ -2,7 +2,7 @@
 
 (under construction...)
 
-## How to install
+## How to use
 ```
 bower install poseeditor
 ```
@@ -22,13 +22,13 @@ For detail to `index.html`.
 + tsc (TypeScript Compiler)
 
 
-## Testing
+## Development
 
 ```
 bower install
 tsd update
-tsc --noImplicitAny --out build/poseeditor.js src/*
-./s.sh
+./b.sh  # build sources
+./s.sh  # start server
 ```
 Then, access `http://localhost:30000/`!
 

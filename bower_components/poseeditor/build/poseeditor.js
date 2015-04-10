@@ -1,5 +1,133 @@
 var PoseEditor;
 (function (PoseEditor) {
+    var ActionController = (function () {
+        function ActionController() {
+            /// ==================================================
+            /// Stack of Actions (execute from top to bottom)
+            /// ↑ top     | ...    | index: n
+            ///           | ...    | index: 1
+            /// ↓ bottom  | Camera | index: 0
+            /// ==================================================
+            this.currentActions = [];
+        }
+        ActionController.prototype.setup = function (editor, trans, ctrls, dom) {
+            var _this = this;
+            this.editor = editor;
+            this.transformCtrl = trans;
+            this.controls = ctrls;
+            // add camera
+            /// | Camera |
+            var camAction = new PoseEditor.CameraAction(this.editor, this.controls);
+            this.currentActions.push(camAction);
+            camAction.onActive();
+            // setup events hooks
+            //
+            dom.addEventListener('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
+            dom.addEventListener('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
+            dom.addEventListener('mousemove', function (e) { return _this.onMoving(e, false); }, false);
+            dom.addEventListener('touchmove', function (e) { return _this.onMoving(e, true); }, false);
+            dom.addEventListener('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
+            dom.addEventListener('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
+            dom.addEventListener('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
+            dom.addEventListener('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
+            dom.addEventListener('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
+        };
+        ActionController.prototype.onModeSelect = function (mode, screen) {
+            var _this = this;
+            switch (mode) {
+                case 0 /* Camera */:
+                    /// | Camera |
+                    this.destroyActionFrom(1);
+                    screen.selectModeUI('camera');
+                    break;
+                case 1 /* Move */:
+                    /// | Move   |
+                    /// | Camera |
+                    this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
+                    screen.selectModeUI('move');
+                    break;
+                case 2 /* FK */:
+                    /// | FK     |
+                    /// | Camera |
+                    this.makeStandardModeForm('fk_action', function () { return new PoseEditor.FKAction(_this.editor, _this.transformCtrl); });
+                    screen.selectModeUI('fk');
+                    break;
+                case 3 /* IK */:
+                    /// | IK     |
+                    /// | Camera |
+                    this.makeStandardModeForm('ik_action', function () { return new PoseEditor.IKAction(_this.editor); });
+                    screen.selectModeUI('ik');
+                    break;
+                default:
+                    console.error('unexpected mode');
+            }
+        };
+        // make standard form likes below
+        /// | EXPECTED |
+        /// | Camera   |
+        ActionController.prototype.makeStandardModeForm = function (actionName, factory) {
+            // stack has some actions except for Camera
+            if (this.currentActions.length > 1) {
+                if (this.currentActions[1].name() != actionName) {
+                    this.destroyActionFrom(1);
+                }
+                else {
+                    // if stack of actions is already expected form, so do nothing
+                    if (this.currentActions.length == 2)
+                        return;
+                    // stack has extra actions, so delete them
+                    this.destroyActionFrom(2);
+                    return;
+                }
+            }
+            // push new action
+            var action = factory();
+            this.currentActions.push(action);
+            action.onActive();
+        };
+        ActionController.prototype.execActions = function (func) {
+            for (var i = this.currentActions.length - 1; i >= 0; --i) {
+                func(this.currentActions[i]);
+            }
+        };
+        ActionController.prototype.dispatchActions = function (func) {
+            var i = this.currentActions.length - 1;
+            for (; i >= 0; --i) {
+                var doNextAction = func(this.currentActions[i], true);
+                if (!doNextAction)
+                    break;
+            }
+            --i;
+            for (; i >= 0; --i) {
+                func(this.currentActions[i], false);
+            }
+        };
+        ActionController.prototype.destroyActionFrom = function (index) {
+            var rest = this.currentActions.splice(index, this.currentActions.length - index);
+            rest.forEach(function (act) { return act.onDestroy(); });
+        };
+        ActionController.prototype.onTapStart = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onTapStart(e, isTouch, a); });
+        };
+        ActionController.prototype.onMoving = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onMoving(e, isTouch, a); });
+        };
+        ActionController.prototype.onTapEnd = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onTapEnd(e, isTouch, a); });
+        };
+        ActionController.prototype.onDoubleTap = function (e, isTouch) {
+            e.preventDefault();
+            this.dispatchActions(function (act, a) { return act.onDoubleTap(e, isTouch, a); });
+        };
+        return ActionController;
+    })();
+    PoseEditor.ActionController = ActionController;
+})(PoseEditor || (PoseEditor = {}));
+var PoseEditor;
+(function (PoseEditor) {
     var Action = (function () {
         function Action(e) {
             this.editor = e;
@@ -67,6 +195,555 @@ var PoseEditor;
         return CameraAction;
     })(PoseEditor.Action);
     PoseEditor.CameraAction = CameraAction;
+})(PoseEditor || (PoseEditor = {}));
+var PoseEditor;
+(function (PoseEditor) {
+    var EventDispatcher = (function () {
+        function EventDispatcher() {
+            //
+            this.events = {};
+        }
+        EventDispatcher.prototype.addCallback = function (type, f) {
+            if (this.events[type] == null) {
+                this.events[type] = [];
+            }
+            this.events[type].push(f);
+        };
+        EventDispatcher.prototype.dispatchCallback = function (type) {
+            var args = [];
+            for (var _i = 1; _i < arguments.length; _i++) {
+                args[_i - 1] = arguments[_i];
+            }
+            if (this.events[type] != null) {
+                this.events[type].forEach(function (f) {
+                    f.apply({}, args);
+                });
+            }
+        };
+        return EventDispatcher;
+    })();
+    PoseEditor.EventDispatcher = EventDispatcher;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="event_dispatcher.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        var Dialog = (function (_super) {
+            __extends(Dialog, _super);
+            function Dialog(parentDom, tagName) {
+                _super.call(this);
+                this.parentDom = parentDom;
+                //
+                this.padding = 10;
+                // base element
+                this.baseDom = document.createElement(tagName);
+                this.baseDom.style.position = 'absolute';
+                this.baseDom.style.padding = this.padding + 'px';
+                this.baseDom.style.borderRadius = '5px';
+                this.baseDom.style.backgroundColor = '#fff';
+                this.baseDom.style.display = 'none';
+            }
+            Dialog.prototype.updatePosision = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                var px = Math.abs(offsetW - (this.width + this.padding * 2)) / 2;
+                var py = Math.abs(offsetH - (this.height + this.padding * 2)) / 2;
+                this.baseDom.style.marginLeft = px + 'px';
+                this.baseDom.style.marginTop = py + 'px';
+            };
+            Dialog.prototype.update = function () {
+                this.updatePosision();
+            };
+            Dialog.prototype.show = function () {
+                this.update();
+                this.baseDom.style.display = 'inline';
+                this.dispatchCallback('show');
+            };
+            Dialog.prototype.hide = function () {
+                this.baseDom.style.display = 'none';
+                this.dispatchCallback('hide');
+            };
+            return Dialog;
+        })(PoseEditor.EventDispatcher);
+        Screen.Dialog = Dialog;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        var LoadingDialog = (function (_super) {
+            __extends(LoadingDialog, _super);
+            function LoadingDialog(parentDom, imagePath) {
+                _super.call(this, parentDom, "img");
+                this.baseDom.src = imagePath;
+                this.width = this.baseDom.offsetWidth;
+                this.height = this.baseDom.offsetHeight;
+            }
+            return LoadingDialog;
+        })(Screen.Dialog);
+        Screen.LoadingDialog = LoadingDialog;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="event_dispatcher.ts"/>
+/// <reference path="control_panel.ts"/>
+/// <reference path="loading_dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        (function (Mode) {
+            Mode[Mode["Camera"] = 0] = "Camera";
+            Mode[Mode["Move"] = 1] = "Move";
+            Mode[Mode["FK"] = 2] = "FK";
+            Mode[Mode["IK"] = 3] = "IK";
+        })(Screen.Mode || (Screen.Mode = {}));
+        var Mode = Screen.Mode;
+        var ScreenController = (function (_super) {
+            __extends(ScreenController, _super);
+            function ScreenController(parentDomId, config) {
+                var _this = this;
+                _super.call(this);
+                //
+                this.loadingDom = null;
+                //
+                var parentDom = document.getElementById(parentDomId);
+                if (parentDom == null) {
+                    console.log("parent dom was not found...");
+                }
+                this.targetDom = parentDom ? parentDom : document.body;
+                //
+                this.width = this.targetDom.offsetWidth;
+                this.height = this.targetDom.offsetHeight;
+                this.aspect = this.width / this.height;
+                //
+                if (config.loadingImagePath) {
+                    this.loadingDom = new Screen.LoadingDialog(this.targetDom, config.loadingImagePath);
+                    this.targetDom.appendChild(this.loadingDom.baseDom);
+                }
+                //
+                this.controlPanel = new Screen.ControlPanel(this);
+                //
+                window.addEventListener('resize', function () { return _this.onResize(); }, false);
+            }
+            ScreenController.prototype.selectModeUI = function (mode) {
+                this.controlPanel.selectModeUI(mode);
+            };
+            ScreenController.prototype.changeUIStatus = function (name, callback) {
+                return this.controlPanel.changeUIStatus(name, callback);
+            };
+            ScreenController.prototype.appendChild = function (dom) {
+                this.targetDom.appendChild(dom);
+            };
+            ScreenController.prototype.onResize = function () {
+                var w = this.targetDom.offsetWidth;
+                var h = this.targetDom.offsetHeight;
+                if (this.width == w && this.height == h) {
+                    return false;
+                }
+                // update size
+                this.width = w;
+                this.height = h;
+                this.aspect = this.width / this.height;
+                //
+                this.dispatchCallback('resize');
+                return false;
+            };
+            ScreenController.prototype.showLoadingDom = function () {
+                if (this.loadingDom) {
+                    this.loadingDom.show();
+                }
+            };
+            ScreenController.prototype.hideLoadingDom = function () {
+                if (this.loadingDom) {
+                    this.loadingDom.hide();
+                }
+            };
+            return ScreenController;
+        })(PoseEditor.EventDispatcher);
+        Screen.ScreenController = ScreenController;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        var ConfigurationDialog = (function (_super) {
+            __extends(ConfigurationDialog, _super);
+            function ConfigurationDialog(parentDom) {
+                var _this = this;
+                _super.call(this, parentDom, "div");
+                this.actions = [];
+                // container element
+                this.containerDom = document.createElement("div");
+                {
+                    var d = this.containerDom;
+                }
+                this.baseDom.appendChild(this.containerDom);
+                // selection element
+                this.selectionDom = document.createElement("div");
+                {
+                    var d = this.selectionDom;
+                    d.style.backgroundColor = "#00f";
+                    {
+                        var dom = document.createElement("input");
+                        dom.type = "button";
+                        dom.value = 'submit';
+                        dom.addEventListener("click", function () {
+                            var table = {};
+                            _this.getElementValues(table);
+                            _this.disposeAllElements();
+                            _this.dispatchCallback('onsubmit', table);
+                            _this.hide();
+                        });
+                        d.appendChild(dom);
+                    }
+                    {
+                        var dom = document.createElement("input");
+                        dom.type = "button";
+                        dom.value = 'cancel';
+                        dom.addEventListener("click", function () {
+                            _this.disposeAllElements();
+                            _this.dispatchCallback('oncancel');
+                            _this.hide();
+                        });
+                        d.appendChild(dom);
+                    }
+                }
+                this.baseDom.appendChild(this.selectionDom);
+            }
+            ConfigurationDialog.prototype.update = function () {
+                this.updateSize();
+                this.updatePosision();
+            };
+            ConfigurationDialog.prototype.updateSize = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                this.width = Math.max(offsetW - 40, 40);
+                this.height = Math.max(offsetH - 40, 40);
+                this.baseDom.style.width = this.width + 'px';
+                this.baseDom.style.height = this.height + 'px';
+            };
+            ConfigurationDialog.prototype.setValues = function (data) {
+                var _this = this;
+                if (data) {
+                    data.forEach(function (v) {
+                        var type = v.type;
+                        var name = v.name;
+                        switch (type) {
+                            case 'radio':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct radio boxes
+                                    var num = v.value.length;
+                                    for (var i = 0; i < num; ++i) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+                                        var labelDom = document.createElement("label");
+                                        labelDom.innerText = label;
+                                        var inputDom = document.createElement("input");
+                                        inputDom.type = 'radio';
+                                        inputDom.name = 'poseeditor-' + name;
+                                        inputDom.value = value;
+                                        if (v.selectedValue) {
+                                            if (value == v.selectedValue) {
+                                                inputDom.checked = true;
+                                            }
+                                        }
+                                        labelDom.appendChild(inputDom);
+                                        wrapperDom.appendChild(labelDom);
+                                    }
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var radios = document.getElementsByName(domName);
+                                    var format = "";
+                                    for (var i = 0; i < radios.length; ++i) {
+                                        var radio = radios[i];
+                                        if (radio.checked) {
+                                            format = radio.value;
+                                            break;
+                                        }
+                                    }
+                                    return format;
+                                });
+                                break;
+                            case 'select':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct select/options
+                                    var num = v.value.length;
+                                    var selectDom = document.createElement("select");
+                                    selectDom.name = 'poseeditor-' + name;
+                                    for (var i = 0; i < num; ++i) {
+                                        var value = v.value[i];
+                                        var label = v.label[i];
+                                        var optionDom = document.createElement("option");
+                                        optionDom.value = value;
+                                        optionDom.innerText = label;
+                                        if (v.selectedValue) {
+                                            if (value == v.selectedValue) {
+                                                optionDom.selected = true;
+                                            }
+                                        }
+                                        selectDom.appendChild(optionDom);
+                                    }
+                                    wrapperDom.appendChild(selectDom);
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects = document.getElementsByName(domName);
+                                    if (selects.length != 1) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+                                    var select = selects[0];
+                                    var index = select.selectedIndex;
+                                    return select.options[index].value;
+                                });
+                                break;
+                            case 'input':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct input box
+                                    var labelDom = document.createElement("label");
+                                    labelDom.innerText = v.label;
+                                    var inputDom = document.createElement("input");
+                                    inputDom.name = 'poseeditor-' + name;
+                                    inputDom.value = v.value;
+                                    labelDom.appendChild(inputDom);
+                                    wrapperDom.appendChild(labelDom);
+                                }, function () {
+                                    // result collector
+                                    var domName = 'poseeditor-' + name;
+                                    var selects = document.getElementsByName(domName);
+                                    if (selects.length != 1) {
+                                        // TODO: throw exception
+                                        console.warn("");
+                                    }
+                                    var input = selects[0];
+                                    return input.value;
+                                });
+                                break;
+                            default:
+                                console.warn('unsupported: ' + type);
+                                break;
+                        }
+                    });
+                }
+            };
+            ConfigurationDialog.prototype.addElement = function (name, createDom, clawlAction) {
+                var _this = this;
+                //
+                var wrapperDom = document.createElement("div");
+                createDom(wrapperDom);
+                this.containerDom.appendChild(wrapperDom);
+                //
+                var action = {
+                    destruction: function () {
+                        _this.containerDom.removeChild(wrapperDom);
+                    },
+                    crawl: function (table) {
+                        var result = clawlAction();
+                        table[name] = result;
+                    }
+                };
+                this.actions.push(action);
+            };
+            ConfigurationDialog.prototype.disposeAllElements = function () {
+                this.actions.forEach(function (a) { return a.destruction(); });
+                this.actions = [];
+            };
+            ConfigurationDialog.prototype.getElementValues = function (table) {
+                this.actions.forEach(function (a) { return a.crawl(table); });
+            };
+            return ConfigurationDialog;
+        })(Screen.Dialog);
+        Screen.ConfigurationDialog = ConfigurationDialog;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="screen.ts"/>
+/// <reference path="configuration_dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        var ControlPanel = (function () {
+            function ControlPanel(screen) {
+                var _this = this;
+                this.toggleDom = {};
+                this.doms = {};
+                this.dialogs = {};
+                this.screen = screen;
+                //
+                this.panelDom = document.createElement("div");
+                {
+                    var s = this.panelDom.style;
+                    s.position = "absolute";
+                    s.right = "0";
+                    s.width = (this.screen.width / 10) + "px";
+                    s.height = "100%";
+                    s.backgroundColor = "#fff";
+                }
+                this.screen.targetDom.appendChild(this.panelDom);
+                //
+                this.toggleDom['camera'] = this.addButton(function (dom) {
+                    dom.value = 'camera';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
+                    });
+                });
+                //
+                this.toggleDom['move'] = this.addButton(function (dom) {
+                    dom.value = 'move/select';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
+                    });
+                });
+                //
+                this.toggleDom['fk'] = this.addButton(function (dom) {
+                    dom.value = 'FK';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 2 /* FK */);
+                    });
+                });
+                //
+                this.toggleDom['ik'] = this.addButton(function (dom) {
+                    dom.value = 'IK';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 3 /* IK */);
+                    });
+                });
+                //
+                this.doms['undo'] = this.addButton(function (dom) {
+                    dom.value = 'Undo';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onundo");
+                    });
+                    dom.disabled = true;
+                });
+                //
+                this.doms['redo'] = this.addButton(function (dom) {
+                    dom.value = 'Redo';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onredo");
+                    });
+                    dom.disabled = true;
+                });
+                ///
+                this.dialogs['download'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showdownload', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('ondownload', data);
+                    });
+                });
+                this.doms['download'] = this.addButton(function (dom) {
+                    dom.value = 'Download';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['download'].show();
+                    });
+                });
+                ///
+                ///
+                this.dialogs['addmodel'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showaddmodel', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onaddmodel', data);
+                    });
+                });
+                this.doms['addmodel'] = this.addButton(function (dom) {
+                    dom.value = 'AddModel';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['addmodel'].show();
+                    });
+                });
+                ///
+                this.doms['deletemodel'] = this.addButton(function (dom) {
+                    dom.value = 'DeleteModel';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("ondeletemodel");
+                    });
+                    dom.disabled = true;
+                });
+                ///
+                this.dialogs['config'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showconfig', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+                this.doms['config'] = this.addButton(function (dom) {
+                    dom.value = 'Config';
+                    dom.addEventListener("click", function () {
+                        // call onshowdownload
+                        _this.dialogs['config'].show();
+                    });
+                });
+                ///
+                this.doms['restore'] = this.addButton(function (dom) {
+                    dom.value = 'Restore';
+                    // to open the file dialog
+                    var fileInput = document.createElement("input");
+                    fileInput.type = 'file';
+                    fileInput.style.display = 'none';
+                    fileInput.onchange = function (e) {
+                        var files = fileInput.files;
+                        if (files.length != 1) {
+                            return false;
+                        }
+                        var file = files[0];
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var data = reader.result;
+                            _this.screen.dispatchCallback('onrestore', data);
+                        };
+                        reader.readAsText(file);
+                    };
+                    dom.appendChild(fileInput);
+                    dom.addEventListener("click", function () { return fileInput.click(); });
+                });
+            }
+            ControlPanel.prototype.addButton = function (callback) {
+                var dom = document.createElement("input");
+                dom.type = "button";
+                callback(dom);
+                this.panelDom.appendChild(dom);
+                return dom;
+            };
+            ControlPanel.prototype.addDialog = function (callback) {
+                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom);
+                callback(ctrl);
+                this.screen.targetDom.appendChild(ctrl.baseDom);
+                return ctrl;
+            };
+            ControlPanel.prototype.selectModeUI = function (mode) {
+                for (var key in this.toggleDom) {
+                    this.toggleDom[key].disabled = false;
+                }
+                this.toggleDom[mode].disabled = true;
+            };
+            ControlPanel.prototype.changeUIStatus = function (name, callback) {
+                var dom = this.doms[name];
+                if (dom == null)
+                    return false;
+                return callback(dom);
+            };
+            return ControlPanel;
+        })();
+        Screen.ControlPanel = ControlPanel;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 var PoseEditor;
@@ -164,133 +841,6 @@ var PoseEditor;
     }
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
-var PoseEditor;
-(function (PoseEditor) {
-    var EventDispatcher = (function () {
-        function EventDispatcher() {
-            /// ==================================================
-            /// Stack of Actions (execute from top to bottom)
-            /// �� top     | ...    | index: n
-            ///           | ...    | index: 1
-            /// �� bottom  | Camera | index: 0
-            /// ==================================================
-            this.currentActions = [];
-        }
-        EventDispatcher.prototype.setup = function (editor, trans, ctrls, dom) {
-            var _this = this;
-            this.editor = editor;
-            this.transformCtrl = trans;
-            this.controls = ctrls;
-            // add camera
-            /// | Camera |
-            var camAction = new PoseEditor.CameraAction(this.editor, this.controls);
-            this.currentActions.push(camAction);
-            camAction.onActive();
-            // setup events hooks
-            //
-            dom.addEventListener('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
-            dom.addEventListener('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
-            dom.addEventListener('mousemove', function (e) { return _this.onMoving(e, false); }, false);
-            dom.addEventListener('touchmove', function (e) { return _this.onMoving(e, true); }, false);
-            dom.addEventListener('mouseup', function (e) { return _this.onTapEnd(e, false); }, false);
-            dom.addEventListener('mouseleave', function (e) { return _this.onTapEnd(e, true); }, false);
-            dom.addEventListener('touchend', function (e) { return _this.onTapEnd(e, true); }, false);
-            dom.addEventListener('touchcancel', function (e) { return _this.onTapEnd(e, true); }, false);
-            dom.addEventListener('dblclick', function (e) { return _this.onDoubleTap(e, false); }, false);
-        };
-        EventDispatcher.prototype.onModeSelect = function (mode, screen) {
-            var _this = this;
-            switch (mode) {
-                case 0 /* Camera */:
-                    /// | Camera |
-                    this.destroyActionFrom(1);
-                    screen.selectModeUI('camera');
-                    break;
-                case 1 /* Move */:
-                    /// | Move   |
-                    /// | Camera |
-                    this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
-                    screen.selectModeUI('move');
-                    break;
-                case 2 /* FK */:
-                    /// | FK     |
-                    /// | Camera |
-                    this.makeStandardModeForm('fk_action', function () { return new PoseEditor.FKAction(_this.editor, _this.transformCtrl); });
-                    screen.selectModeUI('fk');
-                    break;
-                case 3 /* IK */:
-                    /// | IK     |
-                    /// | Camera |
-                    this.makeStandardModeForm('ik_action', function () { return new PoseEditor.IKAction(_this.editor); });
-                    screen.selectModeUI('ik');
-                    break;
-                default:
-                    console.error('unexpected mode');
-            }
-        };
-        // make standard form likes below
-        /// | EXPECTED |
-        /// | Camera   |
-        EventDispatcher.prototype.makeStandardModeForm = function (actionName, factory) {
-            // stack has some actions except for Camera
-            if (this.currentActions.length > 1) {
-                if (this.currentActions[1].name() != actionName) {
-                    this.destroyActionFrom(1);
-                }
-                else {
-                    // if stack of actions is already expected form, so do nothing
-                    if (this.currentActions.length == 2)
-                        return;
-                    // stack has extra actions, so delete them
-                    this.destroyActionFrom(2);
-                    return;
-                }
-            }
-            // push new action
-            var action = factory();
-            this.currentActions.push(action);
-            action.onActive();
-        };
-        EventDispatcher.prototype.execActions = function (func) {
-            for (var i = this.currentActions.length - 1; i >= 0; --i) {
-                func(this.currentActions[i]);
-            }
-        };
-        EventDispatcher.prototype.dispatchActions = function (func) {
-            var i;
-            for (i = this.currentActions.length - 1; i >= 0; --i) {
-                var doNextAction = func(this.currentActions[i], true);
-                if (!doNextAction)
-                    break;
-            }
-            for (; i >= 0; --i) {
-                func(this.currentActions[i], false);
-            }
-        };
-        EventDispatcher.prototype.destroyActionFrom = function (index) {
-            var rest = this.currentActions.splice(index, this.currentActions.length - index);
-            rest.forEach(function (act) { return act.onDestroy(); });
-        };
-        EventDispatcher.prototype.onTapStart = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onTapStart(e, isTouch, a); });
-        };
-        EventDispatcher.prototype.onMoving = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onMoving(e, isTouch, a); });
-        };
-        EventDispatcher.prototype.onTapEnd = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onTapEnd(e, isTouch, a); });
-        };
-        EventDispatcher.prototype.onDoubleTap = function (e, isTouch) {
-            e.preventDefault();
-            this.dispatchActions(function (act, a) { return act.onDoubleTap(e, isTouch, a); });
-        };
-        return EventDispatcher;
-    })();
-    PoseEditor.EventDispatcher = EventDispatcher;
-})(PoseEditor || (PoseEditor = {}));
 /// <reference path="action.ts"/>
 /// <reference path="../ext/TransformControls.d.ts"/>
 var PoseEditor;
@@ -299,6 +849,7 @@ var PoseEditor;
         __extends(FKAction, _super);
         function FKAction(e, ctrls) {
             _super.call(this, e);
+            this.isOnManipurator = false;
             this.transformCtrl = ctrls;
         }
         FKAction.prototype.name = function () {
@@ -308,21 +859,23 @@ var PoseEditor;
             var _this = this;
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(0.6);
+            this.transformCtrl.setSize(0.8);
             this.transformCtrl.addEventListener('change', function () { return _this.onTransformCtrl(); });
             this.transformCtrl.detach();
             this.editor.showAllMarkerSprite();
         };
         FKAction.prototype.onDestroy = function () {
             this.releaseJoint();
-            this.transformCtrl.detach();
             this.editor.hideAllMarkerSprite();
         };
         FKAction.prototype.onTapStart = function (e, isTouch) {
+            if (this.isOnManipurator)
+                return false;
             var m = this.editor.selectJointMarker(e, isTouch);
-            console.log(m);
-            if (m == null)
+            if (m == null) {
+                this.releaseJoint();
                 return true;
+            }
             this.catchJoint(m);
             return false;
         };
@@ -349,10 +902,14 @@ var PoseEditor;
             if (this.currentJointMarker == null)
                 return;
             this.currentJointMarker = null;
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
             this.editor.cancelAllMarkerSprite();
         };
         FKAction.prototype.onTransformCtrl = function () {
+            this.transformCtrl.update();
             if (this.transformCtrl.axis != null) {
+                this.isOnManipurator = true;
                 if (this.currentJointMarker != null) {
                     // local rotation
                     var t_r = this.bone.quaternion.clone();
@@ -370,7 +927,9 @@ var PoseEditor;
                     this.bone.updateMatrixWorld(true);
                 }
             }
-            this.transformCtrl.update();
+            else {
+                this.isOnManipurator = false;
+            }
         };
         return FKAction;
     })(PoseEditor.Action);
@@ -418,9 +977,8 @@ var PoseEditor;
         IKAction.prototype.onDoubleTap = function (e, isTouch) {
             if (this.currentJointMarker == null)
                 return true;
-            var model = this.currentJointMarker.userData.ownerModel;
             var index = this.currentJointMarker.userData.jointIndex;
-            model.toggleIKPropagation(index);
+            this.model.toggleIKPropagation(index);
             return false;
         };
         IKAction.prototype.update = function (model) {
@@ -856,515 +1414,6 @@ var PoseEditor;
 })(PoseEditor || (PoseEditor = {}));
 var PoseEditor;
 (function (PoseEditor) {
-    var Screen;
-    (function (Screen) {
-        var EventDispatcher = (function () {
-            function EventDispatcher() {
-                //
-                this.events = {};
-            }
-            EventDispatcher.prototype.addCallback = function (type, f) {
-                if (this.events[type] == null) {
-                    this.events[type] = [];
-                }
-                this.events[type].push(f);
-            };
-            EventDispatcher.prototype.dispatchCallback = function (type) {
-                var args = [];
-                for (var _i = 1; _i < arguments.length; _i++) {
-                    args[_i - 1] = arguments[_i];
-                }
-                if (this.events[type] != null) {
-                    this.events[type].forEach(function (f) {
-                        f.apply({}, args);
-                    });
-                }
-            };
-            return EventDispatcher;
-        })();
-        (function (Mode) {
-            Mode[Mode["Camera"] = 0] = "Camera";
-            Mode[Mode["Move"] = 1] = "Move";
-            Mode[Mode["FK"] = 2] = "FK";
-            Mode[Mode["IK"] = 3] = "IK";
-        })(Screen.Mode || (Screen.Mode = {}));
-        var Mode = Screen.Mode;
-        var Dialog = (function (_super) {
-            __extends(Dialog, _super);
-            function Dialog(parentDom) {
-                var _this = this;
-                _super.call(this);
-                this.actions = [];
-                this.parentDom = parentDom;
-                // base element
-                this.baseDom = document.createElement("div");
-                this.baseDom.style.position = 'absolute';
-                //this.baseDom.style.padding = "10px";
-                this.baseDom.style.borderRadius = "5px";
-                this.baseDom.style.backgroundColor = "#fff";
-                this.baseDom.style.display = 'none';
-                // container element
-                this.containerDom = document.createElement("div");
-                {
-                    var d = this.containerDom;
-                }
-                this.baseDom.appendChild(this.containerDom);
-                // selection element
-                this.selectionDom = document.createElement("div");
-                {
-                    var d = this.selectionDom;
-                    d.style.backgroundColor = "#00f";
-                    {
-                        var dom = document.createElement("input");
-                        dom.type = "button";
-                        dom.value = 'submit';
-                        dom.addEventListener("click", function () {
-                            var table = {};
-                            _this.getElementValues(table);
-                            _this.disposeAllElements();
-                            _this.dispatchCallback('onsubmit', table);
-                            _this.hide();
-                        });
-                        d.appendChild(dom);
-                    }
-                    {
-                        var dom = document.createElement("input");
-                        dom.type = "button";
-                        dom.value = 'cancel';
-                        dom.addEventListener("click", function () {
-                            _this.disposeAllElements();
-                            _this.dispatchCallback('oncancel');
-                            _this.hide();
-                        });
-                        d.appendChild(dom);
-                    }
-                }
-                this.baseDom.appendChild(this.selectionDom);
-                //
-                this.updatePosisionAndSize();
-            }
-            Dialog.prototype.updatePosisionAndSize = function () {
-                this.updateSize();
-                this.updatePosision();
-            };
-            Dialog.prototype.updatePosision = function () {
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-                var px = Math.abs(offsetW - this.width) / 2;
-                var py = Math.abs(offsetH - this.height) / 2;
-                this.baseDom.style.marginLeft = px + 'px';
-                this.baseDom.style.marginTop = py + 'px';
-            };
-            Dialog.prototype.updateSize = function () {
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-                this.width = Math.max(offsetW - 40, 40);
-                this.height = Math.max(offsetH - 40, 40);
-                this.baseDom.style.width = this.width + 'px';
-                this.baseDom.style.height = this.height + 'px';
-            };
-            Dialog.prototype.show = function () {
-                this.baseDom.style.display = 'inline';
-                this.dispatchCallback('show');
-            };
-            Dialog.prototype.hide = function () {
-                this.baseDom.style.display = 'none';
-                this.dispatchCallback('hide');
-            };
-            Dialog.prototype.setValues = function (data) {
-                var _this = this;
-                if (data) {
-                    data.forEach(function (v) {
-                        var type = v.type;
-                        var name = v.name;
-                        switch (type) {
-                            case 'radio':
-                                _this.addElement(name, function (wrapperDom) {
-                                    // construct radio boxes
-                                    var num = v.value.length;
-                                    for (var i = 0; i < num; ++i) {
-                                        var value = v.value[i];
-                                        var label = v.label[i];
-                                        var labelDom = document.createElement("label");
-                                        labelDom.innerText = label;
-                                        var inputDom = document.createElement("input");
-                                        inputDom.type = 'radio';
-                                        inputDom.name = 'poseeditor-' + name;
-                                        inputDom.value = value;
-                                        if (v.selectedValue) {
-                                            if (value == v.selectedValue) {
-                                                inputDom.checked = true;
-                                            }
-                                        }
-                                        labelDom.appendChild(inputDom);
-                                        wrapperDom.appendChild(labelDom);
-                                    }
-                                }, function () {
-                                    // result collector
-                                    var domName = 'poseeditor-' + name;
-                                    var radios = document.getElementsByName(domName);
-                                    var format = "";
-                                    for (var i = 0; i < radios.length; ++i) {
-                                        var radio = radios[i];
-                                        if (radio.checked) {
-                                            format = radio.value;
-                                            break;
-                                        }
-                                    }
-                                    return format;
-                                });
-                                break;
-                            case 'select':
-                                _this.addElement(name, function (wrapperDom) {
-                                    // construct radio boxes
-                                    var num = v.value.length;
-                                    var selectDom = document.createElement("select");
-                                    selectDom.name = 'poseeditor-' + name;
-                                    for (var i = 0; i < num; ++i) {
-                                        var value = v.value[i];
-                                        var label = v.label[i];
-                                        var optionDom = document.createElement("option");
-                                        optionDom.value = value;
-                                        optionDom.innerText = label;
-                                        if (v.selectedValue) {
-                                            if (value == v.selectedValue) {
-                                                optionDom.selected = true;
-                                            }
-                                        }
-                                        selectDom.appendChild(optionDom);
-                                    }
-                                    wrapperDom.appendChild(selectDom);
-                                }, function () {
-                                    // result collector
-                                    var domName = 'poseeditor-' + name;
-                                    var selects = document.getElementsByName(domName);
-                                    if (selects.length != 1) {
-                                        // TODO: throw exception
-                                        console.warn("");
-                                    }
-                                    var select = selects[0];
-                                    var index = select.selectedIndex;
-                                    return select.options[index].value;
-                                });
-                                break;
-                            case 'input':
-                                _this.addElement(name, function (wrapperDom) {
-                                    // construct input box
-                                    var labelDom = document.createElement("label");
-                                    labelDom.innerText = v.label;
-                                    var inputDom = document.createElement("input");
-                                    inputDom.name = 'poseeditor-' + name;
-                                    inputDom.value = v.value;
-                                    labelDom.appendChild(inputDom);
-                                    wrapperDom.appendChild(labelDom);
-                                }, function () {
-                                    // result collector
-                                    var domName = 'poseeditor-' + name;
-                                    var selects = document.getElementsByName(domName);
-                                    if (selects.length != 1) {
-                                        // TODO: throw exception
-                                        console.warn("");
-                                    }
-                                    var input = selects[0];
-                                    return input.value;
-                                });
-                                break;
-                            default:
-                                console.warn('unsupported: ' + type);
-                                break;
-                        }
-                    });
-                }
-            };
-            Dialog.prototype.addElement = function (name, createDom, clawlAction) {
-                var _this = this;
-                //
-                var wrapperDom = document.createElement("div");
-                createDom(wrapperDom);
-                this.containerDom.appendChild(wrapperDom);
-                //
-                var action = {
-                    destruction: function () {
-                        _this.containerDom.removeChild(wrapperDom);
-                    },
-                    crawl: function (table) {
-                        var result = clawlAction();
-                        table[name] = result;
-                    }
-                };
-                this.actions.push(action);
-            };
-            Dialog.prototype.disposeAllElements = function () {
-                this.actions.forEach(function (a) { return a.destruction(); });
-                this.actions = [];
-            };
-            Dialog.prototype.getElementValues = function (table) {
-                this.actions.forEach(function (a) { return a.crawl(table); });
-            };
-            return Dialog;
-        })(EventDispatcher);
-        var ControlDialog = (function (_super) {
-            __extends(ControlDialog, _super);
-            function ControlDialog(parentDom) {
-                _super.call(this, parentDom);
-            }
-            return ControlDialog;
-        })(Dialog);
-        var ControlPanel = (function () {
-            function ControlPanel(screen) {
-                var _this = this;
-                this.toggleDom = {};
-                this.doms = {};
-                this.dialogs = {};
-                this.screen = screen;
-                //
-                this.panelDom = document.createElement("div");
-                {
-                    var s = this.panelDom.style;
-                    s.position = "absolute";
-                    s.right = "0";
-                    s.width = (this.screen.width / 10) + "px";
-                    s.height = "100%";
-                    s.backgroundColor = "#fff";
-                }
-                this.screen.targetDom.appendChild(this.panelDom);
-                //
-                this.toggleDom['camera'] = this.addButton(function (dom) {
-                    dom.value = 'camera';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
-                    });
-                });
-                //
-                this.toggleDom['move'] = this.addButton(function (dom) {
-                    dom.value = 'move/select';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
-                    });
-                });
-                /*
-                //
-                this.addButton((dom) => {
-                    dom.value = 'FK';
-                    dom.addEventListener("click", () => {
-                        this.screen.dispatchCallback("onmodeclick", Mode.FK);
-                    });
-
-                    this.toggleDom['fk'] = dom;
-                });
-                */
-                //
-                this.toggleDom['ik'] = this.addButton(function (dom) {
-                    dom.value = 'IK';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 3 /* IK */);
-                    });
-                });
-                //
-                this.doms['undo'] = this.addButton(function (dom) {
-                    dom.value = 'Undo';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onundo");
-                    });
-                    dom.disabled = true;
-                });
-                //
-                this.doms['redo'] = this.addButton(function (dom) {
-                    dom.value = 'Redo';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onredo");
-                    });
-                    dom.disabled = true;
-                });
-                ///
-                this.dialogs['download'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showdownload', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('ondownload', data);
-                    });
-                });
-                this.doms['download'] = this.addButton(function (dom) {
-                    dom.value = 'Download';
-                    dom.addEventListener("click", function () {
-                        _this.dialogs['download'].show();
-                    });
-                });
-                ///
-                ///
-                this.dialogs['addmodel'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showaddmodel', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('onaddmodel', data);
-                    });
-                });
-                this.doms['addmodel'] = this.addButton(function (dom) {
-                    dom.value = 'AddModel';
-                    dom.addEventListener("click", function () {
-                        _this.dialogs['addmodel'].show();
-                    });
-                });
-                ///
-                this.doms['deletemodel'] = this.addButton(function (dom) {
-                    dom.value = 'DeleteModel';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("ondeletemodel");
-                    });
-                    dom.disabled = true;
-                });
-                ///
-                this.dialogs['config'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showconfig', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('onconfig', data);
-                    });
-                });
-                this.doms['config'] = this.addButton(function (dom) {
-                    dom.value = 'Config';
-                    dom.addEventListener("click", function () {
-                        // call onshowdownload
-                        _this.dialogs['config'].show();
-                    });
-                });
-                ///
-                this.doms['restore'] = this.addButton(function (dom) {
-                    dom.value = 'Restore';
-                    // to open the file dialog
-                    var fileInput = document.createElement("input");
-                    fileInput.type = 'file';
-                    fileInput.style.display = 'none';
-                    fileInput.onchange = function (e) {
-                        var files = fileInput.files;
-                        if (files.length != 1) {
-                            return false;
-                        }
-                        var file = files[0];
-                        var reader = new FileReader();
-                        reader.onload = function (e) {
-                            var data = reader.result;
-                            _this.screen.dispatchCallback('onrestore', data);
-                        };
-                        reader.readAsText(file);
-                    };
-                    dom.appendChild(fileInput);
-                    dom.addEventListener("click", function () { return fileInput.click(); });
-                });
-            }
-            ControlPanel.prototype.addButton = function (callback) {
-                var dom = document.createElement("input");
-                dom.type = "button";
-                callback(dom);
-                this.panelDom.appendChild(dom);
-                return dom;
-            };
-            ControlPanel.prototype.addDialog = function (callback) {
-                var ctrl = new ControlDialog(this.screen.targetDom);
-                callback(ctrl);
-                this.screen.targetDom.appendChild(ctrl.baseDom);
-                return ctrl;
-            };
-            ControlPanel.prototype.selectModeUI = function (mode) {
-                for (var key in this.toggleDom) {
-                    this.toggleDom[key].disabled = false;
-                }
-                this.toggleDom[mode].disabled = true;
-            };
-            ControlPanel.prototype.changeUIStatus = function (name, callback) {
-                var dom = this.doms[name];
-                if (dom == null)
-                    return false;
-                return callback(dom);
-            };
-            return ControlPanel;
-        })();
-        var ScreenController = (function (_super) {
-            __extends(ScreenController, _super);
-            function ScreenController(parentDomId, config) {
-                var _this = this;
-                _super.call(this);
-                //
-                this.loadingDom = null;
-                //
-                var parentDom = document.getElementById(parentDomId);
-                if (parentDom == null) {
-                    console.log("parent dom was not found...");
-                }
-                this.targetDom = parentDom ? parentDom : document.body;
-                //
-                this.width = this.targetDom.offsetWidth;
-                this.height = this.targetDom.offsetHeight;
-                this.aspect = this.width / this.height;
-                //
-                if (config.loadingImagePath) {
-                    this.loadingDom = document.createElement("img");
-                    this.loadingDom.src = config.loadingImagePath;
-                    this.loadingDom.style.position = 'absolute';
-                    this.loadingDom.style.padding = "10px";
-                    this.loadingDom.style.borderRadius = "5px";
-                    this.loadingDom.style.backgroundColor = "#fff";
-                    this.loadingDom.style.display = "none";
-                    this.targetDom.appendChild(this.loadingDom);
-                }
-                //
-                this.controlPanel = new ControlPanel(this);
-                //
-                window.addEventListener('resize', function () { return _this.onResize(); }, false);
-            }
-            ScreenController.prototype.selectModeUI = function (mode) {
-                this.controlPanel.selectModeUI(mode);
-            };
-            ScreenController.prototype.changeUIStatus = function (name, callback) {
-                return this.controlPanel.changeUIStatus(name, callback);
-            };
-            ScreenController.prototype.appendChild = function (dom) {
-                this.targetDom.appendChild(dom);
-            };
-            ScreenController.prototype.onResize = function () {
-                var w = this.targetDom.offsetWidth;
-                var h = this.targetDom.offsetHeight;
-                if (this.width == w && this.height == h) {
-                    return false;
-                }
-                // update size
-                this.width = w;
-                this.height = h;
-                this.aspect = this.width / this.height;
-                //
-                this.dispatchCallback('resize');
-                return false;
-            };
-            ScreenController.prototype.showLoadingDom = function () {
-                if (this.loadingDom.style) {
-                    this.loadingDom.style.display = "inline";
-                    var x = Math.abs(this.targetDom.offsetWidth - this.loadingDom.offsetWidth) / 2;
-                    var y = Math.abs(this.targetDom.offsetHeight - this.loadingDom.offsetHeight) / 2;
-                    this.loadingDom.style.left = x + 'px';
-                    this.loadingDom.style.top = y + 'px';
-                }
-            };
-            ScreenController.prototype.hideLoadingDom = function () {
-                if (this.loadingDom.style) {
-                    this.loadingDom.style.display = "none";
-                }
-            };
-            return ScreenController;
-        })(EventDispatcher);
-        Screen.ScreenController = ScreenController;
-    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
-})(PoseEditor || (PoseEditor = {}));
-var PoseEditor;
-(function (PoseEditor) {
     var TimeMachine;
     (function (TimeMachine) {
         var Action = (function () {
@@ -1466,7 +1515,7 @@ var PoseEditor;
 /// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
 /// <reference path="time_machine.ts"/>
-/// <reference path="event_dispatcher.ts"/>
+/// <reference path="action_controller.ts"/>
 /// <reference path="etc.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
@@ -1489,12 +1538,12 @@ var PoseEditor;
             this.currentValues = {};
             // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
-            this.eventDispatcher = new PoseEditor.EventDispatcher();
+            this.actionController = new PoseEditor.ActionController();
             this.history = new PoseEditor.TimeMachine.Machine(this.screen);
             // setup screen
             this.screen.addCallback('resize', function () { return _this.onResize(); });
             this.screen.addCallback('onmodeclick', function (m) {
-                _this.eventDispatcher.onModeSelect(m, _this.screen);
+                _this.actionController.onModeSelect(m, _this.screen);
             });
             this.screen.addCallback('onundo', function () { return _this.history.undo(); });
             this.screen.addCallback('onredo', function () { return _this.history.redo(); });
@@ -1523,7 +1572,7 @@ var PoseEditor;
                 _this.onRestore(data);
             });
             // setup
-            this.eventDispatcher.onModeSelect(0 /* Camera */, this.screen);
+            this.actionController.onModeSelect(0 /* Camera */, this.screen);
             //
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
@@ -1558,6 +1607,10 @@ var PoseEditor;
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
             if (config.isDebugging) {
+                this.axisHelper = new THREE.AxisHelper(50.0);
+                this.scene.add(this.axisHelper);
+            }
+            if (config.isDebugging) {
                 // bone: debug information tag
                 this.boneDebugDom = document.createElement("div");
                 this.boneDebugDom.style.display = "none";
@@ -1567,9 +1620,6 @@ var PoseEditor;
                 this.boneDebugDom.style.opacity = "0.8";
                 this.boneDebugDom.style.width = "300px";
                 this.screen.targetDom.appendChild(this.boneDebugDom);
-                // debug
-                var axisHelper = new THREE.AxisHelper(50.0);
-                this.scene.add(axisHelper);
             }
             //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
@@ -1586,7 +1636,7 @@ var PoseEditor;
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
             //
-            this.eventDispatcher.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
+            this.actionController.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
             // jump into loop
             this.renderLoop();
         }
@@ -1748,7 +1798,7 @@ var PoseEditor;
             this.scene2d.updateMatrixWorld(true);
             this.models.forEach(function (model) {
                 if (model.isReady()) {
-                    _this.eventDispatcher.execActions(function (act) { return act.update(model); });
+                    _this.actionController.execActions(function (act) { return act.update(model); });
                     //
                     model.availableBones.forEach(function (bone) {
                         var index = bone.userData.index;
