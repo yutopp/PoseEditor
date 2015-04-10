@@ -131,6 +131,9 @@ module PoseEditor {
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
             this.controls.enabled = false;
+            this.controls.addEventListener('change', () => {
+                this.transformCtrl.update();
+            });
 
             //
             this.transformCtrl

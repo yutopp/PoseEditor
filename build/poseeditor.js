@@ -1626,6 +1626,9 @@ var PoseEditor;
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
             this.controls.enabled = false;
+            this.controls.addEventListener('change', function () {
+                _this.transformCtrl.update();
+            });
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.scene.add(this.transformCtrl);
