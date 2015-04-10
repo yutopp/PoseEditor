@@ -1607,6 +1607,10 @@ var PoseEditor;
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
             if (config.isDebugging) {
+                this.axisHelper = new THREE.AxisHelper(50.0);
+                this.scene.add(this.axisHelper);
+            }
+            if (config.isDebugging) {
                 // bone: debug information tag
                 this.boneDebugDom = document.createElement("div");
                 this.boneDebugDom.style.display = "none";
@@ -1616,9 +1620,6 @@ var PoseEditor;
                 this.boneDebugDom.style.opacity = "0.8";
                 this.boneDebugDom.style.width = "300px";
                 this.screen.targetDom.appendChild(this.boneDebugDom);
-                // debug
-                var axisHelper = new THREE.AxisHelper(50.0);
-                this.scene.add(axisHelper);
             }
             //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);

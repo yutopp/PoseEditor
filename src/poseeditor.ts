@@ -110,6 +110,11 @@ module PoseEditor {
             this.scene.add(this.gridHelper);
 
             if ( config.isDebugging ) {
+                this.axisHelper = new THREE.AxisHelper(50.0);
+                this.scene.add(this.axisHelper);
+            }
+
+            if ( config.isDebugging ) {
                 // bone: debug information tag
                 this.boneDebugDom = document.createElement("div");
                 this.boneDebugDom.style.display = "none";
@@ -119,10 +124,6 @@ module PoseEditor {
                 this.boneDebugDom.style.opacity = "0.8";
                 this.boneDebugDom.style.width = "300px";
                 this.screen.targetDom.appendChild(this.boneDebugDom);
-
-                // debug
-                var axisHelper = new THREE.AxisHelper(50.0);
-                this.scene.add(axisHelper);
             }
 
             //
@@ -759,6 +760,7 @@ module PoseEditor {
         private transformCtrl: THREE.TransformControls;
         private controls: THREE.OrbitControls;
         private gridHelper: THREE.GridHelper;
+        private axisHelper: THREE.AxisHelper;
         public cursorHelper: CursorPositionHelper;
 
         //
