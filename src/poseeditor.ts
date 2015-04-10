@@ -9,7 +9,7 @@
 /// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
 /// <reference path="time_machine.ts"/>
-/// <reference path="event_dispatcher.ts"/>
+/// <reference path="action_controller.ts"/>
 /// <reference path="etc.ts"/>
 
 module PoseEditor {
@@ -23,13 +23,13 @@ module PoseEditor {
         ) {
             // setup screen
             this.screen = new Screen.ScreenController(parentDomId, config);
-            this.eventDispatcher = new EventDispatcher();
+            this.actionController = new ActionController();
             this.history = new TimeMachine.Machine(this.screen);
 
             // setup screen
             this.screen.addCallback('resize', () => this.onResize());
             this.screen.addCallback('onmodeclick', (m: Screen.Mode) => {
-                this.eventDispatcher.onModeSelect(m, this.screen);
+                this.actionController.onModeSelect(m, this.screen);
             });
             this.screen.addCallback('onundo', () => this.history.undo());
             this.screen.addCallback('onredo', () => this.history.redo());
@@ -64,7 +64,7 @@ module PoseEditor {
             });
 
             // setup
-            this.eventDispatcher.onModeSelect(Screen.Mode.Camera, this.screen);
+            this.actionController.onModeSelect(Screen.Mode.Camera, this.screen);
 
             //
             this.modelInfoTable = modelInfoTable;
@@ -150,7 +150,7 @@ module PoseEditor {
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
 
             //
-            this.eventDispatcher.setup(
+            this.actionController.setup(
                 this,
                 this.transformCtrl,
                 this.controls,
@@ -380,7 +380,7 @@ module PoseEditor {
             this.scene2d.updateMatrixWorld(true);
             this.models.forEach((model) => {
                 if ( model.isReady() ) {
-                    this.eventDispatcher.execActions((act: Action) => act.update(model));
+                    this.actionController.execActions((act: Action) => act.update(model));
 
                     //
                     model.availableBones.forEach((bone) => {
@@ -736,7 +736,7 @@ module PoseEditor {
 
         //
         private screen: Screen.ScreenController;
-        private eventDispatcher: EventDispatcher;
+        private actionController: ActionController;
         public history: TimeMachine.Machine;
 
         //
