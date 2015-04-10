@@ -309,7 +309,7 @@ var PoseEditor;
             var _this = this;
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(0.6);
+            this.transformCtrl.setSize(0.8);
             this.transformCtrl.addEventListener('change', function () { return _this.onTransformCtrl(); });
             this.transformCtrl.detach();
             this.editor.showAllMarkerSprite();
@@ -357,6 +357,7 @@ var PoseEditor;
             this.editor.cancelAllMarkerSprite();
         };
         FKAction.prototype.onTransformCtrl = function () {
+            this.transformCtrl.update();
             if (this.transformCtrl.axis != null) {
                 this.isOnManipurator = true;
                 if (this.currentJointMarker != null) {
@@ -379,7 +380,6 @@ var PoseEditor;
             else {
                 this.isOnManipurator = false;
             }
-            this.transformCtrl.update();
         };
         return FKAction;
     })(PoseEditor.Action);

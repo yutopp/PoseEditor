@@ -16,7 +16,7 @@ module PoseEditor {
         public onActive(): void {
             this.transformCtrl.setMode("rotate");
             this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(0.6);
+            this.transformCtrl.setSize(0.8);
             this.transformCtrl.addEventListener('change', () => this.onTransformCtrl());
 
             this.transformCtrl.detach();
@@ -77,6 +77,8 @@ module PoseEditor {
         }
 
         private onTransformCtrl() {
+            this.transformCtrl.update();
+
             if ( this.transformCtrl.axis != null ) {
                 this.isOnManipurator = true;
 
@@ -104,8 +106,6 @@ module PoseEditor {
             } else {
                 this.isOnManipurator = false;
             }
-
-            this.transformCtrl.update();
         }
 
         private transformCtrl: THREE.TransformControls;
