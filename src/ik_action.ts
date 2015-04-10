@@ -52,10 +52,8 @@ module PoseEditor {
         public onDoubleTap(e: any, isTouch: boolean): boolean {
             if (this.currentJointMarker == null) return true;
 
-            var model = this.currentJointMarker.userData.ownerModel;
             var index = this.currentJointMarker.userData.jointIndex;
-
-            model.toggleIKPropagation(index);
+            this.model.toggleIKPropagation(index);
 
             return false;
         }

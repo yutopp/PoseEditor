@@ -91,12 +91,13 @@ var PoseEditor;
             }
         };
         ActionController.prototype.dispatchActions = function (func) {
-            var i;
-            for (i = this.currentActions.length - 1; i >= 0; --i) {
+            var i = this.currentActions.length - 1;
+            for (; i >= 0; --i) {
                 var doNextAction = func(this.currentActions[i], true);
                 if (!doNextAction)
                     break;
             }
+            --i;
             for (; i >= 0; --i) {
                 func(this.currentActions[i], false);
             }
@@ -976,9 +977,8 @@ var PoseEditor;
         IKAction.prototype.onDoubleTap = function (e, isTouch) {
             if (this.currentJointMarker == null)
                 return true;
-            var model = this.currentJointMarker.userData.ownerModel;
             var index = this.currentJointMarker.userData.jointIndex;
-            model.toggleIKPropagation(index);
+            this.model.toggleIKPropagation(index);
             return false;
         };
         IKAction.prototype.update = function (model) {

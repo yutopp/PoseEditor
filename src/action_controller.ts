@@ -108,12 +108,13 @@ module PoseEditor {
         }
 
         private dispatchActions(func: <T extends Action>(act: T, isActive: boolean) => boolean) {
-            var i: number;
-            for( i=this.currentActions.length-1; i>=0; --i ) {
+            var i = this.currentActions.length-1;
+            for( ; i>=0; --i ) {
                 var doNextAction = func(this.currentActions[i], true);
                 if (!doNextAction) break;
             }
 
+            --i;
             for( ; i>=0; --i ) {
                 func(this.currentActions[i], false);
             }
