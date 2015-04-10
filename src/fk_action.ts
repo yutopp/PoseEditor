@@ -36,7 +36,7 @@ module PoseEditor {
             var m = this.editor.selectJointMarker(e, isTouch);
             if ( m == null ) {
                 this.releaseJoint();
-                return false;
+                return true;
             }
 
             this.catchJoint(m);
