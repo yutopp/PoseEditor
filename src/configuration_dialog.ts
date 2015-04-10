@@ -135,7 +135,7 @@ module PoseEditor {
                             this.addElement(
                                 name,
                                 (wrapperDom: HTMLElement) => {
-                                    // construct radio boxes
+                                    // construct select/options
                                     var num = <number>v.value.length;
 
                                     var selectDom

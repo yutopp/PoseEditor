@@ -5,7 +5,7 @@ var PoseEditor;
             /// ==================================================
             /// Stack of Actions (execute from top to bottom)
             /// ↑ top     | ...    | index: n
-            ///            | ...    | index: 1
+            ///           | ...    | index: 1
             /// ↓ bottom  | Camera | index: 0
             /// ==================================================
             this.currentActions = [];
@@ -472,7 +472,7 @@ var PoseEditor;
                                 break;
                             case 'select':
                                 _this.addElement(name, function (wrapperDom) {
-                                    // construct radio boxes
+                                    // construct select/options
                                     var num = v.value.length;
                                     var selectDom = document.createElement("select");
                                     selectDom.name = 'poseeditor-' + name;

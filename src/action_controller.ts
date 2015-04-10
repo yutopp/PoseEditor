@@ -158,7 +158,7 @@ module PoseEditor {
         /// ==================================================
         /// Stack of Actions (execute from top to bottom)
         /// ↑ top     | ...    | index: n
-        ///            | ...    | index: 1
+        ///           | ...    | index: 1
         /// ↓ bottom  | Camera | index: 0
         /// ==================================================
         private currentActions: Array<Action> = [];
