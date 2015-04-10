@@ -26,15 +26,18 @@ module PoseEditor {
 
         public onDestroy(): void {
             this.releaseJoint();
-            this.transformCtrl.detach();
 
             this.editor.hideAllMarkerSprite();
         }
 
         public onTapStart(e: any, isTouch: boolean): boolean {
-            var m = this.editor.selectJointMarker(e, isTouch)
-            console.log(m);
-            if (m == null) return true;
+            if ( this.isOnManipurator ) return false;
+
+            var m = this.editor.selectJointMarker(e, isTouch);
+            if ( m == null ) {
+                this.releaseJoint();
+                return false;
+            }
 
             this.catchJoint(m);
 
@@ -67,11 +70,15 @@ module PoseEditor {
             if (this.currentJointMarker == null) return;
 
             this.currentJointMarker = null;
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
+
             this.editor.cancelAllMarkerSprite();
         }
 
         private onTransformCtrl() {
             if ( this.transformCtrl.axis != null ) {
+                this.isOnManipurator = true;
 
                 if ( this.currentJointMarker != null ) {
                     // local rotation
@@ -93,12 +100,16 @@ module PoseEditor {
                     this.bone.quaternion.copy(to_q);
                     this.bone.updateMatrixWorld(true);
                 }
+
+            } else {
+                this.isOnManipurator = false;
             }
 
             this.transformCtrl.update();
         }
 
         private transformCtrl: THREE.TransformControls;
+        private isOnManipurator: boolean = false;
 
         private currentJointMarker: THREE.Object3D;
         private model: Model;

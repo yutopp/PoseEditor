@@ -299,6 +299,7 @@ var PoseEditor;
         __extends(FKAction, _super);
         function FKAction(e, ctrls) {
             _super.call(this, e);
+            this.isOnManipurator = false;
             this.transformCtrl = ctrls;
         }
         FKAction.prototype.name = function () {
@@ -315,14 +316,16 @@ var PoseEditor;
         };
         FKAction.prototype.onDestroy = function () {
             this.releaseJoint();
-            this.transformCtrl.detach();
             this.editor.hideAllMarkerSprite();
         };
         FKAction.prototype.onTapStart = function (e, isTouch) {
+            if (this.isOnManipurator)
+                return false;
             var m = this.editor.selectJointMarker(e, isTouch);
-            console.log(m);
-            if (m == null)
-                return true;
+            if (m == null) {
+                this.releaseJoint();
+                return false;
+            }
             this.catchJoint(m);
             return false;
         };
@@ -349,10 +352,13 @@ var PoseEditor;
             if (this.currentJointMarker == null)
                 return;
             this.currentJointMarker = null;
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
             this.editor.cancelAllMarkerSprite();
         };
         FKAction.prototype.onTransformCtrl = function () {
             if (this.transformCtrl.axis != null) {
+                this.isOnManipurator = true;
                 if (this.currentJointMarker != null) {
                     // local rotation
                     var t_r = this.bone.quaternion.clone();
@@ -369,6 +375,9 @@ var PoseEditor;
                     this.bone.quaternion.copy(to_q);
                     this.bone.updateMatrixWorld(true);
                 }
+            }
+            else {
+                this.isOnManipurator = false;
             }
             this.transformCtrl.update();
         };
@@ -1142,17 +1151,13 @@ var PoseEditor;
                         _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
                     });
                 });
-                /*
                 //
-                this.addButton((dom) => {
+                this.toggleDom['fk'] = this.addButton(function (dom) {
                     dom.value = 'FK';
-                    dom.addEventListener("click", () => {
-                        this.screen.dispatchCallback("onmodeclick", Mode.FK);
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", 2 /* FK */);
                     });
-
-                    this.toggleDom['fk'] = dom;
                 });
-                */
                 //
                 this.toggleDom['ik'] = this.addButton(function (dom) {
                     dom.value = 'IK';

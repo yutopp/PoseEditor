@@ -371,17 +371,13 @@ module PoseEditor {
                     });
                 });
 
-                /*
                 //
-                this.addButton((dom) => {
+                this.toggleDom['fk'] = this.addButton((dom) => {
                     dom.value = 'FK';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onmodeclick", Mode.FK);
                     });
-
-                    this.toggleDom['fk'] = dom;
                 });
-                */
 
                 //
                 this.toggleDom['ik'] = this.addButton((dom) => {

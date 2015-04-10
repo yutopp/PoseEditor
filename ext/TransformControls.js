@@ -49,7 +49,7 @@
 		this.depthTest = false;
 		this.depthWrite = false;
 		this.transparent = true;
-		this.linewidth = 10;
+		this.linewidth = 4;
 
 		this.setValues( parameters );
 
