@@ -161,9 +161,10 @@ var PoseEditor;
             if (this.currentJointMarker == null) {
                 return true; // pass events to other action
             }
+            this.beforeModelStatus = this.model.modelData();
             if (isLeftClick) {
                 this.isMoving = true;
-                this.beforeModelStatus = this.model.modelData();
+                this.hideManipurator();
             }
             else {
                 var index = this.currentJointMarker.userData.jointIndex;
@@ -180,13 +181,15 @@ var PoseEditor;
             this.isMoving = false;
             // record action
             var currentModelStatus = this.model.modelData();
+            // TODO:
+            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
             this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
+            // }
             return false;
         };
         BoneAction.prototype.onDoubleTap = function (e, isTouch) {
             if (this.currentJointMarker == null)
                 return true;
-            this.copyMatrix();
             this.transformCtrl.attach(this.currentJointMarker);
             this.transformCtrl.update();
             return false;
@@ -195,19 +198,12 @@ var PoseEditor;
             this.transformCtrl.update();
             if (this.currentJointMarker == null || !this.isMoving)
                 return true;
-            this.copyMatrix();
             if (model == this.currentJointMarker.userData.ownerModel) {
                 if (this.curPos != null) {
                     this.ik(this.bone, this.curPos);
                 }
             }
             return true;
-        };
-        BoneAction.prototype.copyMatrix = function () {
-            // set initial pose of the bone
-            this.bone.updateMatrixWorld(true);
-            var to_q = this.bone.getWorldQuaternion(null);
-            this.currentJointMarker.quaternion.copy(to_q);
         };
         BoneAction.prototype.catchJoint = function (m) {
             this.currentJointMarker = m;
@@ -226,8 +222,7 @@ var PoseEditor;
         BoneAction.prototype.moving = function (e, isTouch) {
             if (this.currentJointMarker == null || !this.isMoving)
                 return true;
-            this.transformCtrl.detach();
-            this.isOnManipurator = false;
+            this.hideManipurator();
             var pos = this.editor.cursorToWorld(e, isTouch);
             this.curPos = this.editor.cursorHelper.move(pos);
             return false;
@@ -235,9 +230,12 @@ var PoseEditor;
         BoneAction.prototype.releaseJoint = function () {
             this.currentJointMarker = null;
             this.isMoving = false;
+            this.hideManipurator();
+            this.editor.cancelAllMarkerSprite();
+        };
+        BoneAction.prototype.hideManipurator = function () {
             this.transformCtrl.detach();
             this.isOnManipurator = false;
-            this.editor.cancelAllMarkerSprite();
         };
         // CCD IK
         BoneAction.prototype.ik = function (selected_bone, target_pos) {
@@ -1261,7 +1259,6 @@ var PoseEditor;
                     jointIndex: index,
                     ownerModel: _this
                 };
-                //markerMesh.visible = true;
                 markerMesh.visible = false;
                 _this.jointMarkerMeshes[index] = markerMesh; // TODO: rename
                 _this.scene.add(markerMesh);
@@ -1299,6 +1296,10 @@ var PoseEditor;
                 //
                 var markerMesh = _this.jointMarkerMeshes[index];
                 markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
+                //
+                bone.updateMatrixWorld(true);
+                var to_q = bone.getWorldQuaternion(null);
+                markerMesh.quaternion.copy(to_q);
                 //
                 _this.skeletonHelper.update();
             });
