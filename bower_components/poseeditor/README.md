@@ -12,6 +12,7 @@ Please include these files.
 #{bower_components}/poseeditor/build/poseeditor.js
 #{bower_components}/poseeditor/ext/OrbitControls.js
 #{bower_components}/poseeditor/ext/TransformControls.js
+#{bower_components}/poseeditor/styles/poseeditor.css
 ```
 For detail to `index.html`.
 
@@ -29,6 +30,7 @@ bower install
 tsd update
 ./b.sh  # build sources
 ./s.sh  # start server
+./t.sh  # build scss to css with Sass(optional)
 ```
 Then, access `http://localhost:30000/`!
 

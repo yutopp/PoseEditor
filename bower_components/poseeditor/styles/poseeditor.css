@@ -1,0 +1,208 @@
+.poseeditor-default {
+  position: relative;
+}
+.poseeditor-default .control-panel {
+  background-color: #555;
+  opacity: 0.8;
+  padding: 0 2px;
+}
+.poseeditor-default .control-panel input[type="button"] {
+  width: 100%;
+  border-radius: 2px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+.poseeditor-default .control-panel input[type="button"].modes {
+  color: #fff;
+  background-color: #4ca0ea;
+  border: 1px solid #1E88E5;
+}
+.poseeditor-default .control-panel input[type="button"].modes:hover {
+  border: 1px solid #0b385f;
+  background-color: #10538d;
+}
+.poseeditor-default .control-panel input[type="button"].modes:disabled {
+  color: #777;
+  background-color: #061d31;
+  border: 1px solid #061d31;
+}
+.poseeditor-default .control-panel input[type="button"].modes:disabled.hover {
+  background-color: #061d31;
+}
+.poseeditor-default .control-panel input[type="button"].undo {
+  color: #fff;
+  background-color: #7b7b7b;
+  border: 1px solid #616161;
+}
+.poseeditor-default .control-panel input[type="button"].undo:hover {
+  border: 1px solid #141414;
+  background-color: #2e2e2e;
+}
+.poseeditor-default .control-panel input[type="button"].undo:disabled {
+  color: #777;
+  background-color: black;
+  border: 1px solid black;
+}
+.poseeditor-default .control-panel input[type="button"].undo:disabled.hover {
+  background-color: black;
+}
+.poseeditor-default .control-panel input[type="button"].redo {
+  color: #fff;
+  background-color: #7b7b7b;
+  border: 1px solid #616161;
+}
+.poseeditor-default .control-panel input[type="button"].redo:hover {
+  border: 1px solid #141414;
+  background-color: #2e2e2e;
+}
+.poseeditor-default .control-panel input[type="button"].redo:disabled {
+  color: #777;
+  background-color: black;
+  border: 1px solid black;
+}
+.poseeditor-default .control-panel input[type="button"].redo:disabled.hover {
+  background-color: black;
+}
+.poseeditor-default .control-panel input[type="button"].add-model {
+  color: #fff;
+  background-color: #5bbb60;
+  border: 1px solid #43A047;
+}
+.poseeditor-default .control-panel input[type="button"].add-model:hover {
+  border: 1px solid #163417;
+  background-color: #255827;
+}
+.poseeditor-default .control-panel input[type="button"].add-model:disabled {
+  color: #777;
+  background-color: #071007;
+  border: 1px solid #071007;
+}
+.poseeditor-default .control-panel input[type="button"].add-model:disabled.hover {
+  background-color: #071007;
+}
+.poseeditor-default .control-panel input[type="button"].remove-model {
+  color: #fff;
+  background-color: #eb6562;
+  border: 1px solid #E53935;
+}
+.poseeditor-default .control-panel input[type="button"].remove-model:hover {
+  border: 1px solid #72110f;
+  background-color: #9f1815;
+}
+.poseeditor-default .control-panel input[type="button"].remove-model:disabled {
+  color: #777;
+  background-color: #450a09;
+  border: 1px solid #450a09;
+}
+.poseeditor-default .control-panel input[type="button"].remove-model:disabled.hover {
+  background-color: #450a09;
+}
+.poseeditor-default .control-panel input[type="button"].saving {
+  color: #fff;
+  background-color: #ff8623;
+  border: 1px solid #EF6C00;
+}
+.poseeditor-default .control-panel input[type="button"].saving:hover {
+  border: 1px solid #562700;
+  background-color: #893e00;
+}
+.poseeditor-default .control-panel input[type="button"].saving:disabled {
+  color: #777;
+  background-color: #231000;
+  border: 1px solid #231000;
+}
+.poseeditor-default .control-panel input[type="button"].saving:disabled.hover {
+  background-color: #231000;
+}
+.poseeditor-default .control-panel input[type="button"].config {
+  color: #fff;
+  background-color: #7b7b7b;
+  border: 1px solid #616161;
+}
+.poseeditor-default .control-panel input[type="button"].config:hover {
+  border: 1px solid #141414;
+  background-color: #2e2e2e;
+}
+.poseeditor-default .control-panel input[type="button"].config:disabled {
+  color: #777;
+  background-color: black;
+  border: 1px solid black;
+}
+.poseeditor-default .control-panel input[type="button"].config:disabled.hover {
+  background-color: black;
+}
+.poseeditor-default .control-panel input[type="button"].half {
+  width: 50%;
+  float: left;
+}
+.poseeditor-default .control-panel hr {
+  margin: 2px auto 2px auto;
+}
+.poseeditor-default .loading {
+  border-radius: 5px;
+  background-color: #fff;
+}
+.poseeditor-default .config-dialog {
+  opacity: 0.9;
+  border-radius: 5px;
+  background-color: #fff;
+}
+.poseeditor-default .config-dialog .container {
+  height: 100%;
+  margin-bottom: -38px;
+}
+.poseeditor-default .config-dialog .selection {
+  position: relative;
+  width: 100%;
+  height: 38px;
+  text-align: center;
+}
+.poseeditor-default .config-dialog .selection input[type="button"] {
+  height: 38px;
+  font-weight: bold;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].ok {
+  width: 180px;
+  margin: 0 auto;
+  color: #fff;
+  background-color: #5bbb60;
+  border: 1px solid #43A047;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].ok:hover {
+  border: 1px solid #163417;
+  background-color: #255827;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].ok:disabled {
+  color: #777;
+  background-color: #071007;
+  border: 1px solid #071007;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].ok:disabled.hover {
+  background-color: #071007;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].cancel {
+  position: absolute;
+  right: 0;
+  width: 100px;
+  color: #fff;
+  background-color: #7b7b7b;
+  border: 1px solid #616161;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].cancel:hover {
+  border: 1px solid #141414;
+  background-color: #2e2e2e;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].cancel:disabled {
+  color: #777;
+  background-color: black;
+  border: 1px solid black;
+}
+.poseeditor-default .config-dialog .selection input[type="button"].cancel:disabled.hover {
+  background-color: black;
+}
+
+/*# sourceMappingURL=poseeditor.css.map */

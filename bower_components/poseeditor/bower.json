@@ -19,6 +19,7 @@
     "tests",
     "src",
     "js",
+    "sass",
     "typing",
     "*.sh",
     "*.json",
