@@ -242,7 +242,6 @@ module PoseEditor {
                     ownerModel: this,
                 };
 
-                //markerMesh.visible = true;
                 markerMesh.visible = false;
                 this.jointMarkerMeshes[index] = markerMesh;    // TODO: rename
                 this.scene.add(markerMesh);
@@ -289,6 +288,11 @@ module PoseEditor {
                 //
                 var markerMesh = this.jointMarkerMeshes[index];
                 markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
+
+                //
+                bone.updateMatrixWorld(true);
+                var to_q = bone.getWorldQuaternion(null)
+                markerMesh.quaternion.copy(to_q);
 
                 //
                 this.skeletonHelper.update();

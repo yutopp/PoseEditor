@@ -36,10 +36,11 @@ module PoseEditor {
             if (this.currentJointMarker == null) {
                 return true; // pass events to other action
             }
+            this.beforeModelStatus = this.model.modelData();
 
             if (isLeftClick) {
                 this.isMoving = true;
-                this.beforeModelStatus = this.model.modelData();
+                this.hideManipurator();
 
             } else {
                 var index = this.currentJointMarker.userData.jointIndex;
@@ -59,19 +60,20 @@ module PoseEditor {
 
             // record action
             var currentModelStatus = this.model.modelData();
+            // TODO:
+            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
             this.editor.history.didAction( new TimeMachine.ChangeModelStatusAction(
                 this.model,
                 this.beforeModelStatus,
                 currentModelStatus
             ));
+            // }
 
             return false;
         }
 
         public onDoubleTap(e: any, isTouch: boolean): boolean {
             if (this.currentJointMarker == null) return true;
-
-            this.copyMatrix();
 
             this.transformCtrl.attach(this.currentJointMarker);
             this.transformCtrl.update();
@@ -82,7 +84,6 @@ module PoseEditor {
         public update(model: Model): boolean {
             this.transformCtrl.update();
             if (this.currentJointMarker == null || !this.isMoving) return true;
-            this.copyMatrix();
 
             if (model == this.currentJointMarker.userData.ownerModel) {
                 if (this.curPos != null) {
@@ -91,15 +92,6 @@ module PoseEditor {
             }
 
             return true;
-        }
-
-
-        private copyMatrix() {
-            // set initial pose of the bone
-            this.bone.updateMatrixWorld(true);
-
-            var to_q = this.bone.getWorldQuaternion(null)
-            this.currentJointMarker.quaternion.copy(to_q);
         }
 
         private catchJoint(m: THREE.Object3D) {
@@ -122,8 +114,7 @@ module PoseEditor {
 
         private moving(e: any, isTouch: boolean) {
             if (this.currentJointMarker == null || !this.isMoving) return true;
-            this.transformCtrl.detach();
-            this.isOnManipurator = false;
+            this.hideManipurator();
 
             var pos = this.editor.cursorToWorld(e, isTouch);
             this.curPos = this.editor.cursorHelper.move(pos);
@@ -135,12 +126,15 @@ module PoseEditor {
             this.currentJointMarker = null;
             this.isMoving = false;
 
-            this.transformCtrl.detach();
-            this.isOnManipurator = false;
+            this.hideManipurator();
 
             this.editor.cancelAllMarkerSprite();
         }
 
+        private hideManipurator() {
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
+        }
 
         // CCD IK
         private ik(selected_bone: THREE.Bone, target_pos: THREE.Vector3) {
