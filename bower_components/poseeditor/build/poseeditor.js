@@ -156,18 +156,25 @@ var PoseEditor;
         BoneAction.prototype.onTapStart = function (e, isTouch) {
             if (this.isOnManipurator)
                 return false;
+            var isLeftClick = isTouch ? true : (e.button == 0);
             this.catchJoint(this.editor.selectJointMarker(e, isTouch));
-            if (this.currentJointMarker == null)
+            if (this.currentJointMarker == null) {
                 return true; // pass events to other action
-            this.isMoving = true;
-            this.beforeModelStatus = this.model.modelData();
+            }
+            if (isLeftClick) {
+                this.isMoving = true;
+                this.beforeModelStatus = this.model.modelData();
+            }
+            else {
+                var index = this.currentJointMarker.userData.jointIndex;
+                this.model.toggleIKPropagation(index);
+            }
             return false;
         };
         BoneAction.prototype.onMoving = function (e, isTouch) {
             return this.moving(e, isTouch);
         };
         BoneAction.prototype.onTapEnd = function (e, isTouch) {
-            console.log("end");
             if (this.currentJointMarker == null || !this.isMoving)
                 return true;
             this.isMoving = false;
@@ -179,8 +186,9 @@ var PoseEditor;
         BoneAction.prototype.onDoubleTap = function (e, isTouch) {
             if (this.currentJointMarker == null)
                 return true;
-            var index = this.currentJointMarker.userData.jointIndex;
-            this.model.toggleIKPropagation(index);
+            this.copyMatrix();
+            this.transformCtrl.attach(this.currentJointMarker);
+            this.transformCtrl.update();
             return false;
         };
         BoneAction.prototype.update = function (model) {
@@ -210,9 +218,6 @@ var PoseEditor;
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
-            this.copyMatrix();
-            this.transformCtrl.attach(this.currentJointMarker);
-            this.transformCtrl.update();
             //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
