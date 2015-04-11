@@ -89,7 +89,6 @@ module PoseEditor {
 
             //
             this.scene2d = new THREE.Scene();
-            this.camera2d = new THREE.OrthographicCamera(0, this.screen.width, 0, this.screen.height, 0.001, 10000);
 
             var propForRenderer: any = {
                 preserveDrawingBuffer: true
@@ -242,7 +241,7 @@ module PoseEditor {
 
             var ab = pos.clone().sub(this.camera.position).normalize();
             var flattened = this.models.map((v) => {
-                return v.joint_spheres;
+                return v.jointMarkerMeshes;
             }).reduce((a, b) => {
                 return a.concat(b);
             });
@@ -290,11 +289,7 @@ module PoseEditor {
         public cancelAllMarkerSprite() {
             // update marker sprite color (to not selected color)
             this.models.forEach((model) => {
-                model.joint_markers.forEach((sprite) => {
-                    if (sprite) {
-                        sprite.material.color.setHex(model.normalColor);
-                    }
-                })
+                model.cancelMarkerSelection();
             });
         }
 
@@ -303,25 +298,18 @@ module PoseEditor {
 
             var model = markerMesh.userData.ownerModel;
             var index = markerMesh.userData.jointIndex;
-            var sprite = model.joint_markers[index];
-            if (sprite) {
-                sprite.material.color.setHex(model.selectedColor);
-            }
+            model.selectMarker(index);
         }
 
         public hideAllMarkerSprite() {
             this.models.forEach((model) => {
-                model.joint_markers.forEach((marker) => {
-                    marker.visible = false;
-                })
+                model.hideMarker();
             });
         }
 
         public showAllMarkerSprite() {
             this.models.forEach((model) => {
-                model.joint_markers.forEach((marker) => {
-                    marker.visible = true;
-                })
+                model.showMarker();
             });
         }
 
@@ -330,10 +318,6 @@ module PoseEditor {
 
             this.camera.aspect = this.screen.aspect;
             this.camera.updateProjectionMatrix();
-
-            this.camera2d.right = this.screen.width;
-            this.camera2d.bottom = this.screen.height;
-            this.camera2d.updateProjectionMatrix();
         }
 
 
@@ -384,23 +368,9 @@ module PoseEditor {
             this.scene2d.updateMatrixWorld(true);
             this.models.forEach((model) => {
                 if ( model.isReady() ) {
+                    model.update();
+
                     this.actionController.execActions((act: Action) => act.update(model));
-
-                    //
-                    model.availableBones.forEach((bone) => {
-                        var index = bone.userData.index;
-                        var b_pos
-                            = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
-                        var s_b_pos = this.worldToScreen(b_pos);
-
-                        //
-                        var markerSprite = model.joint_markers[index];
-                        markerSprite.position.set(s_b_pos.x, s_b_pos.y, -1);
-
-                        //
-                        var markerMesh = model.joint_spheres[index];
-                        markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
-                    });
                 }
             });
         }
@@ -409,7 +379,9 @@ module PoseEditor {
             this.renderer.clear();
 
             this.renderer.render(this.scene, this.camera);
-            this.renderer.render(this.scene2d, this.camera2d);
+
+            this.renderer.clearDepth();
+            this.renderer.render(this.scene2d, this.camera);
         }
 
 
@@ -768,7 +740,6 @@ module PoseEditor {
 
         //
         private scene2d: THREE.Scene;
-        private camera2d: THREE.OrthographicCamera;
 
         //
         private loadingTasks = 0;

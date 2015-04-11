@@ -98,6 +98,12 @@ module PoseEditor {
                 this.scene.add(this.mesh);
 
                 //
+                this.skeletonHelper = new THREE.SkeletonHelper(this.mesh);
+				this.skeletonHelper.material.linewidth = 2;
+                this.skeletonHelper.visible = false;
+				this.scene.add(this.skeletonHelper);
+
+                //
                 this.setupAppendixData(
                     sprite_paths,
                     model_info,
@@ -191,8 +197,8 @@ module PoseEditor {
                 = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
 
             //
-            this.joint_markers = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
-            this.joint_spheres = new Array<THREE.Object3D>(this.mesh.skeleton.bones.length);
+            this.jointMarkerSprites = new Array<THREE.Sprite>(this.mesh.skeleton.bones.length);
+            this.jointMarkerMeshes = new Array<THREE.Object3D>(this.mesh.skeleton.bones.length);
 
             // load textures(marker for bone)
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
@@ -223,7 +229,7 @@ module PoseEditor {
                 sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
                 sprite.visible = false;
 
-                this.joint_markers[index] = sprite;
+                this.jointMarkerSprites[index] = sprite;
                 this.scene2d.add(sprite);
 
                 //var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
@@ -238,7 +244,7 @@ module PoseEditor {
 
                 //markerMesh.visible = true;
                 markerMesh.visible = false;
-                this.joint_spheres[index] = markerMesh;    // TODO: rename
+                this.jointMarkerMeshes[index] = markerMesh;    // TODO: rename
                 this.scene.add(markerMesh);
             });
 
@@ -254,12 +260,13 @@ module PoseEditor {
             this.ready = false;
 
             this.scene.remove(this.mesh);
+            this.scene.remove(this.skeletonHelper);
 
-            this.joint_markers.forEach((m) => {
+            this.jointMarkerSprites.forEach((m) => {
                 this.scene2d.remove(m);
             });
 
-            this.joint_spheres.forEach((m) => {
+            this.jointMarkerMeshes.forEach((m) => {
                 this.scene.remove(m);
             });
         }
@@ -267,14 +274,27 @@ module PoseEditor {
         public isReady(): boolean {
             return this.ready;
         }
-/*
-        public wireframe(e: boolean = null): boolean {
-            if ( e == null ) return this.mesh.material.wireframe;
 
-            this.mesh.wireframe = e;
-            return null;
+        public update() {
+            //
+            this.availableBones.forEach((bone) => {
+                var index = bone.userData.index;
+                var b_pos
+                    = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
+
+                //
+                var markerSprite = this.jointMarkerSprites[index];
+                markerSprite.position.set(b_pos.x, b_pos.y, b_pos.z);
+
+                //
+                var markerMesh = this.jointMarkerMeshes[index];
+                markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
+
+                //
+                this.skeletonHelper.update();
+            });
         }
-*/
+
 
         public modelData(): ModelStatus {
             var joints = this.mesh.skeleton.bones.map((bone) => {
@@ -316,17 +336,32 @@ module PoseEditor {
             var bone = this.mesh.skeleton.bones[bone_index];
             bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
 
-            var old_sprite = this.joint_markers[bone_index];
+            var old_sprite = this.jointMarkerSprites[bone_index];
             var c = old_sprite.material.color.getHex()
 
             var sprite = this.createMarkerSprite(bone);
             sprite.material.color.setHex(c);
 
             sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
-            this.joint_markers[bone_index] = sprite;
+            this.jointMarkerSprites[bone_index] = sprite;
             this.scene2d.add(sprite);
 
             this.scene2d.remove(old_sprite);
+        }
+
+        public cancelMarkerSelection() {
+            this.jointMarkerSprites.forEach((sprite) => {
+                if (sprite) {
+                    sprite.material.color.setHex(this.normalColor);
+                }
+            })
+        }
+
+        public selectMarker(index: number) {
+            var sprite = this.jointMarkerSprites[index];
+            if (sprite) {
+                sprite.material.color.setHex(this.selectedColor);
+            }
         }
 
         public hideMarker() {
@@ -334,23 +369,25 @@ module PoseEditor {
             this.setMarkerVisibility(this.showingMarker);
         }
 
-        showMarker() {
+        public showMarker() {
             this.showingMarker = true;
             this.setMarkerVisibility(this.showingMarker);
         }
 
-        toggleMarker() {
+        public toggleMarker() {
             this.showingMarker = !this.showingMarker;
             this.setMarkerVisibility(this.showingMarker);
         }
 
-        setMarkerVisibility(showing: boolean) {
-            this.joint_markers.forEach((marker) => {
+        public setMarkerVisibility(showing: boolean) {
+            this.jointMarkerSprites.forEach((marker) => {
                 marker.visible = showing;
             });
+
+            this.skeletonHelper.visible = showing;
         }
 
-        getMarkerVisibility(): boolean {
+        public getMarkerVisibility(): boolean {
             return this.showingMarker;
         }
 
@@ -370,35 +407,37 @@ module PoseEditor {
         private showingMarker: boolean = true;
 
         //
+        private selectedColor = 0xff0000;
+        private normalColor = 0x0000ff;
+
         private normalMarkerTex: THREE.Texture;
         private normalMarkerMat: THREE.SpriteMaterial;
         private specialMarkerTex: THREE.Texture;
         private specialMarkerMat: THREE.SpriteMaterial;
 
         //
-        offsetOrgToBone: THREE.Vector3;
+        private offsetOrgToBone: THREE.Vector3;
 
         //
-        selectedColor = 0xff0000;
-        normalColor = 0x0000ff;
+        private name: string;
 
         //
-        name: string;
+        private scene: THREE.Scene;
+        private scene2d: THREE.Scene;
 
         //
-        scene: THREE.Scene;
-        scene2d: THREE.Scene;
+        public mesh: THREE.SkinnedMesh = null;
+        public availableBones: Array<THREE.Bone> = [];
 
         //
-        mesh: THREE.SkinnedMesh = null;
-        availableBones: Array<THREE.Bone> = [];
-
-        //
-        joint_markers: Array<THREE.Sprite> = [];
-        joint_spheres: Array<THREE.Object3D> = [];
+        private jointMarkerSprites: Array<THREE.Sprite> = [];
+        public jointMarkerMeshes: Array<THREE.Object3D> = [];
 
         //
         private markerScale: Array<number>;
         private defaultMat: any;
+
+        //
+        private skeletonHelper: THREE.SkeletonHelper;
     }
 }
