@@ -274,103 +274,6 @@ var PoseEditor;
 (function (PoseEditor) {
     var Screen;
     (function (Screen) {
-        var LoadingDialog = (function (_super) {
-            __extends(LoadingDialog, _super);
-            function LoadingDialog(parentDom, imagePath) {
-                _super.call(this, parentDom, "img");
-                this.baseDom.src = imagePath;
-                this.width = this.baseDom.offsetWidth;
-                this.height = this.baseDom.offsetHeight;
-            }
-            return LoadingDialog;
-        })(Screen.Dialog);
-        Screen.LoadingDialog = LoadingDialog;
-    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="event_dispatcher.ts"/>
-/// <reference path="control_panel.ts"/>
-/// <reference path="loading_dialog.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var Screen;
-    (function (Screen) {
-        (function (Mode) {
-            Mode[Mode["Camera"] = 0] = "Camera";
-            Mode[Mode["Move"] = 1] = "Move";
-            Mode[Mode["FK"] = 2] = "FK";
-            Mode[Mode["IK"] = 3] = "IK";
-        })(Screen.Mode || (Screen.Mode = {}));
-        var Mode = Screen.Mode;
-        var ScreenController = (function (_super) {
-            __extends(ScreenController, _super);
-            function ScreenController(parentDomId, config) {
-                var _this = this;
-                _super.call(this);
-                //
-                this.loadingDom = null;
-                //
-                var parentDom = document.getElementById(parentDomId);
-                if (parentDom == null) {
-                    console.log("parent dom was not found...");
-                }
-                this.targetDom = parentDom ? parentDom : document.body;
-                //
-                this.width = this.targetDom.offsetWidth;
-                this.height = this.targetDom.offsetHeight;
-                this.aspect = this.width / this.height;
-                //
-                if (config.loadingImagePath) {
-                    this.loadingDom = new Screen.LoadingDialog(this.targetDom, config.loadingImagePath);
-                    this.targetDom.appendChild(this.loadingDom.baseDom);
-                }
-                //
-                this.controlPanel = new Screen.ControlPanel(this);
-                //
-                window.addEventListener('resize', function () { return _this.onResize(); }, false);
-            }
-            ScreenController.prototype.selectModeUI = function (mode) {
-                this.controlPanel.selectModeUI(mode);
-            };
-            ScreenController.prototype.changeUIStatus = function (name, callback) {
-                return this.controlPanel.changeUIStatus(name, callback);
-            };
-            ScreenController.prototype.appendChild = function (dom) {
-                this.targetDom.appendChild(dom);
-            };
-            ScreenController.prototype.onResize = function () {
-                var w = this.targetDom.offsetWidth;
-                var h = this.targetDom.offsetHeight;
-                if (this.width == w && this.height == h) {
-                    return false;
-                }
-                // update size
-                this.width = w;
-                this.height = h;
-                this.aspect = this.width / this.height;
-                //
-                this.dispatchCallback('resize');
-                return false;
-            };
-            ScreenController.prototype.showLoadingDom = function () {
-                if (this.loadingDom) {
-                    this.loadingDom.show();
-                }
-            };
-            ScreenController.prototype.hideLoadingDom = function () {
-                if (this.loadingDom) {
-                    this.loadingDom.hide();
-                }
-            };
-            return ScreenController;
-        })(PoseEditor.EventDispatcher);
-        Screen.ScreenController = ScreenController;
-    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="dialog.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var Screen;
-    (function (Screen) {
         var ConfigurationDialog = (function (_super) {
             __extends(ConfigurationDialog, _super);
             function ConfigurationDialog(parentDom) {
@@ -560,6 +463,103 @@ var PoseEditor;
             return ConfigurationDialog;
         })(Screen.Dialog);
         Screen.ConfigurationDialog = ConfigurationDialog;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        var LoadingDialog = (function (_super) {
+            __extends(LoadingDialog, _super);
+            function LoadingDialog(parentDom, imagePath) {
+                _super.call(this, parentDom, "img");
+                this.baseDom.src = imagePath;
+                this.width = this.baseDom.offsetWidth;
+                this.height = this.baseDom.offsetHeight;
+            }
+            return LoadingDialog;
+        })(Screen.Dialog);
+        Screen.LoadingDialog = LoadingDialog;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="event_dispatcher.ts"/>
+/// <reference path="control_panel.ts"/>
+/// <reference path="loading_dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        (function (Mode) {
+            Mode[Mode["Camera"] = 0] = "Camera";
+            Mode[Mode["Move"] = 1] = "Move";
+            Mode[Mode["FK"] = 2] = "FK";
+            Mode[Mode["IK"] = 3] = "IK";
+        })(Screen.Mode || (Screen.Mode = {}));
+        var Mode = Screen.Mode;
+        var ScreenController = (function (_super) {
+            __extends(ScreenController, _super);
+            function ScreenController(parentDomId, config) {
+                var _this = this;
+                _super.call(this);
+                //
+                this.loadingDom = null;
+                //
+                var parentDom = document.getElementById(parentDomId);
+                if (parentDom == null) {
+                    console.log("parent dom was not found...");
+                }
+                this.targetDom = parentDom ? parentDom : document.body;
+                //
+                this.width = this.targetDom.offsetWidth;
+                this.height = this.targetDom.offsetHeight;
+                this.aspect = this.width / this.height;
+                //
+                if (config.loadingImagePath) {
+                    this.loadingDom = new Screen.LoadingDialog(this.targetDom, config.loadingImagePath);
+                    this.targetDom.appendChild(this.loadingDom.baseDom);
+                }
+                //
+                this.controlPanel = new Screen.ControlPanel(this);
+                //
+                window.addEventListener('resize', function () { return _this.onResize(); }, false);
+            }
+            ScreenController.prototype.selectModeUI = function (mode) {
+                this.controlPanel.selectModeUI(mode);
+            };
+            ScreenController.prototype.changeUIStatus = function (name, callback) {
+                return this.controlPanel.changeUIStatus(name, callback);
+            };
+            ScreenController.prototype.appendChild = function (dom) {
+                this.targetDom.appendChild(dom);
+            };
+            ScreenController.prototype.onResize = function () {
+                var w = this.targetDom.offsetWidth;
+                var h = this.targetDom.offsetHeight;
+                if (this.width == w && this.height == h) {
+                    return false;
+                }
+                // update size
+                this.width = w;
+                this.height = h;
+                this.aspect = this.width / this.height;
+                //
+                this.dispatchCallback('resize');
+                return false;
+            };
+            ScreenController.prototype.showLoadingDom = function () {
+                if (this.loadingDom) {
+                    this.loadingDom.show();
+                }
+            };
+            ScreenController.prototype.hideLoadingDom = function () {
+                if (this.loadingDom) {
+                    this.loadingDom.hide();
+                }
+            };
+            return ScreenController;
+        })(PoseEditor.EventDispatcher);
+        Screen.ScreenController = ScreenController;
     })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="screen.ts"/>
@@ -1080,8 +1080,8 @@ var PoseEditor;
             this.mesh = null;
             this.availableBones = [];
             //
-            this.joint_markers = [];
-            this.joint_spheres = [];
+            this.jointMarkerSprites = [];
+            this.jointMarkerMeshes = [];
             //
             this.name = name;
             //
@@ -1140,6 +1140,11 @@ var PoseEditor;
                 };
                 // add mesh to model
                 _this.scene.add(_this.mesh);
+                //
+                _this.skeletonHelper = new THREE.SkeletonHelper(_this.mesh);
+                _this.skeletonHelper.material.linewidth = 2;
+                _this.skeletonHelper.visible = false;
+                _this.scene.add(_this.skeletonHelper);
                 //
                 _this.setupAppendixData(sprite_paths, model_info, callback);
             }, texture_path);
@@ -1210,8 +1215,8 @@ var PoseEditor;
             //
             this.offsetOrgToBone = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
             //
-            this.joint_markers = new Array(this.mesh.skeleton.bones.length);
-            this.joint_spheres = new Array(this.mesh.skeleton.bones.length);
+            this.jointMarkerSprites = new Array(this.mesh.skeleton.bones.length);
+            this.jointMarkerMeshes = new Array(this.mesh.skeleton.bones.length);
             // load textures(marker for bone)
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
             this.normalMarkerMat = new THREE.SpriteMaterial({
@@ -1235,7 +1240,7 @@ var PoseEditor;
                 var sprite = _this.createMarkerSprite(bone);
                 sprite.scale.set(_this.markerScale[0], _this.markerScale[1], 1);
                 sprite.visible = false;
-                _this.joint_markers[index] = sprite;
+                _this.jointMarkerSprites[index] = sprite;
                 _this.scene2d.add(sprite);
                 //var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
                 //var material = new THREE.MeshBasicMaterial({wireframe: true});
@@ -1248,7 +1253,7 @@ var PoseEditor;
                 };
                 //markerMesh.visible = true;
                 markerMesh.visible = false;
-                _this.joint_spheres[index] = markerMesh; // TODO: rename
+                _this.jointMarkerMeshes[index] = markerMesh; // TODO: rename
                 _this.scene.add(markerMesh);
             });
             THREE.ImageUtils.crossOrigin = default_cross_origin;
@@ -1261,24 +1266,33 @@ var PoseEditor;
             var _this = this;
             this.ready = false;
             this.scene.remove(this.mesh);
-            this.joint_markers.forEach(function (m) {
+            this.scene.remove(this.skeletonHelper);
+            this.jointMarkerSprites.forEach(function (m) {
                 _this.scene2d.remove(m);
             });
-            this.joint_spheres.forEach(function (m) {
+            this.jointMarkerMeshes.forEach(function (m) {
                 _this.scene.remove(m);
             });
         };
         Model.prototype.isReady = function () {
             return this.ready;
         };
-        /*
-                public wireframe(e: boolean = null): boolean {
-                    if ( e == null ) return this.mesh.material.wireframe;
-        
-                    this.mesh.wireframe = e;
-                    return null;
-                }
-        */
+        Model.prototype.update = function () {
+            var _this = this;
+            //
+            this.availableBones.forEach(function (bone) {
+                var index = bone.userData.index;
+                var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
+                //
+                var markerSprite = _this.jointMarkerSprites[index];
+                markerSprite.position.set(b_pos.x, b_pos.y, b_pos.z);
+                //
+                var markerMesh = _this.jointMarkerMeshes[index];
+                markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
+                //
+                _this.skeletonHelper.update();
+            });
+        };
         Model.prototype.modelData = function () {
             var joints = this.mesh.skeleton.bones.map(function (bone) {
                 var q = bone.quaternion;
@@ -1313,14 +1327,28 @@ var PoseEditor;
         Model.prototype.toggleIKPropagation = function (bone_index) {
             var bone = this.mesh.skeleton.bones[bone_index];
             bone.userData.preventIKPropagation = !bone.userData.preventIKPropagation;
-            var old_sprite = this.joint_markers[bone_index];
+            var old_sprite = this.jointMarkerSprites[bone_index];
             var c = old_sprite.material.color.getHex();
             var sprite = this.createMarkerSprite(bone);
             sprite.material.color.setHex(c);
             sprite.scale.set(this.markerScale[0], this.markerScale[1], 1);
-            this.joint_markers[bone_index] = sprite;
+            this.jointMarkerSprites[bone_index] = sprite;
             this.scene2d.add(sprite);
             this.scene2d.remove(old_sprite);
+        };
+        Model.prototype.cancelMarkerSelection = function () {
+            var _this = this;
+            this.jointMarkerSprites.forEach(function (sprite) {
+                if (sprite) {
+                    sprite.material.color.setHex(_this.normalColor);
+                }
+            });
+        };
+        Model.prototype.selectMarker = function (index) {
+            var sprite = this.jointMarkerSprites[index];
+            if (sprite) {
+                sprite.material.color.setHex(this.selectedColor);
+            }
         };
         Model.prototype.hideMarker = function () {
             this.showingMarker = false;
@@ -1335,9 +1363,10 @@ var PoseEditor;
             this.setMarkerVisibility(this.showingMarker);
         };
         Model.prototype.setMarkerVisibility = function (showing) {
-            this.joint_markers.forEach(function (marker) {
+            this.jointMarkerSprites.forEach(function (marker) {
                 marker.visible = showing;
             });
+            this.skeletonHelper.visible = showing;
         };
         Model.prototype.getMarkerVisibility = function () {
             return this.showingMarker;
@@ -1591,7 +1620,6 @@ var PoseEditor;
             this.scene.add(this.ambientLight);
             //
             this.scene2d = new THREE.Scene();
-            this.camera2d = new THREE.OrthographicCamera(0, this.screen.width, 0, this.screen.height, 0.001, 10000);
             var propForRenderer = {
                 preserveDrawingBuffer: true
             };
@@ -1626,6 +1654,9 @@ var PoseEditor;
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
             this.controls.enabled = false;
+            this.controls.addEventListener('change', function () {
+                _this.transformCtrl.update();
+            });
             //
             this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.scene.add(this.transformCtrl);
@@ -1693,7 +1724,7 @@ var PoseEditor;
             var selectedMarker = null;
             var ab = pos.clone().sub(this.camera.position).normalize();
             var flattened = this.models.map(function (v) {
-                return v.joint_spheres;
+                return v.jointMarkerMeshes;
             }).reduce(function (a, b) {
                 return a.concat(b);
             });
@@ -1735,43 +1766,29 @@ var PoseEditor;
         Editor.prototype.cancelAllMarkerSprite = function () {
             // update marker sprite color (to not selected color)
             this.models.forEach(function (model) {
-                model.joint_markers.forEach(function (sprite) {
-                    if (sprite) {
-                        sprite.material.color.setHex(model.normalColor);
-                    }
-                });
+                model.cancelMarkerSelection();
             });
         };
         Editor.prototype.selectMarkerSprite = function (markerMesh) {
             this.cancelAllMarkerSprite();
             var model = markerMesh.userData.ownerModel;
             var index = markerMesh.userData.jointIndex;
-            var sprite = model.joint_markers[index];
-            if (sprite) {
-                sprite.material.color.setHex(model.selectedColor);
-            }
+            model.selectMarker(index);
         };
         Editor.prototype.hideAllMarkerSprite = function () {
             this.models.forEach(function (model) {
-                model.joint_markers.forEach(function (marker) {
-                    marker.visible = false;
-                });
+                model.hideMarker();
             });
         };
         Editor.prototype.showAllMarkerSprite = function () {
             this.models.forEach(function (model) {
-                model.joint_markers.forEach(function (marker) {
-                    marker.visible = true;
-                });
+                model.showMarker();
             });
         };
         Editor.prototype.onResize = function () {
             this.renderer.setSize(this.screen.width, this.screen.height);
             this.camera.aspect = this.screen.aspect;
             this.camera.updateProjectionMatrix();
-            this.camera2d.right = this.screen.width;
-            this.camera2d.bottom = this.screen.height;
-            this.camera2d.updateProjectionMatrix();
         };
         Editor.prototype.loadAndAppendModel = function (name, model_info, sprite_paths, callback) {
             var _this = this;
@@ -1798,26 +1815,16 @@ var PoseEditor;
             this.scene2d.updateMatrixWorld(true);
             this.models.forEach(function (model) {
                 if (model.isReady()) {
+                    model.update();
                     _this.actionController.execActions(function (act) { return act.update(model); });
-                    //
-                    model.availableBones.forEach(function (bone) {
-                        var index = bone.userData.index;
-                        var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
-                        var s_b_pos = _this.worldToScreen(b_pos);
-                        //
-                        var markerSprite = model.joint_markers[index];
-                        markerSprite.position.set(s_b_pos.x, s_b_pos.y, -1);
-                        //
-                        var markerMesh = model.joint_spheres[index];
-                        markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
-                    });
                 }
             });
         };
         Editor.prototype.render = function () {
             this.renderer.clear();
             this.renderer.render(this.scene, this.camera);
-            this.renderer.render(this.scene2d, this.camera2d);
+            this.renderer.clearDepth();
+            this.renderer.render(this.scene2d, this.camera);
         };
         Editor.prototype.screenToWorld = function (screen_pos) {
             var window_half_x = this.screen.width / 2.0;

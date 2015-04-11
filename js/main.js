@@ -74,7 +74,7 @@ $(function() {
       baseJointId: 0,
       initPos: [0, 0, 0],
       initScale: [1, 1, 1],
-      markerScale: [12.0, 12.0]
+      markerScale: [0.5, 0.5]
     }
   };
 
