@@ -148,7 +148,6 @@ module PoseEditor {
             );
         }
 
-
         /// ==================================================
         /// Stack of Actions (execute from top to bottom)
         /// ↑ top     | ...    | index: n
