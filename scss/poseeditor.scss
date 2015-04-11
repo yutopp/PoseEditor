@@ -1,0 +1,165 @@
+@mixin button($c500) {
+    $c100: lighten($c500, 40%);
+    $c200: lighten($c500, 30%);
+    $c300: lighten($c500, 20%);
+    $c400: lighten($c500, 10%);
+    //
+    $c600: darken($c500, 10%);
+    $c700: darken($c500, 20%);
+    $c800: darken($c500, 30%);
+    $c900: darken($c500, 40%);
+
+    color: #fff;
+    background-color: $c400;
+    border: 1px solid $c500;
+
+    &:hover {
+        border: 1px solid $c800;
+        background-color: $c700;
+    }
+
+    &:disabled {
+        color: #777;
+        background-color: $c900;
+        border: 1px solid $c900;
+
+        &.hover {
+            background-color: $c900;
+        }
+    }
+}
+
+@mixin blue-button() {
+    @include button(#1E88E5);
+}
+
+@mixin green-button() {
+    @include button(#43A047);
+}
+
+@mixin red-button() {
+    @include button(#E53935);
+}
+
+@mixin orange-button() {
+    @include button(#EF6C00);
+}
+
+@mixin gray-button() {
+    @include button(#616161);
+}
+
+
+.poseeditor-default {
+    position: relative;
+
+    .control-panel {
+        background-color: #555;
+        opacity: 0.8;
+        padding: 0 2px;
+
+        input[type="button"] {
+            width: 100%;
+
+            border-radius: 2px;
+
+            margin-top: 2px;
+            margin-bottom: 2px;
+
+            padding-top: 4px;
+            padding-bottom: 4px;
+
+            font-size: 0.9em;
+            font-weight: bold;
+
+            &.modes {
+                @include blue-button;
+            }
+
+            &.undo {
+                @include gray-button;
+            }
+
+            &.redo {
+                @include gray-button;
+            }
+
+            &.add-model {
+                @include green-button;
+            }
+
+            &.remove-model {
+                @include red-button;
+            }
+
+            &.saving {
+                @include orange-button;
+            }
+
+            &.config {
+                @include gray-button;
+            }
+
+            &.half {
+                width: 50%;
+                float: left;
+            }
+        }
+
+        hr {
+            margin: 2px auto 2px auto;
+        }
+    }
+
+    .loading {
+        $padding: 10px;
+
+        border-radius: 5px;
+        background-color: #fff;
+    }
+
+    .config-dialog {
+        $tool-height: 38px;
+        $padding: 10px;
+
+        opacity: 0.9;
+
+        border-radius: 5px;
+        background-color: #fff;
+
+        .container {
+            height: 100%;
+
+            margin-bottom: -$tool-height;
+        }
+
+        .selection {
+            position: relative;
+
+            width: 100%;
+            height: $tool-height;
+            text-align: center;
+
+            input[type="button"] {
+                height: $tool-height;
+                font-weight: bold;
+
+                &.ok {
+                    width: 180px;
+                    margin: 0 auto;
+
+                    @include green-button;
+                }
+
+                &.cancel {
+                    position: absolute;
+                    right: 0;
+
+                    width: 100px;
+
+                    @include gray-button;
+                }
+            }
+        }
+    }
+}

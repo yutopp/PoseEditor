@@ -459,26 +459,45 @@ var PoseEditor;
     (function (Screen) {
         var Dialog = (function (_super) {
             __extends(Dialog, _super);
-            function Dialog(parentDom, tagName) {
+            function Dialog(parentDom, tagName, className) {
+                if (className === void 0) { className = 'dialog'; }
                 _super.call(this);
                 this.parentDom = parentDom;
                 //
                 this.padding = 10;
-                // base element
-                this.baseDom = document.createElement(tagName);
-                this.baseDom.style.position = 'absolute';
-                this.baseDom.style.padding = this.padding + 'px';
-                this.baseDom.style.borderRadius = '5px';
-                this.baseDom.style.backgroundColor = '#fff';
-                this.baseDom.style.display = 'none';
+                // base element(hide bg)
+                this.baseDom = document.createElement('div');
+                {
+                    var s = this.baseDom.style;
+                    s.display = 'none';
+                    s.position = 'absolute';
+                    s.width = '100%';
+                    s.height = '100%';
+                    s.margin = '0';
+                    s.padding = '0';
+                    s.backgroundColor = '#000';
+                    s.opacity = '0.5';
+                }
+                this.parentDom.appendChild(this.baseDom);
+                // core dom
+                this.coreDom = document.createElement(tagName);
+                this.coreDom.className = className;
+                {
+                    var s = this.coreDom.style;
+                    s.display = 'none';
+                    s.position = 'absolute';
+                    s.zIndex = '999';
+                    s.padding = this.padding + 'px';
+                }
+                this.parentDom.appendChild(this.coreDom);
             }
             Dialog.prototype.updatePosision = function () {
                 var offsetW = this.parentDom.offsetWidth;
                 var offsetH = this.parentDom.offsetHeight;
                 var px = Math.abs(offsetW - (this.width + this.padding * 2)) / 2;
                 var py = Math.abs(offsetH - (this.height + this.padding * 2)) / 2;
-                this.baseDom.style.marginLeft = px + 'px';
-                this.baseDom.style.marginTop = py + 'px';
+                this.coreDom.style.marginLeft = px + 'px';
+                this.coreDom.style.marginTop = py + 'px';
             };
             Dialog.prototype.update = function () {
                 this.updatePosision();
@@ -486,10 +505,12 @@ var PoseEditor;
             Dialog.prototype.show = function () {
                 this.update();
                 this.baseDom.style.display = 'inline';
+                this.coreDom.style.display = 'inline';
                 this.dispatchCallback('show');
             };
             Dialog.prototype.hide = function () {
                 this.baseDom.style.display = 'none';
+                this.coreDom.style.display = 'none';
                 this.dispatchCallback('hide');
             };
             return Dialog;
@@ -506,23 +527,25 @@ var PoseEditor;
             __extends(ConfigurationDialog, _super);
             function ConfigurationDialog(parentDom) {
                 var _this = this;
-                _super.call(this, parentDom, "div");
+                _super.call(this, parentDom, 'div', 'config-dialog');
                 this.actions = [];
                 // container element
                 this.containerDom = document.createElement("div");
                 {
                     var d = this.containerDom;
+                    d.className = 'container';
                 }
-                this.baseDom.appendChild(this.containerDom);
+                this.coreDom.appendChild(this.containerDom);
                 // selection element
                 this.selectionDom = document.createElement("div");
                 {
                     var d = this.selectionDom;
-                    d.style.backgroundColor = "#00f";
+                    d.className = 'selection';
                     {
                         var dom = document.createElement("input");
                         dom.type = "button";
-                        dom.value = 'submit';
+                        dom.value = 'OK';
+                        dom.className = 'ok';
                         dom.addEventListener("click", function () {
                             var table = {};
                             _this.getElementValues(table);
@@ -535,7 +558,8 @@ var PoseEditor;
                     {
                         var dom = document.createElement("input");
                         dom.type = "button";
-                        dom.value = 'cancel';
+                        dom.value = 'Cancel';
+                        dom.className = 'cancel';
                         dom.addEventListener("click", function () {
                             _this.disposeAllElements();
                             _this.dispatchCallback('oncancel');
@@ -544,7 +568,7 @@ var PoseEditor;
                         d.appendChild(dom);
                     }
                 }
-                this.baseDom.appendChild(this.selectionDom);
+                this.coreDom.appendChild(this.selectionDom);
             }
             ConfigurationDialog.prototype.update = function () {
                 this.updateSize();
@@ -555,8 +579,8 @@ var PoseEditor;
                 var offsetH = this.parentDom.offsetHeight;
                 this.width = Math.max(offsetW - 40, 40);
                 this.height = Math.max(offsetH - 40, 40);
-                this.baseDom.style.width = this.width + 'px';
-                this.baseDom.style.height = this.height + 'px';
+                this.coreDom.style.width = this.width + 'px';
+                this.coreDom.style.height = this.height + 'px';
             };
             ConfigurationDialog.prototype.setValues = function (data) {
                 var _this = this;
@@ -701,11 +725,19 @@ var PoseEditor;
         var LoadingDialog = (function (_super) {
             __extends(LoadingDialog, _super);
             function LoadingDialog(parentDom, imagePath) {
-                _super.call(this, parentDom, "img");
-                this.baseDom.src = imagePath;
-                this.width = this.baseDom.offsetWidth;
-                this.height = this.baseDom.offsetHeight;
+                _super.call(this, parentDom, 'img', 'loading');
+                this.coreDom.src = imagePath;
+                this.width = this.coreDom.offsetWidth;
+                this.height = this.coreDom.offsetHeight;
             }
+            LoadingDialog.prototype.updatePosision = function () {
+                var offsetW = this.parentDom.offsetWidth;
+                var offsetH = this.parentDom.offsetHeight;
+                var x = Math.abs(offsetW - this.coreDom.offsetWidth) / 2 - this.padding;
+                var y = Math.abs(offsetH - this.coreDom.offsetHeight) / 2 - this.padding;
+                this.coreDom.style.left = x + 'px';
+                this.coreDom.style.top = y + 'px';
+            };
             return LoadingDialog;
         })(Screen.Dialog);
         Screen.LoadingDialog = LoadingDialog;
@@ -744,7 +776,7 @@ var PoseEditor;
                 //
                 if (config.loadingImagePath) {
                     this.loadingDom = new Screen.LoadingDialog(this.targetDom, config.loadingImagePath);
-                    this.targetDom.appendChild(this.loadingDom.baseDom);
+                    this.showLoadingDom();
                 }
                 //
                 this.controlPanel = new Screen.ControlPanel(this);
@@ -804,25 +836,28 @@ var PoseEditor;
                 this.screen = screen;
                 //
                 this.panelDom = document.createElement("div");
+                this.panelDom.className = 'control-panel';
                 {
                     var s = this.panelDom.style;
-                    s.position = "absolute";
-                    s.right = "0";
-                    s.width = (this.screen.width / 10) + "px";
-                    s.height = "100%";
-                    s.backgroundColor = "#fff";
+                    s.position = 'absolute';
+                    s.right = '0';
+                    //s.width = <number>(this.screen.width / 10) + 'px';
+                    s.width = '100px';
+                    s.height = this.screen.height + 'px';
                 }
                 this.screen.targetDom.appendChild(this.panelDom);
                 //
                 this.toggleDom['camera'] = this.addButton(function (dom) {
-                    dom.value = 'camera';
+                    dom.value = 'Camera';
+                    dom.className = 'modes';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
                     });
                 });
                 //
                 this.toggleDom['move'] = this.addButton(function (dom) {
-                    dom.value = 'move/select';
+                    dom.value = 'Move/Select';
+                    dom.className = 'modes';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
                     });
@@ -830,13 +865,16 @@ var PoseEditor;
                 //
                 this.toggleDom['bone'] = this.addButton(function (dom) {
                     dom.value = 'Bone';
+                    dom.className = 'modes';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onmodeclick", 2 /* Bone */);
                     });
                 });
+                this.addHR();
                 //
                 this.doms['undo'] = this.addButton(function (dom) {
                     dom.value = 'Undo';
+                    dom.className = 'undo half';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onundo");
                     });
@@ -845,29 +883,14 @@ var PoseEditor;
                 //
                 this.doms['redo'] = this.addButton(function (dom) {
                     dom.value = 'Redo';
+                    dom.className = 'redo half';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("onredo");
                     });
                     dom.disabled = true;
                 });
-                ///
-                this.dialogs['download'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showdownload', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('ondownload', data);
-                    });
-                });
-                this.doms['download'] = this.addButton(function (dom) {
-                    dom.value = 'Download';
-                    dom.addEventListener("click", function () {
-                        _this.dialogs['download'].show();
-                    });
-                });
-                ///
+                this.addClearDom();
+                this.addHR();
                 ///
                 this.dialogs['addmodel'] = this.addDialog(function (c) {
                     c.addCallback('show', function () {
@@ -881,6 +904,7 @@ var PoseEditor;
                 });
                 this.doms['addmodel'] = this.addButton(function (dom) {
                     dom.value = 'AddModel';
+                    dom.className = 'add-model';
                     dom.addEventListener("click", function () {
                         _this.dialogs['addmodel'].show();
                     });
@@ -888,32 +912,36 @@ var PoseEditor;
                 ///
                 this.doms['deletemodel'] = this.addButton(function (dom) {
                     dom.value = 'DeleteModel';
+                    dom.className = 'remove-model';
                     dom.addEventListener("click", function () {
                         _this.screen.dispatchCallback("ondeletemodel");
                     });
                     dom.disabled = true;
                 });
+                this.addHR();
                 ///
-                this.dialogs['config'] = this.addDialog(function (c) {
+                this.dialogs['download'] = this.addDialog(function (c) {
                     c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showconfig', function (data) {
+                        _this.screen.dispatchCallback('showdownload', function (data) {
                             c.setValues(data);
                         });
                     });
                     c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('onconfig', data);
+                        _this.screen.dispatchCallback('ondownload', data);
                     });
                 });
-                this.doms['config'] = this.addButton(function (dom) {
-                    dom.value = 'Config';
+                this.doms['download'] = this.addButton(function (dom) {
+                    dom.value = 'Download';
+                    dom.className = 'saving';
                     dom.addEventListener("click", function () {
-                        // call onshowdownload
-                        _this.dialogs['config'].show();
+                        _this.dialogs['download'].show();
                     });
                 });
                 ///
+                ///
                 this.doms['restore'] = this.addButton(function (dom) {
                     dom.value = 'Restore';
+                    dom.className = 'saving';
                     // to open the file dialog
                     var fileInput = document.createElement("input");
                     fileInput.type = 'file';
@@ -934,6 +962,28 @@ var PoseEditor;
                     dom.appendChild(fileInput);
                     dom.addEventListener("click", function () { return fileInput.click(); });
                 });
+                ///
+                this.addHR();
+                ///
+                this.dialogs['config'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showconfig', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+                this.doms['config'] = this.addButton(function (dom) {
+                    dom.value = 'Config';
+                    dom.className = 'config';
+                    dom.addEventListener("click", function () {
+                        // call onshowdownload
+                        _this.dialogs['config'].show();
+                    });
+                });
+                ///
             }
             ControlPanel.prototype.addButton = function (callback) {
                 var dom = document.createElement("input");
@@ -945,8 +995,16 @@ var PoseEditor;
             ControlPanel.prototype.addDialog = function (callback) {
                 var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom);
                 callback(ctrl);
-                this.screen.targetDom.appendChild(ctrl.baseDom);
                 return ctrl;
+            };
+            ControlPanel.prototype.addClearDom = function () {
+                var dom = document.createElement("div");
+                dom.style.clear = 'both';
+                this.panelDom.appendChild(dom);
+            };
+            ControlPanel.prototype.addHR = function () {
+                var dom = document.createElement("hr");
+                this.panelDom.appendChild(dom);
             };
             ControlPanel.prototype.selectModeUI = function (mode) {
                 for (var key in this.toggleDom) {
@@ -1516,6 +1574,7 @@ var PoseEditor;
             this.currentValues = {};
             // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
+            this.screen.targetDom.className = config.theme;
             this.actionController = new PoseEditor.ActionController();
             this.history = new PoseEditor.TimeMachine.Machine(this.screen);
             // setup screen
@@ -1580,7 +1639,6 @@ var PoseEditor;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
             //
             this.screen.appendChild(this.renderer.domElement);
-            this.renderer.domElement.className = config.theme;
             //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
@@ -1616,6 +1674,7 @@ var PoseEditor;
             this.config = config;
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
+            this.currentValues['format'] = 'png';
             //
             this.actionController.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
             // jump into loop
@@ -1810,7 +1869,7 @@ var PoseEditor;
                     type: 'radio',
                     name: 'format',
                     value: ['png', 'jpeg', 'json'],
-                    label: ['PNG', 'JPEG', 'JSON'],
+                    label: ['PNG', 'JPEG', 'SceneData'],
                     selectedValue: this.currentValues['format']
                 }
             ];
@@ -1841,7 +1900,7 @@ var PoseEditor;
             var dataUrl = this.toDataUrl(type);
             // ???: :(
             var a = document.createElement("a");
-            a.download = "poseeditor"; // workaround for typescript...
+            a.download = "poseeditor." + type; // <any> is workaround for typescript...
             a.title = "download snapshot";
             a.href = dataUrl;
             a.click();

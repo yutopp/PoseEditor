@@ -36,8 +36,8 @@ module PoseEditor {
                 //
                 if ( config.loadingImagePath ) {
                     this.loadingDom = new LoadingDialog(this.targetDom, config.loadingImagePath);
+                    this.showLoadingDom();
 
-                    this.targetDom.appendChild(this.loadingDom.baseDom);
                 }
 
                 //

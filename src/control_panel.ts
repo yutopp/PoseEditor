@@ -9,20 +9,21 @@ module PoseEditor {
 
                 //
                 this.panelDom = document.createElement("div");
+                this.panelDom.className = 'control-panel';
                 {
                     var s = this.panelDom.style;
-                    s.position = "absolute";
-                    s.right = "0";
-                    s.width = <number>(this.screen.width / 10) + "px";
-                    s.height = "100%";
-                    s.backgroundColor = "#fff";
-                    // s.opacity = "0.8";
+                    s.position = 'absolute';
+                    s.right = '0';
+                    //s.width = <number>(this.screen.width / 10) + 'px';
+                    s.width = '100px';
+                    s.height = <number>this.screen.height + 'px';
                 }
                 this.screen.targetDom.appendChild(this.panelDom);
 
                 //
                 this.toggleDom['camera'] = this.addButton((dom) => {
-                    dom.value = 'camera';
+                    dom.value = 'Camera';
+                    dom.className = 'modes';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onmodeclick", Mode.Camera);
                     });
@@ -30,7 +31,8 @@ module PoseEditor {
 
                 //
                 this.toggleDom['move'] = this.addButton((dom) => {
-                    dom.value = 'move/select';
+                    dom.value = 'Move/Select';
+                    dom.className = 'modes';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onmodeclick", Mode.Move);
                     });
@@ -39,14 +41,18 @@ module PoseEditor {
                 //
                 this.toggleDom['bone'] = this.addButton((dom) => {
                     dom.value = 'Bone';
+                    dom.className = 'modes';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onmodeclick", Mode.Bone);
                     });
                 });
 
+                this.addHR();
+
                 //
                 this.doms['undo'] = this.addButton((dom) => {
                     dom.value = 'Undo';
+                    dom.className = 'undo half';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onundo");
                     });
@@ -57,6 +63,7 @@ module PoseEditor {
                 //
                 this.doms['redo'] = this.addButton((dom) => {
                     dom.value = 'Redo';
+                    dom.className = 'redo half';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("onredo");
                     });
@@ -64,26 +71,8 @@ module PoseEditor {
                     dom.disabled = true;
                 });
 
-                ///
-                this.dialogs['download'] = this.addDialog((c) => {
-                    c.addCallback('show', () => {
-                        this.screen.dispatchCallback('showdownload', (data: any) => {
-                            c.setValues(data);
-                        });
-                    });
-
-                    c.addCallback('onsubmit', (data: any) => {
-                        this.screen.dispatchCallback('ondownload', data);
-                    });
-                });
-
-                this.doms['download'] = this.addButton((dom) => {
-                    dom.value = 'Download';
-                    dom.addEventListener("click", () => {
-                        this.dialogs['download'].show();
-                    });
-                });
-                ///
+                this.addClearDom();
+                this.addHR();
 
                 ///
                 this.dialogs['addmodel'] = this.addDialog((c) => {
@@ -100,6 +89,7 @@ module PoseEditor {
 
                 this.doms['addmodel'] = this.addButton((dom) => {
                     dom.value = 'AddModel';
+                    dom.className = 'add-model';
                     dom.addEventListener("click", () => {
                         this.dialogs['addmodel'].show();
                     });
@@ -108,6 +98,7 @@ module PoseEditor {
 
                 this.doms['deletemodel'] = this.addButton((dom) => {
                     dom.value = 'DeleteModel';
+                    dom.className = 'remove-model';
                     dom.addEventListener("click", () => {
                         this.screen.dispatchCallback("ondeletemodel");
                     });
@@ -115,30 +106,34 @@ module PoseEditor {
                     dom.disabled = true;
                 });
 
+                this.addHR();
+
                 ///
-                this.dialogs['config'] = this.addDialog((c) => {
+                this.dialogs['download'] = this.addDialog((c) => {
                     c.addCallback('show', () => {
-                        this.screen.dispatchCallback('showconfig', (data: any) => {
+                        this.screen.dispatchCallback('showdownload', (data: any) => {
                             c.setValues(data);
                         });
                     });
 
                     c.addCallback('onsubmit', (data: any) => {
-                        this.screen.dispatchCallback('onconfig', data);
+                        this.screen.dispatchCallback('ondownload', data);
                     });
                 });
 
-                this.doms['config'] = this.addButton((dom) => {
-                    dom.value = 'Config';
+                this.doms['download'] = this.addButton((dom) => {
+                    dom.value = 'Download';
+                    dom.className = 'saving';
                     dom.addEventListener("click", () => {
-                        // call onshowdownload
-                        this.dialogs['config'].show();
+                        this.dialogs['download'].show();
                     });
                 });
                 ///
 
+                ///
                 this.doms['restore'] = this.addButton((dom) => {
                     dom.value = 'Restore';
+                    dom.className = 'saving';
 
                     // to open the file dialog
                     var fileInput = document.createElement("input");
@@ -162,6 +157,32 @@ module PoseEditor {
 
                     dom.addEventListener("click", () => fileInput.click());
                 });
+                ///
+
+                this.addHR();
+
+                ///
+                this.dialogs['config'] = this.addDialog((c) => {
+                    c.addCallback('show', () => {
+                        this.screen.dispatchCallback('showconfig', (data: any) => {
+                            c.setValues(data);
+                        });
+                    });
+
+                    c.addCallback('onsubmit', (data: any) => {
+                        this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+
+                this.doms['config'] = this.addButton((dom) => {
+                    dom.value = 'Config';
+                    dom.className = 'config';
+                    dom.addEventListener("click", () => {
+                        // call onshowdownload
+                        this.dialogs['config'].show();
+                    });
+                });
+                ///
             }
 
             private addButton(callback: (d: HTMLInputElement) => void) {
@@ -178,9 +199,18 @@ module PoseEditor {
                 var ctrl = new ConfigurationDialog(this.screen.targetDom);
                 callback(ctrl);
 
-                this.screen.targetDom.appendChild(ctrl.baseDom);
-
                 return ctrl;
+            }
+
+            private addClearDom() {
+                var dom = document.createElement("div");
+                dom.style.clear = 'both';
+                this.panelDom.appendChild(dom);
+            }
+
+            private addHR() {
+                var dom = document.createElement("hr");
+                this.panelDom.appendChild(dom);
             }
 
             public selectModeUI(mode: string) {

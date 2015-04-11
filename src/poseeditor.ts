@@ -19,6 +19,8 @@ module PoseEditor {
         ) {
             // setup screen
             this.screen = new Screen.ScreenController(parentDomId, config);
+            this.screen.targetDom.className = config.theme;
+
             this.actionController = new ActionController();
             this.history = new TimeMachine.Machine(this.screen);
 
@@ -99,7 +101,6 @@ module PoseEditor {
 
             //
             this.screen.appendChild(this.renderer.domElement);
-            this.renderer.domElement.className = config.theme;
 
             //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
@@ -148,6 +149,7 @@ module PoseEditor {
 
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
+            this.currentValues['format'] = 'png';
 
             //
             this.actionController.setup(
@@ -425,7 +427,7 @@ module PoseEditor {
                     type: 'radio',
                     name: 'format',
                     value: ['png', 'jpeg', 'json'],
-                    label: ['PNG', 'JPEG', 'JSON'],
+                    label: ['PNG', 'JPEG', 'SceneData'],
                     selectedValue: this.currentValues['format']
                 }
             ];
@@ -462,7 +464,7 @@ module PoseEditor {
 
             // ???: :(
             var a = document.createElement("a");
-            (<any>a).download = "poseeditor";   // workaround for typescript...
+            (<any>a).download = "poseeditor." + type;   // <any> is workaround for typescript...
             a.title = "download snapshot";
             a.href = dataUrl;
             a.click();

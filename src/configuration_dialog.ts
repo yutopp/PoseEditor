@@ -9,26 +9,29 @@ module PoseEditor {
 
         export class ConfigurationDialog extends Dialog<HTMLDivElement> {
             constructor(parentDom: HTMLElement) {
-                super(parentDom, "div");
+                super(parentDom, 'div', 'config-dialog');
 
                 // container element
                 this.containerDom = document.createElement("div");
                 {
                     var d = this.containerDom;
+                    d.className = 'container';
+
                     // d.innerText = "elements";
                 }
-                this.baseDom.appendChild(this.containerDom);
+                this.coreDom.appendChild(this.containerDom);
 
                 // selection element
                 this.selectionDom = document.createElement("div");
                 {
                     var d = this.selectionDom;
-                    d.style.backgroundColor = "#00f";
+                    d.className = 'selection';
 
                     {
                         var dom = document.createElement("input");
                         dom.type = "button";
-                        dom.value = 'submit';
+                        dom.value = 'OK';
+                        dom.className = 'ok';
                         dom.addEventListener("click", () => {
                             var table: {[key: string]: any} = {};
                             this.getElementValues(table);
@@ -44,7 +47,8 @@ module PoseEditor {
                     {
                         var dom = document.createElement("input");
                         dom.type = "button";
-                        dom.value = 'cancel';
+                        dom.value = 'Cancel';
+                        dom.className = 'cancel';
                         dom.addEventListener("click", () => {
                             this.disposeAllElements();
 
@@ -55,7 +59,7 @@ module PoseEditor {
                         d.appendChild(dom);
                     }
                 }
-                this.baseDom.appendChild(this.selectionDom);
+                this.coreDom.appendChild(this.selectionDom);
             }
 
             public update() {
@@ -70,8 +74,8 @@ module PoseEditor {
                 this.width = Math.max(offsetW - 40, 40);
                 this.height = Math.max(offsetH - 40, 40);
 
-                this.baseDom.style.width = this.width + 'px';
-                this.baseDom.style.height = this.height + 'px';
+                this.coreDom.style.width = this.width + 'px';
+                this.coreDom.style.height = this.height + 'px';
             }
 
             public setValues(data: Array<any>) {
