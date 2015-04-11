@@ -3,10 +3,6 @@
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="screen.ts"/>
 /// <reference path="model.ts"/>
-/// <reference path="camera_action.ts"/>
-/// <reference path="move_action.ts"/>
-/// <reference path="fk_action.ts"/>
-/// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
 /// <reference path="time_machine.ts"/>
 /// <reference path="action_controller.ts"/>
@@ -103,6 +99,7 @@ module PoseEditor {
 
             //
             this.screen.appendChild(this.renderer.domElement);
+            this.renderer.domElement.className = config.theme;
 
             //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);

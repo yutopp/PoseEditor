@@ -7,8 +7,7 @@ module PoseEditor {
         export enum Mode {
             Camera,
             Move,
-            FK,
-            IK,
+            Bone,
         }
 
         interface ConfigForScreen {

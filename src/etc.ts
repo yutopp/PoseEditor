@@ -7,6 +7,7 @@ module PoseEditor {
         backgroundAlpha: number = 1.0;
         loadingImagePath: string = null;
         isDebugging: boolean = false;
+        theme: string = 'poseeditor-default'
     }
 
     export class SpritePaths {

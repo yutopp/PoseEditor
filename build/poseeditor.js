@@ -1,5 +1,306 @@
 var PoseEditor;
 (function (PoseEditor) {
+    var Action = (function () {
+        function Action(e) {
+            this.editor = e;
+        }
+        Action.prototype.name = function () {
+            return "";
+        };
+        Action.prototype.onActive = function () {
+            console.log("base::onActive");
+        };
+        Action.prototype.onDestroy = function () {
+            console.log("base::onDestroy");
+        };
+        Action.prototype.onTapStart = function (e, isTouch, isActive) {
+            return true;
+        };
+        Action.prototype.onMoving = function (e, isTouch, isActive) {
+            return true;
+        };
+        Action.prototype.onTapEnd = function (e, isTouch, isActive) {
+            return true;
+        };
+        Action.prototype.onDoubleTap = function (e, isTouch, isActive) {
+            return true;
+        };
+        Action.prototype.update = function (model) {
+            return true;
+        };
+        return Action;
+    })();
+    PoseEditor.Action = Action;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var __extends = this.__extends || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var PoseEditor;
+(function (PoseEditor) {
+    var CameraAction = (function (_super) {
+        __extends(CameraAction, _super);
+        function CameraAction(e, c) {
+            _super.call(this, e);
+            // copy ownership
+            this.controls = c;
+        }
+        CameraAction.prototype.name = function () {
+            return "camera";
+        };
+        CameraAction.prototype.onActive = function () {
+            this.controls.enabled = true;
+        };
+        CameraAction.prototype.onTapStart = function (e, isTouch, isActive) {
+            this.controls.enabled = isActive;
+            if (this.controls.enabled) {
+                this.controls.beginControl(e); // ;(
+            }
+            return true;
+        };
+        CameraAction.prototype.onTapEnd = function (e, isTouch) {
+            return true;
+        };
+        return CameraAction;
+    })(PoseEditor.Action);
+    PoseEditor.CameraAction = CameraAction;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var MoveAction = (function (_super) {
+        __extends(MoveAction, _super);
+        function MoveAction(e) {
+            _super.call(this, e);
+        }
+        MoveAction.prototype.name = function () {
+            return "move";
+        };
+        MoveAction.prototype.onDestroy = function () {
+            this.releaseModel();
+            this.editor.setSelectedModel(null);
+        };
+        MoveAction.prototype.onTapStart = function (e, isTouch) {
+            return this.catchModel(e, isTouch);
+        };
+        MoveAction.prototype.onMoving = function (e, isTouch) {
+            return this.moveModel(e, isTouch);
+        };
+        MoveAction.prototype.onTapEnd = function (e, isTouch) {
+            return this.releaseModel();
+        };
+        MoveAction.prototype.catchModel = function (e, isTouch) {
+            var mp = this.editor.selectModel(e, isTouch);
+            if (mp == null) {
+                this.releaseModel();
+                this.editor.setSelectedModel(null);
+                return true;
+            }
+            this.currentModel = mp[0];
+            var localConfPos = mp[1];
+            this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
+            this.editor.setSelectedModel(this.currentModel);
+            //
+            this.editor.cursorHelper.setBeginState(localConfPos.clone());
+            return false;
+        };
+        MoveAction.prototype.moveModel = function (e, isTouch) {
+            if (this.currentModel == null)
+                return true;
+            var pos = this.editor.cursorToWorld(e, isTouch);
+            var curPos = this.editor.cursorHelper.move(pos);
+            curPos.sub(this.offsetOrgToBone);
+            this.currentModel.mesh.position.copy(curPos);
+            return false;
+        };
+        MoveAction.prototype.releaseModel = function () {
+            if (this.currentModel == null)
+                return true;
+            this.currentModel = null;
+            return false;
+        };
+        return MoveAction;
+    })(PoseEditor.Action);
+    PoseEditor.MoveAction = MoveAction;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var BoneAction = (function (_super) {
+        __extends(BoneAction, _super);
+        function BoneAction(e, ctrls) {
+            _super.call(this, e);
+            this.isOnManipurator = false;
+            this.isMoving = false;
+            this.transformCtrl = ctrls;
+        }
+        BoneAction.prototype.name = function () {
+            return "bone_action";
+        };
+        BoneAction.prototype.onActive = function () {
+            var _this = this;
+            this.transformCtrl.setMode("rotate");
+            this.transformCtrl.setSpace("local");
+            this.transformCtrl.setSize(0.8);
+            this.transformCtrl.addEventListener('change', function () { return _this.onTransformCtrl(); });
+            this.transformCtrl.detach();
+            this.editor.showAllMarkerSprite();
+        };
+        BoneAction.prototype.onDestroy = function () {
+            this.releaseJoint();
+            this.editor.hideAllMarkerSprite();
+        };
+        BoneAction.prototype.onTapStart = function (e, isTouch) {
+            if (this.isOnManipurator)
+                return false;
+            this.catchJoint(this.editor.selectJointMarker(e, isTouch));
+            if (this.currentJointMarker == null)
+                return true; // pass events to other action
+            this.isMoving = true;
+            this.beforeModelStatus = this.model.modelData();
+            return false;
+        };
+        BoneAction.prototype.onMoving = function (e, isTouch) {
+            return this.moving(e, isTouch);
+        };
+        BoneAction.prototype.onTapEnd = function (e, isTouch) {
+            console.log("end");
+            if (this.currentJointMarker == null || !this.isMoving)
+                return true;
+            this.isMoving = false;
+            // record action
+            var currentModelStatus = this.model.modelData();
+            this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
+            return false;
+        };
+        BoneAction.prototype.onDoubleTap = function (e, isTouch) {
+            if (this.currentJointMarker == null)
+                return true;
+            var index = this.currentJointMarker.userData.jointIndex;
+            this.model.toggleIKPropagation(index);
+            return false;
+        };
+        BoneAction.prototype.update = function (model) {
+            this.transformCtrl.update();
+            if (this.currentJointMarker == null || !this.isMoving)
+                return true;
+            this.copyMatrix();
+            if (model == this.currentJointMarker.userData.ownerModel) {
+                if (this.curPos != null) {
+                    this.ik(this.bone, this.curPos);
+                }
+            }
+            return true;
+        };
+        BoneAction.prototype.copyMatrix = function () {
+            // set initial pose of the bone
+            this.bone.updateMatrixWorld(true);
+            var to_q = this.bone.getWorldQuaternion(null);
+            this.currentJointMarker.quaternion.copy(to_q);
+        };
+        BoneAction.prototype.catchJoint = function (m) {
+            this.currentJointMarker = m;
+            if (this.currentJointMarker == null) {
+                this.releaseJoint();
+                return;
+            }
+            this.model = this.currentJointMarker.userData.ownerModel;
+            this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
+            this.editor.selectMarkerSprite(this.currentJointMarker);
+            this.copyMatrix();
+            this.transformCtrl.attach(this.currentJointMarker);
+            this.transformCtrl.update();
+            //
+            var pos = this.currentJointMarker.position;
+            this.curPos = pos;
+            this.editor.cursorHelper.setBeginState(pos);
+        };
+        BoneAction.prototype.moving = function (e, isTouch) {
+            if (this.currentJointMarker == null || !this.isMoving)
+                return true;
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
+            var pos = this.editor.cursorToWorld(e, isTouch);
+            this.curPos = this.editor.cursorHelper.move(pos);
+            return false;
+        };
+        BoneAction.prototype.releaseJoint = function () {
+            this.currentJointMarker = null;
+            this.isMoving = false;
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
+            this.editor.cancelAllMarkerSprite();
+        };
+        // CCD IK
+        BoneAction.prototype.ik = function (selected_bone, target_pos) {
+            var c_bone = selected_bone;
+            var p_bone = c_bone.parent;
+            while (p_bone != null && p_bone.type != "SkinnedMesh") {
+                // console.log("bone!", c_bone.parent);
+                // local rotation
+                var t_r = p_bone.quaternion.clone();
+                p_bone.rotation.set(0, 0, 0);
+                p_bone.updateMatrixWorld(true);
+                var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
+                p_bone.quaternion.copy(t_r);
+                p_bone.updateMatrixWorld(true);
+                //
+                var c_b_pos = c_bone.getWorldPosition(null);
+                var p_b_pos = p_bone.getWorldPosition(null);
+                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
+                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
+                var base_bone_q = p_bone.getWorldQuaternion(null);
+                var bone_diff_q = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
+                bone_diff_q.multiply(base_bone_q);
+                var qm = new THREE.Quaternion();
+                THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
+                // update bone quaternion
+                var to_q = w_to_l_comp_q.multiply(qm).normalize();
+                // set
+                p_bone.quaternion.copy(to_q);
+                p_bone.updateMatrixWorld(true);
+                if (p_bone.userData.preventIKPropagation)
+                    break;
+                p_bone = p_bone.parent;
+            }
+        };
+        BoneAction.prototype.onTransformCtrl = function () {
+            this.transformCtrl.update();
+            if (this.transformCtrl.axis != null) {
+                this.isOnManipurator = true;
+                if (this.currentJointMarker != null) {
+                    // local rotation
+                    var t_r = this.bone.quaternion.clone();
+                    this.bone.quaternion.set(0, 0, 0, 0);
+                    this.bone.updateMatrixWorld(true);
+                    var w_to_l_comp_q = this.bone.getWorldQuaternion(null).inverse();
+                    this.currentJointMarker.updateMatrixWorld(true);
+                    //console.log(this.selectedSphere.rotation);
+                    var sph_q = this.currentJointMarker.getWorldQuaternion(null);
+                    // copy to the marker model
+                    this.currentJointMarker.quaternion.copy(sph_q);
+                    // update bone quaternion
+                    var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
+                    this.bone.quaternion.copy(to_q);
+                    this.bone.updateMatrixWorld(true);
+                }
+            }
+            else {
+                this.isOnManipurator = false;
+            }
+        };
+        return BoneAction;
+    })(PoseEditor.Action);
+    PoseEditor.BoneAction = BoneAction;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="camera_action.ts"/>
+/// <reference path="move_action.ts"/>
+/// <reference path="bone_action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
     var ActionController = (function () {
         function ActionController() {
             /// ==================================================
@@ -46,17 +347,11 @@ var PoseEditor;
                     this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
                     screen.selectModeUI('move');
                     break;
-                case 2 /* FK */:
-                    /// | FK     |
+                case 2 /* Bone */:
+                    /// | Bone   |
                     /// | Camera |
-                    this.makeStandardModeForm('fk_action', function () { return new PoseEditor.FKAction(_this.editor, _this.transformCtrl); });
-                    screen.selectModeUI('fk');
-                    break;
-                case 3 /* IK */:
-                    /// | IK     |
-                    /// | Camera |
-                    this.makeStandardModeForm('ik_action', function () { return new PoseEditor.IKAction(_this.editor); });
-                    screen.selectModeUI('ik');
+                    this.makeStandardModeForm('bone_action', function () { return new PoseEditor.BoneAction(_this.editor, _this.transformCtrl); });
+                    screen.selectModeUI('bone');
                     break;
                 default:
                     console.error('unexpected mode');
@@ -125,76 +420,6 @@ var PoseEditor;
         return ActionController;
     })();
     PoseEditor.ActionController = ActionController;
-})(PoseEditor || (PoseEditor = {}));
-var PoseEditor;
-(function (PoseEditor) {
-    var Action = (function () {
-        function Action(e) {
-            this.editor = e;
-        }
-        Action.prototype.name = function () {
-            return "";
-        };
-        Action.prototype.onActive = function () {
-            console.log("base::onActive");
-        };
-        Action.prototype.onDestroy = function () {
-            console.log("base::onDestroy");
-        };
-        Action.prototype.onTapStart = function (e, isTouch, isActive) {
-            return true;
-        };
-        Action.prototype.onMoving = function (e, isTouch, isActive) {
-            return true;
-        };
-        Action.prototype.onTapEnd = function (e, isTouch, isActive) {
-            return true;
-        };
-        Action.prototype.onDoubleTap = function (e, isTouch, isActive) {
-            return true;
-        };
-        Action.prototype.update = function (model) {
-            return true;
-        };
-        return Action;
-    })();
-    PoseEditor.Action = Action;
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="action.ts"/>
-var __extends = this.__extends || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
-};
-var PoseEditor;
-(function (PoseEditor) {
-    var CameraAction = (function (_super) {
-        __extends(CameraAction, _super);
-        function CameraAction(e, c) {
-            _super.call(this, e);
-            // copy ownership
-            this.controls = c;
-        }
-        CameraAction.prototype.name = function () {
-            return "camera";
-        };
-        CameraAction.prototype.onActive = function () {
-            this.controls.enabled = true;
-        };
-        CameraAction.prototype.onTapStart = function (e, isTouch, isActive) {
-            this.controls.enabled = isActive;
-            if (this.controls.enabled) {
-                this.controls.beginControl(e); // ;(
-            }
-            return true;
-        };
-        CameraAction.prototype.onTapEnd = function (e, isTouch) {
-            return true;
-        };
-        return CameraAction;
-    })(PoseEditor.Action);
-    PoseEditor.CameraAction = CameraAction;
 })(PoseEditor || (PoseEditor = {}));
 var PoseEditor;
 (function (PoseEditor) {
@@ -493,8 +718,7 @@ var PoseEditor;
         (function (Mode) {
             Mode[Mode["Camera"] = 0] = "Camera";
             Mode[Mode["Move"] = 1] = "Move";
-            Mode[Mode["FK"] = 2] = "FK";
-            Mode[Mode["IK"] = 3] = "IK";
+            Mode[Mode["Bone"] = 2] = "Bone";
         })(Screen.Mode || (Screen.Mode = {}));
         var Mode = Screen.Mode;
         var ScreenController = (function (_super) {
@@ -601,17 +825,10 @@ var PoseEditor;
                     });
                 });
                 //
-                this.toggleDom['fk'] = this.addButton(function (dom) {
-                    dom.value = 'FK';
+                this.toggleDom['bone'] = this.addButton(function (dom) {
+                    dom.value = 'Bone';
                     dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 2 /* FK */);
-                    });
-                });
-                //
-                this.toggleDom['ik'] = this.addButton(function (dom) {
-                    dom.value = 'IK';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 3 /* IK */);
+                        _this.screen.dispatchCallback("onmodeclick", 2 /* Bone */);
                     });
                 });
                 //
@@ -808,6 +1025,7 @@ var PoseEditor;
             this.backgroundAlpha = 1.0;
             this.loadingImagePath = null;
             this.isDebugging = false;
+            this.theme = 'poseeditor-default';
         }
         return Config;
     })();
@@ -840,219 +1058,6 @@ var PoseEditor;
         return rad / Math.PI * 180.0;
     }
     PoseEditor.radToDeg = radToDeg;
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="action.ts"/>
-/// <reference path="../ext/TransformControls.d.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var FKAction = (function (_super) {
-        __extends(FKAction, _super);
-        function FKAction(e, ctrls) {
-            _super.call(this, e);
-            this.isOnManipurator = false;
-            this.transformCtrl = ctrls;
-        }
-        FKAction.prototype.name = function () {
-            return "fk_action";
-        };
-        FKAction.prototype.onActive = function () {
-            var _this = this;
-            this.transformCtrl.setMode("rotate");
-            this.transformCtrl.setSpace("local");
-            this.transformCtrl.setSize(0.8);
-            this.transformCtrl.addEventListener('change', function () { return _this.onTransformCtrl(); });
-            this.transformCtrl.detach();
-            this.editor.showAllMarkerSprite();
-        };
-        FKAction.prototype.onDestroy = function () {
-            this.releaseJoint();
-            this.editor.hideAllMarkerSprite();
-        };
-        FKAction.prototype.onTapStart = function (e, isTouch) {
-            if (this.isOnManipurator)
-                return false;
-            var m = this.editor.selectJointMarker(e, isTouch);
-            if (m == null) {
-                this.releaseJoint();
-                return true;
-            }
-            this.catchJoint(m);
-            return false;
-        };
-        /*
-                public onMoving(e: any, isTouch: boolean): boolean {
-                }
-        
-                public onTapEnd(e: any, isTouch: boolean): boolean {
-                }
-        */
-        FKAction.prototype.catchJoint = function (m) {
-            this.currentJointMarker = m;
-            this.model = this.currentJointMarker.userData.ownerModel;
-            this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
-            this.editor.selectMarkerSprite(this.currentJointMarker);
-            // set initial pose of the bone
-            this.bone.updateMatrixWorld(true);
-            var to_q = this.bone.getWorldQuaternion(null);
-            this.currentJointMarker.quaternion.copy(to_q);
-            this.transformCtrl.attach(this.currentJointMarker);
-            this.transformCtrl.update();
-        };
-        FKAction.prototype.releaseJoint = function () {
-            if (this.currentJointMarker == null)
-                return;
-            this.currentJointMarker = null;
-            this.transformCtrl.detach();
-            this.isOnManipurator = false;
-            this.editor.cancelAllMarkerSprite();
-        };
-        FKAction.prototype.onTransformCtrl = function () {
-            this.transformCtrl.update();
-            if (this.transformCtrl.axis != null) {
-                this.isOnManipurator = true;
-                if (this.currentJointMarker != null) {
-                    // local rotation
-                    var t_r = this.bone.quaternion.clone();
-                    this.bone.quaternion.set(0, 0, 0, 0);
-                    this.bone.updateMatrixWorld(true);
-                    var w_to_l_comp_q = this.bone.getWorldQuaternion(null).inverse();
-                    this.currentJointMarker.updateMatrixWorld(true);
-                    //console.log(this.selectedSphere.rotation);
-                    var sph_q = this.currentJointMarker.getWorldQuaternion(null);
-                    // copy to the marker model
-                    this.currentJointMarker.quaternion.copy(sph_q);
-                    // update bone quaternion
-                    var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
-                    this.bone.quaternion.copy(to_q);
-                    this.bone.updateMatrixWorld(true);
-                }
-            }
-            else {
-                this.isOnManipurator = false;
-            }
-        };
-        return FKAction;
-    })(PoseEditor.Action);
-    PoseEditor.FKAction = FKAction;
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="action.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var IKAction = (function (_super) {
-        __extends(IKAction, _super);
-        function IKAction(e) {
-            _super.call(this, e);
-            this.isMoving = false;
-        }
-        IKAction.prototype.name = function () {
-            return "ik_action";
-        };
-        IKAction.prototype.onActive = function () {
-            this.editor.showAllMarkerSprite();
-        };
-        IKAction.prototype.onDestroy = function () {
-            this.releaseJoint();
-            this.editor.hideAllMarkerSprite();
-        };
-        IKAction.prototype.onTapStart = function (e, isTouch) {
-            this.catchJoint(this.editor.selectJointMarker(e, isTouch));
-            if (this.currentJointMarker == null)
-                return true; // pass events to other action
-            this.isMoving = true;
-            this.beforeModelStatus = this.model.modelData();
-            return false;
-        };
-        IKAction.prototype.onMoving = function (e, isTouch) {
-            return this.moving(e, isTouch);
-        };
-        IKAction.prototype.onTapEnd = function (e, isTouch) {
-            if (this.currentJointMarker == null || !this.isMoving)
-                return true;
-            this.isMoving = false;
-            // record action
-            var currentModelStatus = this.model.modelData();
-            this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
-            return false;
-        };
-        IKAction.prototype.onDoubleTap = function (e, isTouch) {
-            if (this.currentJointMarker == null)
-                return true;
-            var index = this.currentJointMarker.userData.jointIndex;
-            this.model.toggleIKPropagation(index);
-            return false;
-        };
-        IKAction.prototype.update = function (model) {
-            if (this.currentJointMarker == null || !this.isMoving)
-                return true;
-            if (model == this.currentJointMarker.userData.ownerModel) {
-                if (this.curPos != null) {
-                    this.ik(this.bone, this.curPos);
-                }
-            }
-            return true;
-        };
-        IKAction.prototype.catchJoint = function (m) {
-            this.currentJointMarker = m;
-            if (this.currentJointMarker == null) {
-                this.releaseJoint();
-                return;
-            }
-            this.model = this.currentJointMarker.userData.ownerModel;
-            this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
-            this.editor.selectMarkerSprite(this.currentJointMarker);
-            //
-            var pos = this.currentJointMarker.position;
-            this.curPos = pos;
-            this.editor.cursorHelper.setBeginState(pos);
-        };
-        IKAction.prototype.moving = function (e, isTouch) {
-            if (this.currentJointMarker == null || !this.isMoving)
-                return true;
-            var pos = this.editor.cursorToWorld(e, isTouch);
-            this.curPos = this.editor.cursorHelper.move(pos);
-            return false;
-        };
-        IKAction.prototype.releaseJoint = function () {
-            this.currentJointMarker = null;
-            this.isMoving = false;
-            this.editor.cancelAllMarkerSprite();
-        };
-        // CCD IK
-        IKAction.prototype.ik = function (selected_bone, target_pos) {
-            var c_bone = selected_bone;
-            var p_bone = c_bone.parent;
-            while (p_bone != null && p_bone.type != "SkinnedMesh") {
-                // console.log("bone!", c_bone.parent);
-                // local rotation
-                var t_r = p_bone.quaternion.clone();
-                p_bone.rotation.set(0, 0, 0);
-                p_bone.updateMatrixWorld(true);
-                var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
-                p_bone.quaternion.copy(t_r);
-                p_bone.updateMatrixWorld(true);
-                //
-                var c_b_pos = c_bone.getWorldPosition(null);
-                var p_b_pos = p_bone.getWorldPosition(null);
-                var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
-                var p_to_t_vec = target_pos.clone().sub(p_b_pos);
-                var base_bone_q = p_bone.getWorldQuaternion(null);
-                var bone_diff_q = new THREE.Quaternion().setFromUnitVectors(p_to_c_vec, p_to_t_vec);
-                bone_diff_q.multiply(base_bone_q);
-                var qm = new THREE.Quaternion();
-                THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
-                // update bone quaternion
-                var to_q = w_to_l_comp_q.multiply(qm).normalize();
-                // set
-                p_bone.quaternion.copy(to_q);
-                p_bone.updateMatrixWorld(true);
-                if (p_bone.userData.preventIKPropagation)
-                    break;
-                p_bone = p_bone.parent;
-            }
-        };
-        return IKAction;
-    })(PoseEditor.Action);
-    PoseEditor.IKAction = IKAction;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="etc.ts"/>
@@ -1383,64 +1388,6 @@ var PoseEditor;
     })();
     PoseEditor.Model = Model;
 })(PoseEditor || (PoseEditor = {}));
-/// <reference path="action.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var MoveAction = (function (_super) {
-        __extends(MoveAction, _super);
-        function MoveAction(e) {
-            _super.call(this, e);
-        }
-        MoveAction.prototype.name = function () {
-            return "move";
-        };
-        MoveAction.prototype.onDestroy = function () {
-            this.releaseModel();
-            this.editor.setSelectedModel(null);
-        };
-        MoveAction.prototype.onTapStart = function (e, isTouch) {
-            return this.catchModel(e, isTouch);
-        };
-        MoveAction.prototype.onMoving = function (e, isTouch) {
-            return this.moveModel(e, isTouch);
-        };
-        MoveAction.prototype.onTapEnd = function (e, isTouch) {
-            return this.releaseModel();
-        };
-        MoveAction.prototype.catchModel = function (e, isTouch) {
-            var mp = this.editor.selectModel(e, isTouch);
-            if (mp == null) {
-                this.releaseModel();
-                this.editor.setSelectedModel(null);
-                return true;
-            }
-            this.currentModel = mp[0];
-            var localConfPos = mp[1];
-            this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
-            this.editor.setSelectedModel(this.currentModel);
-            //
-            this.editor.cursorHelper.setBeginState(localConfPos.clone());
-            return false;
-        };
-        MoveAction.prototype.moveModel = function (e, isTouch) {
-            if (this.currentModel == null)
-                return true;
-            var pos = this.editor.cursorToWorld(e, isTouch);
-            var curPos = this.editor.cursorHelper.move(pos);
-            curPos.sub(this.offsetOrgToBone);
-            this.currentModel.mesh.position.copy(curPos);
-            return false;
-        };
-        MoveAction.prototype.releaseModel = function () {
-            if (this.currentModel == null)
-                return true;
-            this.currentModel = null;
-            return false;
-        };
-        return MoveAction;
-    })(PoseEditor.Action);
-    PoseEditor.MoveAction = MoveAction;
-})(PoseEditor || (PoseEditor = {}));
 var PoseEditor;
 (function (PoseEditor) {
     var TimeMachine;
@@ -1538,10 +1485,6 @@ var PoseEditor;
 /// <reference path="../ext/TransformControls.d.ts"/>
 /// <reference path="screen.ts"/>
 /// <reference path="model.ts"/>
-/// <reference path="camera_action.ts"/>
-/// <reference path="move_action.ts"/>
-/// <reference path="fk_action.ts"/>
-/// <reference path="ik_action.ts"/>
 /// <reference path="cursor_position_helper.ts"/>
 /// <reference path="time_machine.ts"/>
 /// <reference path="action_controller.ts"/>
@@ -1631,6 +1574,7 @@ var PoseEditor;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
             //
             this.screen.appendChild(this.renderer.domElement);
+            this.renderer.domElement.className = config.theme;
             //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);

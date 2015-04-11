@@ -1,3 +1,7 @@
+/// <reference path="camera_action.ts"/>
+/// <reference path="move_action.ts"/>
+/// <reference path="bone_action.ts"/>
+
 module PoseEditor {
     export class ActionController {
         public setup(
@@ -50,24 +54,14 @@ module PoseEditor {
                 screen.selectModeUI('move')
                 break;
 
-            case Screen.Mode.FK:
-                /// | FK     |
+            case Screen.Mode.Bone:
+                /// | Bone   |
                 /// | Camera |
                 this.makeStandardModeForm(
-                    'fk_action',
-                    () => new FKAction(this.editor, this.transformCtrl)
+                    'bone_action',
+                    () => new BoneAction(this.editor, this.transformCtrl)
                 );
-                screen.selectModeUI('fk')
-                break;
-
-            case Screen.Mode.IK:
-                /// | IK     |
-                /// | Camera |
-                this.makeStandardModeForm(
-                    'ik_action',
-                    () => new IKAction(this.editor)
-                );
-                screen.selectModeUI('ik')
+                screen.selectModeUI('bone')
                 break;
 
             default:

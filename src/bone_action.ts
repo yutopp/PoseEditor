@@ -1,25 +1,36 @@
 /// <reference path="action.ts"/>
 
 module PoseEditor {
-    export class IKAction extends Action {
-        constructor(e: Editor) {
+    export class BoneAction extends Action {
+        constructor(e: Editor, ctrls: THREE.TransformControls) {
             super(e);
+
+            this.transformCtrl = ctrls;
         }
 
         public name(): string {
-            return "ik_action";
+            return "bone_action";
         }
 
         public onActive(): void {
+            this.transformCtrl.setMode("rotate");
+            this.transformCtrl.setSpace("local");
+            this.transformCtrl.setSize(0.8);
+            this.transformCtrl.addEventListener('change', () => this.onTransformCtrl());
+            this.transformCtrl.detach();
+
             this.editor.showAllMarkerSprite();
         }
 
         public onDestroy(): void {
             this.releaseJoint();
+
             this.editor.hideAllMarkerSprite();
         }
 
         public onTapStart(e: any, isTouch: boolean): boolean {
+            if ( this.isOnManipurator ) return false;
+
             this.catchJoint(this.editor.selectJointMarker(e, isTouch));
 
             if (this.currentJointMarker == null) return true; // pass events to other action
@@ -35,6 +46,7 @@ module PoseEditor {
         }
 
         public onTapEnd(e: any, isTouch: boolean): boolean {
+            console.log("end");
             if (this.currentJointMarker == null || !this.isMoving) return true;
             this.isMoving = false;
 
@@ -59,7 +71,9 @@ module PoseEditor {
         }
 
         public update(model: Model): boolean {
+            this.transformCtrl.update();
             if (this.currentJointMarker == null || !this.isMoving) return true;
+            this.copyMatrix();
 
             if (model == this.currentJointMarker.userData.ownerModel) {
                 if (this.curPos != null) {
@@ -70,6 +84,14 @@ module PoseEditor {
             return true;
         }
 
+
+        private copyMatrix() {
+            // set initial pose of the bone
+            this.bone.updateMatrixWorld(true);
+
+            var to_q = this.bone.getWorldQuaternion(null)
+            this.currentJointMarker.quaternion.copy(to_q);
+        }
 
         private catchJoint(m: THREE.Object3D) {
             this.currentJointMarker = m;
@@ -82,6 +104,11 @@ module PoseEditor {
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
 
+            this.copyMatrix();
+
+            this.transformCtrl.attach(this.currentJointMarker);
+            this.transformCtrl.update();
+
             //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
@@ -91,6 +118,8 @@ module PoseEditor {
 
         private moving(e: any, isTouch: boolean) {
             if (this.currentJointMarker == null || !this.isMoving) return true;
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
 
             var pos = this.editor.cursorToWorld(e, isTouch);
             this.curPos = this.editor.cursorHelper.move(pos);
@@ -101,6 +130,9 @@ module PoseEditor {
         private releaseJoint() {
             this.currentJointMarker = null;
             this.isMoving = false;
+
+            this.transformCtrl.detach();
+            this.isOnManipurator = false;
 
             this.editor.cancelAllMarkerSprite();
         }
@@ -151,6 +183,41 @@ module PoseEditor {
             }
         }
 
+        private onTransformCtrl() {
+            this.transformCtrl.update();
+
+            if ( this.transformCtrl.axis != null ) {
+                this.isOnManipurator = true;
+
+                if ( this.currentJointMarker != null ) {
+                    // local rotation
+                    var t_r = this.bone.quaternion.clone();
+                    this.bone.quaternion.set(0,0,0,0);
+                    this.bone.updateMatrixWorld(true);
+                    var w_to_l_comp_q = this.bone.getWorldQuaternion(null).inverse();
+
+                    this.currentJointMarker.updateMatrixWorld(true);
+                    //console.log(this.selectedSphere.rotation);
+                    var sph_q = this.currentJointMarker.getWorldQuaternion(null);
+
+                    // copy to the marker model
+                    this.currentJointMarker.quaternion.copy(sph_q);
+
+                    // update bone quaternion
+                    var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
+
+                    this.bone.quaternion.copy(to_q);
+                    this.bone.updateMatrixWorld(true);
+                }
+
+            } else {
+                this.isOnManipurator = false;
+            }
+        }
+
+
+        private transformCtrl: THREE.TransformControls;
+        private isOnManipurator: boolean = false;
 
         private currentJointMarker: THREE.Object3D;
         private model: Model;
