@@ -1487,6 +1487,7 @@ var PoseEditor;
             function Machine(screen) {
                 this.history = [];
                 this.currentStep = -1;
+                this.side = 1;
                 this.screen = screen; // TO data binding... (nullable)
             }
             Machine.prototype.undo = function () {
@@ -1496,6 +1497,7 @@ var PoseEditor;
                     this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
                 this.currentStep--;
+                this.side = 0;
                 this.updateUI();
             };
             Machine.prototype.redo = function () {
@@ -1530,7 +1532,10 @@ var PoseEditor;
                     });
                     this.screen.changeUIStatus('redo', function (dom) {
                         var isFirstTime = _this.currentStep == 0 && _this.history.length == 1; // ;( FIX
-                        if (!isFirstTime && _this.currentStep < _this.history.length) {
+                        console.log(_this.currentStep);
+                        console.log(_this.history.length);
+                        console.log(_this.side);
+                        if (_this.currentStep + _this.side < _this.history.length) {
                             dom.disabled = false;
                         }
                         else {

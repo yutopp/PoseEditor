@@ -39,6 +39,7 @@ module PoseEditor {
                 if (this.currentStep >= this.history.length) this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
                 this.currentStep--;
+                this.side = 0;
 
                 this.updateUI();
             }
@@ -79,8 +80,11 @@ module PoseEditor {
                     this.screen.changeUIStatus('redo', (dom: HTMLElement) => {
                         var isFirstTime
                             = this.currentStep == 0 && this.history.length == 1; // ;( FIX
+                        console.log(this.currentStep);
+                        console.log(this.history.length);
+                        console.log(this.side);
 
-                        if ( !isFirstTime && this.currentStep < this.history.length ) {
+                        if ( this.currentStep + this.side < this.history.length ) {
                             dom.disabled = false;
                         } else {
                             dom.disabled = true;
@@ -93,6 +97,8 @@ module PoseEditor {
             private currentStep = -1;
 
             private screen: Screen.ScreenController;
+
+            private side = 1;
         }
 
     }
