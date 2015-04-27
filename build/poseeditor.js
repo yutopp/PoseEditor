@@ -105,6 +105,8 @@ var PoseEditor;
             this.editor.setSelectedModel(this.currentModel);
             //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());
+            //
+            this.beforeModelStatus = this.currentModel.modelData();
             return false;
         };
         MoveAction.prototype.moveModel = function (e, isTouch) {
@@ -119,6 +121,11 @@ var PoseEditor;
         MoveAction.prototype.releaseModel = function () {
             if (this.currentModel == null)
                 return true;
+            // record action
+            var currentModelStatus = this.currentModel.modelData();
+            // TODO:
+            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
+            this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.currentModel, this.beforeModelStatus, currentModelStatus));
             this.currentModel = null;
             return false;
         };

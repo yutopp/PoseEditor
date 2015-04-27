@@ -45,6 +45,9 @@ module PoseEditor {
             //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());
 
+            //
+            this.beforeModelStatus = this.currentModel.modelData();
+
             return false;
         }
 
@@ -63,6 +66,16 @@ module PoseEditor {
         private releaseModel() {
             if (this.currentModel == null) return true;
 
+            // record action
+            var currentModelStatus = this.currentModel.modelData();
+            // TODO:
+            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
+            this.editor.history.didAction( new TimeMachine.ChangeModelStatusAction(
+                this.currentModel,
+                this.beforeModelStatus,
+                currentModelStatus
+            ));
+
             this.currentModel = null;
 
             return false;
@@ -70,5 +83,7 @@ module PoseEditor {
 
         private currentModel: Model;
         private offsetOrgToBone: THREE.Vector3;
+
+        private beforeModelStatus: ModelStatus;
     }
 }
