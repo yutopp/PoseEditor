@@ -33,6 +33,8 @@ module PoseEditor {
                     var s = this.coreDom.style;
                     s.display = 'none';
                     s.position = 'absolute';
+                    s.width = '100%';
+                    s.height = '100%';
                     s.zIndex = '999';
                     s.padding = this.padding + 'px';
                 }
