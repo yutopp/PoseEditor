@@ -1,66 +1,7 @@
+/// <reference path="time_machine_action.ts"/>
+
 module PoseEditor {
     export module TimeMachine {
-        export class Action {
-            public undo() {}
-            public redo() {}
-        }
-
-        //
-        export class ChangeModelStatusAction extends Action {
-            constructor(m: Model, b: ModelStatus, a: ModelStatus) {
-                super();
-
-                this.model = m;
-                this.beforeStatus = b;
-                this.afterStatus = a;
-            }
-
-            public undo() {
-                this.model.loadModelData(this.beforeStatus);
-            }
-
-            public redo() {
-                this.model.loadModelData(this.afterStatus);
-            }
-
-            private model: Model;
-            private beforeStatus: ModelStatus;
-            private afterStatus: ModelStatus;
-        }
-
-        //
-        export class ChangeModelRemoveAction extends Action {
-            constructor(m: Model, b: Array<Model>, real: Array<Model>) {
-                super();
-
-                this.model = m;
-                this.refModels = real;
-                this.beforeModels = b;
-                this.afterModels = real.concat();   // clone
-            }
-
-            public undo() {
-                this.refModels.splice(0, this.refModels.length);
-                this.beforeModels.forEach((e) => this.refModels.push(e));  // X(
-
-                console.log("reactivete");
-                this.model.reactivate();
-            }
-
-            public redo() {
-                this.refModels.splice(0, this.refModels.length);
-                this.afterModels.forEach((e) => this.refModels.push(e));  // X(
-
-                this.model.deactivate();
-            }
-
-            private model: Model;
-            private refModels: Array<Model>;
-            private beforeModels: Array<Model>;
-            private afterModels: Array<Model>;
-        }
-
-
         //
         export class Machine {
             constructor(screen: Screen.ScreenController) {
@@ -97,13 +38,17 @@ module PoseEditor {
                         var a = this.currentStep == 0 ? 0 : 1;
 
                         var deleteFrom = this.currentStep + a;
-                        this.history.splice(deleteFrom, this.history.length-deleteFrom);
-
+                        var dels =
+                            this.history.splice(deleteFrom, this.history.length-deleteFrom);
                         this.currentStep++;
+
+                        dels.forEach((d) => d.dispose());
 
                     } else {
                         var deleteFrom = this.currentStep;
-                        this.history.splice(deleteFrom, this.history.length-deleteFrom);
+                        var dels =
+                            this.history.splice(deleteFrom, this.history.length-deleteFrom);
+                        dels.forEach((d) => d.dispose());
                     }
 
                 } else {

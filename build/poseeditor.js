@@ -123,9 +123,9 @@ var PoseEditor;
                 return true;
             // record action
             var currentModelStatus = this.currentModel.modelData();
-            // TODO:
-            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
-            this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.currentModel, this.beforeModelStatus, currentModelStatus));
+            if (!PoseEditor.isEqualModelStatus(this.beforeModelStatus, currentModelStatus)) {
+                this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.currentModel, this.beforeModelStatus, currentModelStatus));
+            }
             this.currentModel = null;
             return false;
         };
@@ -1139,6 +1139,10 @@ var PoseEditor;
         }
         return RotationLimitation;
     })();
+    function isEqualModelStatus(lhs, rhs) {
+        return JSON.stringify(lhs) == JSON.stringify(rhs);
+    }
+    PoseEditor.isEqualModelStatus = isEqualModelStatus;
     var Model = (function () {
         function Model(name, model_info, sprite_paths, scene, scene2d, callback) {
             var _this = this;
@@ -1334,9 +1338,11 @@ var PoseEditor;
                 callback(this, null);
             }
         };
-        Model.prototype.destruct = function () {
+        Model.prototype.deactivate = function () {
             var _this = this;
-            this.ready = false;
+            if (!this.ready) {
+                return;
+            }
             this.scene.remove(this.mesh);
             this.scene.remove(this.skeletonHelper);
             this.jointMarkerSprites.forEach(function (m) {
@@ -1345,6 +1351,22 @@ var PoseEditor;
             this.jointMarkerMeshes.forEach(function (m) {
                 _this.scene.remove(m);
             });
+            this.ready = false;
+        };
+        Model.prototype.reactivate = function () {
+            var _this = this;
+            if (this.ready) {
+                return;
+            }
+            this.scene.add(this.mesh);
+            this.scene.add(this.skeletonHelper);
+            this.jointMarkerSprites.forEach(function (m) {
+                _this.scene2d.add(m);
+            });
+            this.jointMarkerMeshes.forEach(function (m) {
+                _this.scene.add(m);
+            });
+            this.ready = true;
         };
         Model.prototype.isReady = function () {
             return this.ready;
@@ -1470,9 +1492,12 @@ var PoseEditor;
             };
             Action.prototype.redo = function () {
             };
+            Action.prototype.dispose = function () {
+            };
             return Action;
         })();
         TimeMachine.Action = Action;
+        //
         var ChangeModelStatusAction = (function (_super) {
             __extends(ChangeModelStatusAction, _super);
             function ChangeModelStatusAction(m, b, a) {
@@ -1490,65 +1515,137 @@ var PoseEditor;
             return ChangeModelStatusAction;
         })(Action);
         TimeMachine.ChangeModelStatusAction = ChangeModelStatusAction;
+        //
+        var ChangeModelRemoveAction = (function (_super) {
+            __extends(ChangeModelRemoveAction, _super);
+            function ChangeModelRemoveAction(m, b, real) {
+                _super.call(this);
+                this.model = m;
+                this.refModels = real;
+                this.beforeModels = b;
+                this.afterModels = real.concat(); // clone
+            }
+            ChangeModelRemoveAction.prototype.undo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.reactivate();
+            };
+            ChangeModelRemoveAction.prototype.redo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.afterModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.deactivate();
+            };
+            return ChangeModelRemoveAction;
+        })(Action);
+        TimeMachine.ChangeModelRemoveAction = ChangeModelRemoveAction;
+        //
+        var ChangeModelAppendAction = (function (_super) {
+            __extends(ChangeModelAppendAction, _super);
+            function ChangeModelAppendAction(m, b, real) {
+                _super.call(this);
+                this.model = m;
+                this.refModels = real;
+                this.beforeModels = b;
+                this.afterModels = real.concat(); // clone
+            }
+            ChangeModelAppendAction.prototype.undo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.deactivate();
+            };
+            ChangeModelAppendAction.prototype.redo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.afterModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.reactivate();
+            };
+            return ChangeModelAppendAction;
+        })(Action);
+        TimeMachine.ChangeModelAppendAction = ChangeModelAppendAction;
+    })(TimeMachine = PoseEditor.TimeMachine || (PoseEditor.TimeMachine = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="time_machine_action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var TimeMachine;
+    (function (TimeMachine) {
+        //
         var Machine = (function () {
             function Machine(screen) {
                 this.history = [];
                 this.currentStep = -1;
                 this.side = 1;
+                this.reachedBottom = true;
+                this.reachedTop = true;
                 this.screen = screen; // TO data binding... (nullable)
             }
             Machine.prototype.undo = function () {
                 if (this.currentStep < 0 || this.history.length == 0)
                     return;
-                if (this.currentStep >= this.history.length)
-                    this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
                 this.currentStep--;
                 this.side = 0;
+                this.clamp();
                 this.updateUI();
             };
             Machine.prototype.redo = function () {
                 if (this.currentStep >= this.history.length)
                     return;
-                if (this.currentStep < 0)
-                    this.currentStep = 0;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
+                this.side = 1; // redo side
+                this.clamp();
                 this.updateUI();
             };
             Machine.prototype.didAction = function (act) {
-                if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
-                    // remove all action to redo
-                    var deleteFrom = this.currentStep + 1;
-                    this.history.splice(deleteFrom, this.history.length - deleteFrom);
+                if (!this.reachedTop) {
+                    if (this.side == 0) {
+                        var a = this.currentStep == 0 ? 0 : 1;
+                        var deleteFrom = this.currentStep + a;
+                        var dels = this.history.splice(deleteFrom, this.history.length - deleteFrom);
+                        this.currentStep++;
+                        dels.forEach(function (d) { return d.dispose(); });
+                    }
+                    else {
+                        var deleteFrom = this.currentStep;
+                        var dels = this.history.splice(deleteFrom, this.history.length - deleteFrom);
+                        dels.forEach(function (d) { return d.dispose(); });
+                    }
+                }
+                else {
+                    this.currentStep++;
                 }
                 this.history.push(act);
-                this.currentStep++;
+                this.clamp();
+                this.reachedBottom = false;
+                this.reachedTop = true;
+                this.side = 1; // redo side
                 this.updateUI();
             };
             Machine.prototype.updateUI = function () {
                 var _this = this;
                 if (this.screen) {
                     this.screen.changeUIStatus('undo', function (dom) {
-                        if (_this.currentStep >= 0) {
-                            dom.disabled = false;
-                        }
-                        else {
-                            dom.disabled = true;
-                        }
+                        dom.disabled = _this.reachedBottom;
                     });
                     this.screen.changeUIStatus('redo', function (dom) {
-                        var isFirstTime = _this.currentStep == 0 && _this.history.length == 1; // ;( FIX
-                        console.log(_this.currentStep);
-                        console.log(_this.history.length);
-                        console.log(_this.side);
-                        if (_this.currentStep + _this.side < _this.history.length) {
-                            dom.disabled = false;
-                        }
-                        else {
-                            dom.disabled = true;
-                        }
+                        dom.disabled = _this.reachedTop;
                     });
+                }
+            };
+            Machine.prototype.clamp = function () {
+                this.reachedBottom = false;
+                this.reachedTop = false;
+                if (this.currentStep < 0) {
+                    this.currentStep = 0;
+                    this.reachedBottom = true;
+                }
+                else if (this.currentStep >= this.history.length) {
+                    this.currentStep = this.history.length - 1;
+                    this.reachedTop = true;
                 }
             };
             return Machine;
@@ -1825,7 +1922,10 @@ var PoseEditor;
                     callback(m, e);
                 }
             });
+            var beforeModelsArray = this.models.concat(); // concat means clone array
             this.models.push(model);
+            //
+            this.history.didAction(new PoseEditor.TimeMachine.ChangeModelAppendAction(model, beforeModelsArray, this.models));
         };
         Editor.prototype.resetCtrl = function () {
             this.transformCtrl.detach();
@@ -2056,17 +2156,20 @@ var PoseEditor;
         };
         Editor.prototype.removeAllModel = function () {
             this.models.forEach(function (m) {
-                m.destruct();
+                m.deactivate(); // ?
             });
             this.models = [];
             this.resetCtrl();
         };
         Editor.prototype.removeModelByIndex = function (index) {
             var model = this.models[index];
-            model.destruct();
+            model.deactivate();
+            var beforeModelsArray = this.models.concat(); // concat means clone array
             this.models.splice(index, 1);
             this.resetCtrl();
             this.setSelectedModel(null);
+            //
+            this.history.didAction(new PoseEditor.TimeMachine.ChangeModelRemoveAction(model, beforeModelsArray, this.models));
         };
         Editor.prototype.removeModel = function (model) {
             var index = this.models.indexOf(model);

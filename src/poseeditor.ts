@@ -342,7 +342,16 @@ module PoseEditor {
                 }
             });
 
+            var beforeModelsArray = this.models.concat();   // concat means clone array
+
             this.models.push(model);
+
+            //
+            this.history.didAction( new TimeMachine.ChangeModelAppendAction(
+                model,
+                beforeModelsArray,
+                this.models
+            ));
         }
 
 
@@ -640,7 +649,7 @@ module PoseEditor {
 
         public removeAllModel() {
             this.models.forEach((m) => {
-                m.destruct();
+                m.deactivate(); // ?
             });
 
             this.models = [];
@@ -649,12 +658,21 @@ module PoseEditor {
 
         public removeModelByIndex(index: number) {
             var model = this.models[index];
-            model.destruct();
+            model.deactivate();
+
+            var beforeModelsArray = this.models.concat();   // concat means clone array
 
             this.models.splice(index, 1);
             this.resetCtrl();
 
             this.setSelectedModel(null);
+
+            //
+            this.history.didAction( new TimeMachine.ChangeModelRemoveAction(
+                model,
+                beforeModelsArray,
+                this.models
+            ));
         }
 
         public removeModel(model: Model) {

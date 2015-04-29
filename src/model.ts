@@ -19,6 +19,10 @@ module PoseEditor {
         joints: Array<JointStatus>;
     }
 
+    export function isEqualModelStatus(lhs: ModelStatus, rhs: ModelStatus) {
+        return JSON.stringify(lhs) == JSON.stringify(rhs);
+    }
+
     export class Model
     {
         constructor(
@@ -255,8 +259,10 @@ module PoseEditor {
             }
         }
 
-        public destruct(): void {
-            this.ready = false;
+        public deactivate(): void {
+            if ( !this.ready ) {
+                return;
+            }
 
             this.scene.remove(this.mesh);
             this.scene.remove(this.skeletonHelper);
@@ -268,6 +274,27 @@ module PoseEditor {
             this.jointMarkerMeshes.forEach((m) => {
                 this.scene.remove(m);
             });
+
+            this.ready = false;
+        }
+
+        public reactivate(): void {
+            if ( this.ready ) {
+                return;
+            }
+
+            this.scene.add(this.mesh);
+            this.scene.add(this.skeletonHelper);
+
+            this.jointMarkerSprites.forEach((m) => {
+                this.scene2d.add(m);
+            });
+
+            this.jointMarkerMeshes.forEach((m) => {
+                this.scene.add(m);
+            });
+
+            this.ready = true;
         }
 
         public isReady(): boolean {
