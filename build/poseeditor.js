@@ -469,9 +469,14 @@ var PoseEditor;
             function Dialog(parentDom, tagName, className) {
                 if (className === void 0) { className = 'dialog'; }
                 _super.call(this);
+                this.offsetLeft = 0;
+                this.offsetTop = 0;
                 this.parentDom = parentDom;
                 //
                 this.padding = 10;
+                var rect = this.parentDom.getClientRects()[0];
+                this.offsetLeft = rect.left;
+                this.offsetTop = rect.top;
                 // base element(hide bg)
                 this.baseDom = document.createElement('div');
                 {
@@ -493,20 +498,18 @@ var PoseEditor;
                     var s = this.coreDom.style;
                     s.display = 'none';
                     s.position = 'absolute';
-                    s.width = '100%';
-                    s.height = '100%';
                     s.zIndex = '999';
                     s.padding = this.padding + 'px';
                 }
                 this.parentDom.appendChild(this.coreDom);
             }
             Dialog.prototype.updatePosision = function () {
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-                var px = Math.abs(offsetW - (this.width + this.padding * 2)) / 2;
-                var py = Math.abs(offsetH - (this.height + this.padding * 2)) / 2;
-                this.coreDom.style.marginLeft = px + 'px';
-                this.coreDom.style.marginTop = py + 'px';
+                var parentW = this.parentDom.clientWidth;
+                var parentH = this.parentDom.clientHeight;
+                var px = (parentW - this.width) / 2.0;
+                var py = (parentH - this.height) / 2.0;
+                this.coreDom.style.left = px + 'px';
+                this.coreDom.style.top = py + 'px';
             };
             Dialog.prototype.update = function () {
                 this.updatePosision();
@@ -584,12 +587,15 @@ var PoseEditor;
                 this.updatePosision();
             };
             ConfigurationDialog.prototype.updateSize = function () {
+                console.log("this.parentDom.clientWidth", this.parentDom.offsetWidth);
+                console.log("this.parentDom.clientHeight", this.parentDom.offsetHeight);
+                console.log("this.padding", this.padding);
                 var offsetW = this.parentDom.offsetWidth;
                 var offsetH = this.parentDom.offsetHeight;
-                this.width = Math.max(offsetW - 40, 40);
-                this.height = Math.max(offsetH - 40, 40);
-                this.coreDom.style.width = this.width + 'px';
-                this.coreDom.style.height = this.height + 'px';
+                this.width = Math.max(offsetW - this.padding * 2, 40);
+                this.height = Math.max(offsetH - this.padding * 2, 40);
+                this.coreDom.style.width = (this.width - this.offsetLeft * 2.5) + 'px'; // ←？？ww
+                this.coreDom.style.height = (this.height - this.offsetTop * 2.5) + 'px';
             };
             ConfigurationDialog.prototype.setValues = function (data) {
                 var _this = this;

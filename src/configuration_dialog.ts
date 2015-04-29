@@ -68,14 +68,18 @@ module PoseEditor {
             }
 
             private updateSize() {
+                console.log("this.parentDom.clientWidth", this.parentDom.offsetWidth);
+                console.log("this.parentDom.clientHeight", this.parentDom.offsetHeight);
+                console.log("this.padding", this.padding);
+
                 var offsetW = this.parentDom.offsetWidth;
                 var offsetH = this.parentDom.offsetHeight;
 
-                this.width = Math.max(offsetW - 40, 40);
-                this.height = Math.max(offsetH - 40, 40);
+                this.width = Math.max(offsetW - this.padding * 2, 40);
+                this.height = Math.max(offsetH - this.padding * 2, 40);
 
-                this.coreDom.style.width = this.width + 'px';
-                this.coreDom.style.height = this.height + 'px';
+                this.coreDom.style.width = (this.width - this.offsetLeft * 2.5) + 'px'; // ←？？ww
+                this.coreDom.style.height = (this.height - this.offsetTop * 2.5)+ 'px';
             }
 
             public setValues(data: Array<any>) {

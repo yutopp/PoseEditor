@@ -3,6 +3,9 @@
 module PoseEditor {
     export module Screen {
         export class Dialog<T extends HTMLElement> extends EventDispatcher {
+            protected offsetLeft = 0;
+            protected offsetTop = 0;
+
             constructor(parentDom: HTMLElement, tagName: string, className: string = 'dialog') {
                 super();
 
@@ -10,6 +13,10 @@ module PoseEditor {
 
                 //
                 this.padding = 10;
+
+                var rect = this.parentDom.getClientRects()[0];
+                this.offsetLeft = rect.left;
+                this.offsetTop = rect.top;
 
                 // base element(hide bg)
                 this.baseDom = document.createElement('div');
@@ -33,8 +40,6 @@ module PoseEditor {
                     var s = this.coreDom.style;
                     s.display = 'none';
                     s.position = 'absolute';
-                    s.width = '100%';
-                    s.height = '100%';
                     s.zIndex = '999';
                     s.padding = this.padding + 'px';
                 }
@@ -42,14 +47,14 @@ module PoseEditor {
             }
 
             protected updatePosision() {
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
+                var parentW = this.parentDom.clientWidth;
+                var parentH = this.parentDom.clientHeight;
 
-                var px = Math.abs(offsetW - (this.width + this.padding * 2)) / 2;
-                var py = Math.abs(offsetH - (this.height + this.padding * 2)) / 2;
+                var px = (parentW - this.width) / 2.0;
+                var py = (parentH - this.height) / 2.0;
 
-                this.coreDom.style.marginLeft = <number>px + 'px';
-                this.coreDom.style.marginTop = <number>py + 'px';
+                this.coreDom.style.left = <number>px + 'px';
+                this.coreDom.style.top = <number>py + 'px';
             }
 
             public update() {

@@ -1,6 +1,6 @@
 {
   "name": "poseeditor",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "authors": [
     "yutopp <yutopp@gmail.com>"
   ],
@@ -28,5 +28,9 @@
   ],
   "dependencies": {
     "three.js": "*"
+  },
+
+  "devDependencies": {
+    "bootstrap": "~3.2.0"
   }
 }
