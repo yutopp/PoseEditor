@@ -16,15 +16,14 @@ Please include these files.
 ```
 For detail to `index.html`.
 
-
-## Requirement
-+ bower
-+ tsd (TypeScript Definition manager)
-+ tsc (TypeScript Compiler)
-
-
 ## Development
 
+### Requirement
++ bower
++ tsd (TypeScript Definition manager)
++ tsc >= 1.4(TypeScript Compiler)
+
+### Setup
 ```
 bower install
 tsd update
