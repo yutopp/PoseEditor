@@ -110,60 +110,103 @@
             margin: 2px auto 2px auto;
         }
     }
+}
 
-    .loading {
-        $padding: 10px;
+.poseeditor-loading {
+    $margin: 10px;
 
-        margin: 0;
-        border-radius: 5px;
-        background-color: #fff;
+    margin: 0;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #fff;
+
+    position: absolute;
+    right: $margin;
+    bottom: $margin;
+
+    img {
+        padding: 0;
+        float: left;
     }
 
-    .config-dialog {
-        $tool-height: 38px;
-        $padding: 10px;
+    span {
+        margin-left: 4px;
+        float: left;
+    }
+}
 
-        margin: 0;
-        opacity: 0.9;
+.poseeditor-config-dialog {
+    $tool-height: 38px;
+    $margin: 10px;
 
-        border-radius: 5px;
-        background-color: #fff;
+    position: absolute;
+    left: $margin;
+    right: $margin;
+    top: $margin;
+    bottom: $margin;
 
-        .container {
-            height: 100%;
-            width: 100%;
+    padding: 0;
+    opacity: 0.9;
 
-            margin-bottom: -$tool-height;
-        }
+    border-radius: 5px;
+    background-color: #fff;
 
-        .selection {
-            position: relative;
+    .container {
+        padding: 0;
+        margin: $margin;
+    }
 
-            width: 100%;
+    .selection {
+        position: absolute;
+
+        height: $tool-height;
+        padding: 0;
+
+        left: $margin;
+        right: $margin;
+        bottom: $margin;
+
+        text-align: center;
+
+        input[type="button"] {
             height: $tool-height;
+            font-weight: bold;
 
-            text-align: center;
+            &.ok {
+                width: 180px;
+                margin: 0 auto;
 
-            input[type="button"] {
-                height: $tool-height;
-                font-weight: bold;
+                @include green-button;
+            }
 
-                &.ok {
-                    width: 180px;
-                    margin: 0 auto;
+            &.cancel {
+                position: absolute;
+                right: 0;
 
-                    @include green-button;
-                }
+                width: 100px;
 
-                &.cancel {
-                    position: absolute;
-                    right: 0;
-
-                    width: 100px;
-
-                    @include gray-button;
-                }
+                @include gray-button;
             }
         }
     }
+}
+
+.poseeditor-shadowing {
+    display: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    opacity: 0.5;
+}
+
+.poseeditor-base-element {
+    display: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
