@@ -228,6 +228,10 @@ module PoseEditor {
                 return callback(dom);
             }
 
+            public onResize(width: number, height: number) {
+                // DO nothing...
+            }
+
 
             private screen: ScreenController;
             private panelDom: HTMLElement;

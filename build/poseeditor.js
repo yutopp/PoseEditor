@@ -470,24 +470,16 @@ var PoseEditor;
                 this.offsetLeft = 0;
                 this.offsetTop = 0;
                 this.parentDom = parentDom;
-                //
-                this.padding = 10;
                 var rect = this.parentDom.getClientRects()[0];
                 this.offsetLeft = rect.left;
                 this.offsetTop = rect.top;
-                // base element(hide bg)
+                // shadowing element(hide background)
+                this.shadowingDom = document.createElement('div');
+                this.shadowingDom.className = 'poseeditor-shadowing';
+                this.parentDom.appendChild(this.shadowingDom);
+                // base element
                 this.baseDom = document.createElement('div');
-                {
-                    var s = this.baseDom.style;
-                    s.display = 'none';
-                    s.position = 'absolute';
-                    s.width = '100%';
-                    s.height = '100%';
-                    s.margin = '0';
-                    s.padding = '0';
-                    s.backgroundColor = '#000';
-                    s.opacity = '0.5';
-                }
+                this.baseDom.className = 'poseeditor-base-element';
                 this.parentDom.appendChild(this.baseDom);
                 // core dom
                 this.coreDom = document.createElement(tagName);
@@ -495,30 +487,18 @@ var PoseEditor;
                 {
                     var s = this.coreDom.style;
                     s.display = 'none';
-                    s.position = 'absolute';
                     s.zIndex = '999';
-                    s.padding = this.padding + 'px';
                 }
-                this.parentDom.appendChild(this.coreDom);
+                this.baseDom.appendChild(this.coreDom);
             }
-            Dialog.prototype.updatePosision = function () {
-                var parentW = this.parentDom.clientWidth;
-                var parentH = this.parentDom.clientHeight;
-                var px = (parentW - this.width) / 2.0;
-                var py = (parentH - this.height) / 2.0;
-                this.coreDom.style.left = px + 'px';
-                this.coreDom.style.top = py + 'px';
-            };
-            Dialog.prototype.update = function () {
-                this.updatePosision();
-            };
             Dialog.prototype.show = function () {
-                this.update();
-                this.baseDom.style.display = 'inline';
-                this.coreDom.style.display = 'inline';
+                this.shadowingDom.style.display = 'inline-block';
+                this.baseDom.style.display = 'inline-block';
+                this.coreDom.style.display = 'inline-block';
                 this.dispatchCallback('show');
             };
             Dialog.prototype.hide = function () {
+                this.shadowingDom.style.display = 'none';
                 this.baseDom.style.display = 'none';
                 this.coreDom.style.display = 'none';
                 this.dispatchCallback('hide');
@@ -537,7 +517,7 @@ var PoseEditor;
             __extends(ConfigurationDialog, _super);
             function ConfigurationDialog(parentDom) {
                 var _this = this;
-                _super.call(this, parentDom, 'div', 'config-dialog');
+                _super.call(this, parentDom, 'div', 'poseeditor-config-dialog');
                 this.actions = [];
                 // container element
                 this.containerDom = document.createElement("div");
@@ -580,21 +560,6 @@ var PoseEditor;
                 }
                 this.coreDom.appendChild(this.selectionDom);
             }
-            ConfigurationDialog.prototype.update = function () {
-                this.updateSize();
-                this.updatePosision();
-            };
-            ConfigurationDialog.prototype.updateSize = function () {
-                console.log("this.parentDom.clientWidth", this.parentDom.offsetWidth);
-                console.log("this.parentDom.clientHeight", this.parentDom.offsetHeight);
-                console.log("this.padding", this.padding);
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-                this.width = Math.max(offsetW - this.padding * 2, 40);
-                this.height = Math.max(offsetH - this.padding * 2, 40);
-                this.coreDom.style.width = (this.width - this.offsetLeft * 2.5) + 'px'; // ←？？ww
-                this.coreDom.style.height = (this.height - this.offsetTop * 2.5) + 'px';
-            };
             ConfigurationDialog.prototype.setValues = function (data) {
                 var _this = this;
                 if (data) {
@@ -738,19 +703,14 @@ var PoseEditor;
         var LoadingDialog = (function (_super) {
             __extends(LoadingDialog, _super);
             function LoadingDialog(parentDom, imagePath) {
-                _super.call(this, parentDom, 'img', 'loading');
-                this.coreDom.src = imagePath;
-                this.width = this.coreDom.offsetWidth;
-                this.height = this.coreDom.offsetHeight;
+                _super.call(this, parentDom, 'div', 'poseeditor-loading');
+                var imageDom = document.createElement('img');
+                imageDom.src = imagePath;
+                this.coreDom.appendChild(imageDom);
+                var spanDom = document.createElement('span');
+                spanDom.innerText = "Loading...";
+                this.coreDom.appendChild(spanDom);
             }
-            LoadingDialog.prototype.updatePosision = function () {
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-                var x = Math.abs(offsetW - this.coreDom.offsetWidth) / 2 - this.padding;
-                var y = Math.abs(offsetH - this.coreDom.offsetHeight) / 2 - this.padding;
-                this.coreDom.style.left = x + 'px';
-                this.coreDom.style.top = y + 'px';
-            };
             return LoadingDialog;
         })(Screen.Dialog);
         Screen.LoadingDialog = LoadingDialog;
@@ -817,6 +777,8 @@ var PoseEditor;
                 this.aspect = this.width / this.height;
                 //
                 this.dispatchCallback('resize');
+                //
+                this.controlPanel.onResize(this.width, this.height);
                 return false;
             };
             ScreenController.prototype.showLoadingDom = function () {
@@ -1030,6 +992,9 @@ var PoseEditor;
                 if (dom == null)
                     return false;
                 return callback(dom);
+            };
+            ControlPanel.prototype.onResize = function (width, height) {
+                // DO nothing...
             };
             return ControlPanel;
         })();
@@ -2118,13 +2083,13 @@ var PoseEditor;
                     type: 'input',
                     name: 'bgColorHex',
                     value: '0x' + this.currentValues['bgColorHex'].toString(16),
-                    label: '濶ｲ'
+                    label: '背景色'
                 },
                 {
                     type: 'input',
                     name: 'bgAlpha',
                     value: this.currentValues['bgAlpha'].toFixed(6),
-                    label: '繧｢繝ｫ繝輔ぃ'
+                    label: '背景アルファ'
                 }
             ];
             f(order);

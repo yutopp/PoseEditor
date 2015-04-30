@@ -74,6 +74,9 @@ module PoseEditor {
                 //
                 this.dispatchCallback('resize');
 
+                //
+                this.controlPanel.onResize(this.width, this.height);
+
                 return false;
             }
 

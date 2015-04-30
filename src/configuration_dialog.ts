@@ -9,15 +9,13 @@ module PoseEditor {
 
         export class ConfigurationDialog extends Dialog<HTMLDivElement> {
             constructor(parentDom: HTMLElement) {
-                super(parentDom, 'div', 'config-dialog');
+                super(parentDom, 'div', 'poseeditor-config-dialog');
 
                 // container element
                 this.containerDom = document.createElement("div");
                 {
                     var d = this.containerDom;
                     d.className = 'container';
-
-                    // d.innerText = "elements";
                 }
                 this.coreDom.appendChild(this.containerDom);
 
@@ -60,26 +58,6 @@ module PoseEditor {
                     }
                 }
                 this.coreDom.appendChild(this.selectionDom);
-            }
-
-            public update() {
-                this.updateSize();
-                this.updatePosision();
-            }
-
-            private updateSize() {
-                console.log("this.parentDom.clientWidth", this.parentDom.offsetWidth);
-                console.log("this.parentDom.clientHeight", this.parentDom.offsetHeight);
-                console.log("this.padding", this.padding);
-
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-
-                this.width = Math.max(offsetW - this.padding * 2, 40);
-                this.height = Math.max(offsetH - this.padding * 2, 40);
-
-                this.coreDom.style.width = (this.width - this.offsetLeft * 2.5) + 'px'; // ←？？ww
-                this.coreDom.style.height = (this.height - this.offsetTop * 2.5)+ 'px';
             }
 
             public setValues(data: Array<any>) {

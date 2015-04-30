@@ -142,52 +142,73 @@
 .poseeditor-default .control-panel hr {
   margin: 2px auto 2px auto;
 }
-.poseeditor-default .loading {
+
+.poseeditor-loading {
   margin: 0;
+  padding: 10px;
   border-radius: 5px;
   background-color: #fff;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
 }
-.poseeditor-default .config-dialog {
-  margin: 0;
+.poseeditor-loading img {
+  padding: 0;
+  float: left;
+}
+.poseeditor-loading span {
+  margin-left: 4px;
+  float: left;
+}
+
+.poseeditor-config-dialog {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  bottom: 10px;
+  padding: 0;
   opacity: 0.9;
   border-radius: 5px;
   background-color: #fff;
 }
-.poseeditor-default .config-dialog .container {
-  height: 100%;
-  width: 100%;
-  margin-bottom: -38px;
+.poseeditor-config-dialog .container {
+  padding: 0;
+  margin: 10px;
 }
-.poseeditor-default .config-dialog .selection {
-  position: relative;
-  width: 100%;
+.poseeditor-config-dialog .selection {
+  position: absolute;
   height: 38px;
+  padding: 0;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
   text-align: center;
 }
-.poseeditor-default .config-dialog .selection input[type="button"] {
+.poseeditor-config-dialog .selection input[type="button"] {
   height: 38px;
   font-weight: bold;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].ok {
+.poseeditor-config-dialog .selection input[type="button"].ok {
   width: 180px;
   margin: 0 auto;
   color: #fff;
   background-color: #5bbb60;
   border: 1px solid #43A047;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].ok:hover {
+.poseeditor-config-dialog .selection input[type="button"].ok:hover {
   border: 1px solid #163417;
   background-color: #255827;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].ok:disabled {
+.poseeditor-config-dialog .selection input[type="button"].ok:disabled {
   color: #777;
   background-color: #071007;
   border: 1px solid #071007;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].ok:disabled.hover {
+.poseeditor-config-dialog .selection input[type="button"].ok:disabled.hover {
   background-color: #071007;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].cancel {
+.poseeditor-config-dialog .selection input[type="button"].cancel {
   position: absolute;
   right: 0;
   width: 100px;
@@ -195,17 +216,37 @@
   background-color: #7b7b7b;
   border: 1px solid #616161;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].cancel:hover {
+.poseeditor-config-dialog .selection input[type="button"].cancel:hover {
   border: 1px solid #141414;
   background-color: #2e2e2e;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].cancel:disabled {
+.poseeditor-config-dialog .selection input[type="button"].cancel:disabled {
   color: #777;
   background-color: black;
   border: 1px solid black;
 }
-.poseeditor-default .config-dialog .selection input[type="button"].cancel:disabled.hover {
+.poseeditor-config-dialog .selection input[type="button"].cancel:disabled.hover {
   background-color: black;
+}
+
+.poseeditor-shadowing {
+  display: none;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  opacity: 0.5;
+}
+
+.poseeditor-base-element {
+  display: none;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /*# sourceMappingURL=poseeditor.css.map */

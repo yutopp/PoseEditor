@@ -557,13 +557,13 @@ module PoseEditor {
                     type: 'input',
                     name: 'bgColorHex',
                     value: '0x' + this.currentValues['bgColorHex'].toString(16),
-                    label: '濶ｲ',
+                    label: '背景色',
                 },
                 {
                     type: 'input',
                     name: 'bgAlpha',
                     value: this.currentValues['bgAlpha'].toFixed(6),
-                    label: '繧｢繝ｫ繝輔ぃ',
+                    label: '背景アルファ',
                 }
             ];
 
