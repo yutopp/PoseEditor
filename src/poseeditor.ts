@@ -88,12 +88,11 @@ module PoseEditor {
             //
             this.scene2d = new THREE.Scene();
 
+            //
             var propForRenderer: any = {
                 preserveDrawingBuffer: true
             };
             propForRenderer.alpha = config.enableBackgroundAlpha;
-
-            //
             this.renderer = new THREE.WebGLRenderer(propForRenderer);
             this.renderer.setSize(this.screen.width, this.screen.height);
             this.renderer.autoClear = false;
@@ -159,13 +158,23 @@ module PoseEditor {
                 this.renderer.domElement
             );
 
+            //
+            this.sceneForPicking = new THREE.Scene();
+			this.textureForPicking = new THREE.WebGLRenderTarget(
+                this.screen.width,
+                this.screen.height,
+                {
+                    minFilter: THREE.LinearFilter,
+                    format: THREE.RGBAFormat,
+                    generateMipmaps: false
+                }
+            );
+
             // jump into loop
             this.renderLoop();
         }
 
         /// ==================================================
-
-
         private updateBoneDebugInfo(model: Model, index: number) {
             var bone = model.mesh.skeleton.bones[index];
 
@@ -211,6 +220,60 @@ module PoseEditor {
         public selectModel(e: any, isTouch: boolean): [Model, THREE.Vector3] {
             e.preventDefault();
 
+            this.sceneForPicking.updateMatrixWorld(true);
+            var c = this.renderer.getClearColor().clone();
+            this.renderer.setClearColor(0xffffff);
+            this.renderer.render(
+                this.sceneForPicking,
+                this.camera,
+                this.textureForPicking,
+                true
+            );
+            this.renderer.setClearColor(c);
+
+            var clientCur = this.getCursor(e, isTouch);
+            var clientX = clientCur[0];
+            var clientY = clientCur[1];
+
+	        var pixelBuffer = new Uint8Array(4);
+            // read the pixel under the mouse from the texture(workaround)
+			(<any>this.renderer).readRenderTargetPixels(
+                this.textureForPicking,
+                clientX,
+                this.textureForPicking.height - clientY,
+                1.0,
+                1.0,
+                pixelBuffer
+            );
+
+			var id = ( pixelBuffer[0] << 16 ) | ( pixelBuffer[1] << 8 ) | ( pixelBuffer[2] );
+
+            console.log(id);
+            if (id == 0xffffff) return null;    // not matched
+
+            var model = this.modelsIdIndexer[id];
+            if (!model.isReady()) return null;
+
+            model.mesh.updateMatrixWorld();
+            var vector = new THREE.Vector3();
+            vector.setFromMatrixPosition(model.mesh.matrixWorld);
+
+            this.cursorHelper.setBeginState(vector);
+            var pos = this.cursorHelper.move(this.cursorToWorld(e, isTouch));
+            if (!pos) return null;
+            console.log("pos", pos);
+/*
+            model.mesh.updateMatrixWorld();
+            var vector = new THREE.Vector3();
+            vector.setFromMatrixPosition(model.mesh.matrixWorld);
+
+            var worldPos = model.mesh.localToWorld(model.mesh.position.clone());
+
+            console.log("worldPos: ", worldPos);
+            console.log("vector: ", vector);
+*/
+            return [model, pos];
+/*
             var pos = this.cursorToWorld(e, isTouch);
             var raycaster = new THREE.Raycaster(
                 this.camera.position,
@@ -226,6 +289,7 @@ module PoseEditor {
             var localConfPos = intersects[0].point.clone();
 
             return [mesh.userData.modelData, localConfPos];
+*/
         }
 
         //
@@ -315,6 +379,8 @@ module PoseEditor {
         private onResize(): void {
             this.renderer.setSize(this.screen.width, this.screen.height);
 
+            this.textureForPicking.setSize(this.screen.width, this.screen.height);
+
             this.camera.aspect = this.screen.aspect;
             this.camera.updateProjectionMatrix();
         }
@@ -322,29 +388,59 @@ module PoseEditor {
 
         private loadAndAppendModel(
             name: string,
-            model_info: ModelInfo,
-            sprite_paths: SpritePaths,
+            modelInfo: ModelInfo,
+            spritePaths: SpritePaths,
             callback: (m: Model, error: string) => void
         ) {
-            this.incTask();
-
-            var model = new Model(name, model_info, sprite_paths, this.scene, this.scene2d, (m, e) => {
-                this.decTask();
-
-                // default IK stopper node indexes
-                var nx = model_info.ikInversePropagationJoints;
-                nx.forEach((jointIndex) => {
-                    model.toggleIKPropagation(jointIndex);
-                });
-
-                if (callback) {
-                    callback(m, e);
+            //
+            this.modelsIdIndexer.forEach((m, index) => {
+                if (m.isDisposed()) {
+                    this.modelsIdIndexer[index] = null;
+                    --this.modelIdNum;
                 }
             });
+            if (this.modelIdNum > 255) {
+                if (callback) {
+                    callback(null, "poseeditor cannot have a number of models over 255.");
+                }
+                return;
+            }
+            var modelId = this.modelsIdIndexer.indexOf(null);
+            if ( modelId == -1 ) {
+                modelId = this.modelsIdIndexer.length;
+                this.modelsIdIndexer.push(null);
+            }
+
+            this.incTask();
+
+            var model = new Model(
+                name,
+                modelInfo,
+                spritePaths,
+                this.scene,
+                this.scene2d,
+                modelId,
+                this.sceneForPicking,
+                (m, e) => {
+                    this.decTask();
+
+                    // default IK stopper node indexes
+                    var nx = modelInfo.ikInversePropagationJoints;
+                    nx.forEach((jointIndex) => {
+                        model.toggleIKPropagation(jointIndex);
+                    });
+
+                    if (callback) {
+                        callback(m, e);
+                    }
+                }
+            );
 
             var beforeModelsArray = this.models.concat();   // concat means clone array
 
             this.models.push(model);
+            this.modelsIdIndexer[modelId] = model;
+            ++this.modelIdNum;
 
             //
             this.history.didAction( new TimeMachine.ChangeModelAppendAction(
@@ -374,6 +470,7 @@ module PoseEditor {
         private update() {
             this.scene.updateMatrixWorld(true);
             this.scene2d.updateMatrixWorld(true);
+
             this.models.forEach((model) => {
                 if ( model.isReady() ) {
                     model.update();
@@ -419,13 +516,24 @@ module PoseEditor {
         }
 
         public cursorToWorld(e: any, isTouch: boolean): THREE.Vector3 {
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var client_cur = this.getCursor(e, isTouch);
+            var client_x = client_cur[0];
+            var client_y = client_cur[1];
 
+            var dom_pos = this.renderer.domElement.getBoundingClientRect();
             var mouse_x = client_x - dom_pos.left;
             var mouse_y = client_y - dom_pos.top;
             return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+        }
+
+        public getCursor(e: any, isTouch: boolean): [number, number] {
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+
+            return [
+                client_x + document.body.scrollLeft,
+                client_y + document.body.scrollTop
+            ];
         }
 
         // ==================================================
@@ -528,13 +636,13 @@ module PoseEditor {
                     type: 'input',
                     name: 'bgColorHex',
                     value: '0x' + this.currentValues['bgColorHex'].toString(16),
-                    label: '色',
+                    label: '濶ｲ',
                 },
                 {
                     type: 'input',
                     name: 'bgAlpha',
                     value: this.currentValues['bgAlpha'].toFixed(6),
-                    label: 'アルファ',
+                    label: '繧｢繝ｫ繝輔ぃ',
                 }
             ];
 
@@ -723,6 +831,7 @@ module PoseEditor {
             }
         }
 
+
         //
         private modelInfoTable: {[key: string]: ModelInfo;};
         private spritePaths: SpritePaths;
@@ -739,6 +848,9 @@ module PoseEditor {
 
         //
         private models: Array<Model> = [];
+        private modelsIdIndexer: Array<Model> = [];
+        private modelIdNum: number = 0;
+
         private selectedModel: Model;
 
         //
@@ -757,6 +869,10 @@ module PoseEditor {
 
         //
         private scene2d: THREE.Scene;
+
+        //
+        private sceneForPicking: THREE.Scene;
+        private textureForPicking: THREE.WebGLRenderTarget;
 
         //
         private loadingTasks = 0;

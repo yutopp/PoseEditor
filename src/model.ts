@@ -27,10 +27,12 @@ module PoseEditor {
     {
         constructor(
             name: string,
-            model_info: ModelInfo,
-            sprite_paths: SpritePaths,
+            modelInfo: ModelInfo,
+            spritePaths: SpritePaths,
             scene: THREE.Scene,
             scene2d: THREE.Scene,
+            id: number,
+            sceneForPicking: THREE.Scene,
             callback: (m: Model, error: string) => void
         ) {
             //
@@ -39,23 +41,20 @@ module PoseEditor {
             //
             this.scene = scene;
             this.scene2d = scene2d;
+            this.sceneForPicking = sceneForPicking;
 
             //
-            var mesh_path = model_info.modelPath;
-            var texture_path = model_info.textureDir;
-            var init_pos = model_info.initPos;
-            var init_scale = model_info.initScale;
-            if ( model_info.markerScale ) {
-                this.markerScale = model_info.markerScale;
+            if ( modelInfo.markerScale ) {
+                this.markerScale = modelInfo.markerScale;
             } else {
-                this.markerScale = [12.0, 12.0];
+                this.markerScale = [12.0, 12.0];    // default
             }
 
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
 
             // load mesh data from path
-            loader.load(mesh_path, (geometry, materials) => {
+            loader.load(modelInfo.modelPath, (geometry, materials) => {
                 //console.log("finished to load");
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material: any;
@@ -84,13 +83,16 @@ module PoseEditor {
                     };
                 }
 
+                var initPos = modelInfo.initPos;
+                var initScale = modelInfo.initScale;
+
                 // create mesh data
                 this.mesh = new THREE.SkinnedMesh(geometry, material);
-                if ( init_pos ) {
-                    this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
+                if (initPos) {
+                    this.mesh.position.set(initPos[0], initPos[1], initPos[2]);
                 }
-                if ( init_scale ) {
-                    this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
+                if ( initScale ) {
+                    this.mesh.scale.set(initScale[0], initScale[1], initScale[2]);
                 }
 
                 //
@@ -101,20 +103,40 @@ module PoseEditor {
                 // add mesh to model
                 this.scene.add(this.mesh);
 
+
+                // create mesh data
+                var color = new THREE.Color();
+                var pickingMaterial = new THREE.MeshBasicMaterial({
+                    shading: THREE.NoShading,
+                    vertexColors: THREE.NoColors,
+                    color: id,
+                    skinning: true
+                });
+
+                this.meshForPicking = new THREE.SkinnedMesh(geometry, pickingMaterial);
+                if ( initPos ) {
+                    this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
+                }
+                if ( initScale ) {
+                    this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
+                }
+                this.meshForPicking.bind(this.mesh.skeleton);     // important!!
+                this.sceneForPicking.add(this.meshForPicking);
+
                 //
                 this.skeletonHelper = new THREE.SkeletonHelper(this.mesh);
-				this.skeletonHelper.material.linewidth = 2;
+				(<THREE.LineBasicMaterial>this.skeletonHelper.material).linewidth = 2;
                 this.skeletonHelper.visible = false;
 				this.scene.add(this.skeletonHelper);
 
                 //
                 this.setupAppendixData(
-                    sprite_paths,
-                    model_info,
+                    spritePaths,
+                    modelInfo,
                     callback
                 );
 
-            }, texture_path);
+            }, modelInfo.textureDir);
         }
 
         public selectionState(isActive: boolean) {
@@ -260,7 +282,7 @@ module PoseEditor {
         }
 
         public deactivate(): void {
-            if ( !this.ready ) {
+            if ( !this.ready || this.disposed ) {
                 return;
             }
 
@@ -275,11 +297,13 @@ module PoseEditor {
                 this.scene.remove(m);
             });
 
+            this.sceneForPicking.remove(this.meshForPicking);
+
             this.ready = false;
         }
 
         public reactivate(): void {
-            if ( this.ready ) {
+            if ( this.ready || this.disposed ) {
                 return;
             }
 
@@ -294,12 +318,30 @@ module PoseEditor {
                 this.scene.add(m);
             });
 
+            this.sceneForPicking.add(this.meshForPicking);
+
             this.ready = true;
+        }
+
+        public dispose() {
+            if ( this.disposed ) {
+                return;
+            }
+            this.deactivate();
+
+            this.mesh.geometry.dispose();
+
+            this.disposed = true;
         }
 
         public isReady(): boolean {
             return this.ready;
         }
+
+        public isDisposed(): boolean {
+            return this.disposed;
+        }
+
 
         public update() {
             //
@@ -433,6 +475,7 @@ module PoseEditor {
 
         //
         private ready: boolean = false;
+        private disposed: boolean = false;
 
         //
         private showingMarker: boolean = true;
@@ -455,10 +498,14 @@ module PoseEditor {
         //
         private scene: THREE.Scene;
         private scene2d: THREE.Scene;
+        private sceneForPicking: THREE.Scene;
 
         //
         public mesh: THREE.SkinnedMesh = null;
         public availableBones: Array<THREE.Bone> = [];
+
+        //
+        public meshForPicking: THREE.SkinnedMesh = null;
 
         //
         private jointMarkerSprites: Array<THREE.Sprite> = [];

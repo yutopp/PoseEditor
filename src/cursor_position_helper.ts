@@ -30,6 +30,14 @@ module PoseEditor {
             this.targetMesh.matrixWorldNeedsUpdate = true;
             this.targetMesh.visible = false;
             this.scene.add(this.targetMesh);
+
+            //
+            var boxGeo = new THREE.BoxGeometry(1, 1, 1);
+            var boxMat = new THREE.MeshBasicMaterial({wireframe: true});
+            this.debugMesh = new THREE.Mesh(boxGeo, boxMat);
+            this.debugMesh.matrixWorldNeedsUpdate = true;
+            this.debugMesh.visible = false;
+            this.scene.add(this.debugMesh);
         }
 
         public setBeginState(
@@ -37,6 +45,7 @@ module PoseEditor {
         ) {
             //
             this.targetMesh.position.copy(startPos);
+            this.debugMesh.position.copy(startPos);
 
             // set plane
             var c_to_p = this.targeter.target.clone().sub(this.camera.position);
@@ -63,11 +72,11 @@ module PoseEditor {
                 worldCursorPos.clone().sub(this.camera.position).normalize()
             );
 
-            // move ik target
+            //
             var intersects = raycaster.intersectObject(this.plane);
             if ( intersects.length == 0 ) return;
 
-            var pos = intersects[0].point;
+            var pos = intersects[0].point;      // world coordinates
             this.targetMesh.position.copy(pos);
 
             return pos;
@@ -79,5 +88,7 @@ module PoseEditor {
 
         private plane: THREE.Mesh;
         private targetMesh: THREE.Mesh;
+
+        private debugMesh: THREE.Mesh;
     }
 }

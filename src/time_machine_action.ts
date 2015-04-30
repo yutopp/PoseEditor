@@ -56,11 +56,11 @@ module PoseEditor {
                 this.model.deactivate();
             }
 
-            /*
             public dispose() {
-                this.model.deactivate();
+                if (!this.model.isReady) {
+                    this.model.dispose();
+                }
             }
-            */
 
 
             private model: Model;
