@@ -105,6 +105,8 @@ var PoseEditor;
             this.editor.setSelectedModel(this.currentModel);
             //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());
+            //
+            this.beforeModelStatus = this.currentModel.modelData();
             return false;
         };
         MoveAction.prototype.moveModel = function (e, isTouch) {
@@ -119,6 +121,11 @@ var PoseEditor;
         MoveAction.prototype.releaseModel = function () {
             if (this.currentModel == null)
                 return true;
+            // record action
+            var currentModelStatus = this.currentModel.modelData();
+            if (!PoseEditor.isEqualModelStatus(this.beforeModelStatus, currentModelStatus)) {
+                this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.currentModel, this.beforeModelStatus, currentModelStatus));
+            }
             this.currentModel = null;
             return false;
         };
@@ -339,18 +346,18 @@ var PoseEditor;
         ActionController.prototype.onModeSelect = function (mode, screen) {
             var _this = this;
             switch (mode) {
-                case 0 /* Camera */:
+                case PoseEditor.Screen.Mode.Camera:
                     /// | Camera |
                     this.destroyActionFrom(1);
                     screen.selectModeUI('camera');
                     break;
-                case 1 /* Move */:
+                case PoseEditor.Screen.Mode.Move:
                     /// | Move   |
                     /// | Camera |
                     this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
                     screen.selectModeUI('move');
                     break;
-                case 2 /* Bone */:
+                case PoseEditor.Screen.Mode.Bone:
                     /// | Bone   |
                     /// | Camera |
                     this.makeStandardModeForm('bone_action', function () { return new PoseEditor.BoneAction(_this.editor, _this.transformCtrl); });
@@ -462,9 +469,14 @@ var PoseEditor;
             function Dialog(parentDom, tagName, className) {
                 if (className === void 0) { className = 'dialog'; }
                 _super.call(this);
+                this.offsetLeft = 0;
+                this.offsetTop = 0;
                 this.parentDom = parentDom;
                 //
                 this.padding = 10;
+                var rect = this.parentDom.getClientRects()[0];
+                this.offsetLeft = rect.left;
+                this.offsetTop = rect.top;
                 // base element(hide bg)
                 this.baseDom = document.createElement('div');
                 {
@@ -492,12 +504,12 @@ var PoseEditor;
                 this.parentDom.appendChild(this.coreDom);
             }
             Dialog.prototype.updatePosision = function () {
-                var offsetW = this.parentDom.offsetWidth;
-                var offsetH = this.parentDom.offsetHeight;
-                var px = Math.abs(offsetW - (this.width + this.padding * 2)) / 2;
-                var py = Math.abs(offsetH - (this.height + this.padding * 2)) / 2;
-                this.coreDom.style.marginLeft = px + 'px';
-                this.coreDom.style.marginTop = py + 'px';
+                var parentW = this.parentDom.clientWidth;
+                var parentH = this.parentDom.clientHeight;
+                var px = (parentW - this.width) / 2.0;
+                var py = (parentH - this.height) / 2.0;
+                this.coreDom.style.left = px + 'px';
+                this.coreDom.style.top = py + 'px';
             };
             Dialog.prototype.update = function () {
                 this.updatePosision();
@@ -575,12 +587,15 @@ var PoseEditor;
                 this.updatePosision();
             };
             ConfigurationDialog.prototype.updateSize = function () {
+                console.log("this.parentDom.clientWidth", this.parentDom.offsetWidth);
+                console.log("this.parentDom.clientHeight", this.parentDom.offsetHeight);
+                console.log("this.padding", this.padding);
                 var offsetW = this.parentDom.offsetWidth;
                 var offsetH = this.parentDom.offsetHeight;
-                this.width = Math.max(offsetW - 40, 40);
-                this.height = Math.max(offsetH - 40, 40);
-                this.coreDom.style.width = this.width + 'px';
-                this.coreDom.style.height = this.height + 'px';
+                this.width = Math.max(offsetW - this.padding * 2, 40);
+                this.height = Math.max(offsetH - this.padding * 2, 40);
+                this.coreDom.style.width = (this.width - this.offsetLeft * 2.5) + 'px'; // ←？？ww
+                this.coreDom.style.height = (this.height - this.offsetTop * 2.5) + 'px';
             };
             ConfigurationDialog.prototype.setValues = function (data) {
                 var _this = this;
@@ -851,7 +866,7 @@ var PoseEditor;
                     dom.value = 'Camera';
                     dom.className = 'modes';
                     dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
+                        _this.screen.dispatchCallback("onmodeclick", Screen.Mode.Camera);
                     });
                 });
                 //
@@ -859,7 +874,7 @@ var PoseEditor;
                     dom.value = 'Move/Select';
                     dom.className = 'modes';
                     dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
+                        _this.screen.dispatchCallback("onmodeclick", Screen.Mode.Move);
                     });
                 });
                 //
@@ -867,7 +882,7 @@ var PoseEditor;
                     dom.value = 'Bone';
                     dom.className = 'modes';
                     dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 2 /* Bone */);
+                        _this.screen.dispatchCallback("onmodeclick", Screen.Mode.Bone);
                     });
                 });
                 this.addHR();
@@ -1046,10 +1061,18 @@ var PoseEditor;
             this.targetMesh.matrixWorldNeedsUpdate = true;
             this.targetMesh.visible = false;
             this.scene.add(this.targetMesh);
+            //
+            var boxGeo = new THREE.BoxGeometry(1, 1, 1);
+            var boxMat = new THREE.MeshBasicMaterial({ wireframe: true });
+            this.debugMesh = new THREE.Mesh(boxGeo, boxMat);
+            this.debugMesh.matrixWorldNeedsUpdate = true;
+            this.debugMesh.visible = false;
+            this.scene.add(this.debugMesh);
         }
         CursorPositionHelper.prototype.setBeginState = function (startPos) {
             //
             this.targetMesh.position.copy(startPos);
+            this.debugMesh.position.copy(startPos);
             // set plane
             var c_to_p = this.targeter.target.clone().sub(this.camera.position);
             var c_to_o = startPos.clone().sub(this.camera.position);
@@ -1064,11 +1087,11 @@ var PoseEditor;
         };
         CursorPositionHelper.prototype.move = function (worldCursorPos) {
             var raycaster = new THREE.Raycaster(this.camera.position, worldCursorPos.clone().sub(this.camera.position).normalize());
-            // move ik target
+            //
             var intersects = raycaster.intersectObject(this.plane);
             if (intersects.length == 0)
                 return;
-            var pos = intersects[0].point;
+            var pos = intersects[0].point; // world coordinates
             this.targetMesh.position.copy(pos);
             return pos;
         };
@@ -1111,13 +1134,9 @@ var PoseEditor;
         return CameraConfig;
     })();
     PoseEditor.CameraConfig = CameraConfig;
-    function degToRad(deg) {
-        return deg * Math.PI / 180.0;
-    }
+    function degToRad(deg) { return deg * Math.PI / 180.0; }
     PoseEditor.degToRad = degToRad;
-    function radToDeg(rad) {
-        return rad / Math.PI * 180.0;
-    }
+    function radToDeg(rad) { return rad / Math.PI * 180.0; }
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
@@ -1132,11 +1151,16 @@ var PoseEditor;
         }
         return RotationLimitation;
     })();
+    function isEqualModelStatus(lhs, rhs) {
+        return JSON.stringify(lhs) == JSON.stringify(rhs);
+    }
+    PoseEditor.isEqualModelStatus = isEqualModelStatus;
     var Model = (function () {
-        function Model(name, model_info, sprite_paths, scene, scene2d, callback) {
+        function Model(name, modelInfo, spritePaths, scene, scene2d, id, sceneForPicking, callback) {
             var _this = this;
             //
             this.ready = false;
+            this.disposed = false;
             //
             this.showingMarker = true;
             //
@@ -1146,6 +1170,8 @@ var PoseEditor;
             this.mesh = null;
             this.availableBones = [];
             //
+            this.meshForPicking = null;
+            //
             this.jointMarkerSprites = [];
             this.jointMarkerMeshes = [];
             //
@@ -1153,21 +1179,18 @@ var PoseEditor;
             //
             this.scene = scene;
             this.scene2d = scene2d;
+            this.sceneForPicking = sceneForPicking;
             //
-            var mesh_path = model_info.modelPath;
-            var texture_path = model_info.textureDir;
-            var init_pos = model_info.initPos;
-            var init_scale = model_info.initScale;
-            if (model_info.markerScale) {
-                this.markerScale = model_info.markerScale;
+            if (modelInfo.markerScale) {
+                this.markerScale = modelInfo.markerScale;
             }
             else {
-                this.markerScale = [12.0, 12.0];
+                this.markerScale = [12.0, 12.0]; // default
             }
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
             // load mesh data from path
-            loader.load(mesh_path, function (geometry, materials) {
+            loader.load(modelInfo.modelPath, function (geometry, materials) {
                 //console.log("finished to load");
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material;
@@ -1192,13 +1215,15 @@ var PoseEditor;
                         transparent: material.transparent
                     };
                 }
+                var initPos = modelInfo.initPos;
+                var initScale = modelInfo.initScale;
                 // create mesh data
                 _this.mesh = new THREE.SkinnedMesh(geometry, material);
-                if (init_pos) {
-                    _this.mesh.position.set(init_pos[0], init_pos[1], init_pos[2]);
+                if (initPos) {
+                    _this.mesh.position.set(initPos[0], initPos[1], initPos[2]);
                 }
-                if (init_scale) {
-                    _this.mesh.scale.set(init_scale[0], init_scale[1], init_scale[2]);
+                if (initScale) {
+                    _this.mesh.scale.set(initScale[0], initScale[1], initScale[2]);
                 }
                 //
                 _this.mesh.userData = {
@@ -1206,14 +1231,31 @@ var PoseEditor;
                 };
                 // add mesh to model
                 _this.scene.add(_this.mesh);
+                // create mesh data
+                var color = new THREE.Color();
+                var pickingMaterial = new THREE.MeshBasicMaterial({
+                    shading: THREE.NoShading,
+                    vertexColors: THREE.NoColors,
+                    color: id,
+                    skinning: true
+                });
+                _this.meshForPicking = new THREE.SkinnedMesh(geometry, pickingMaterial);
+                if (initPos) {
+                    _this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
+                }
+                if (initScale) {
+                    _this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
+                }
+                _this.meshForPicking.bind(_this.mesh.skeleton); // important!!
+                _this.sceneForPicking.add(_this.meshForPicking);
                 //
                 _this.skeletonHelper = new THREE.SkeletonHelper(_this.mesh);
                 _this.skeletonHelper.material.linewidth = 2;
                 _this.skeletonHelper.visible = false;
                 _this.scene.add(_this.skeletonHelper);
                 //
-                _this.setupAppendixData(sprite_paths, model_info, callback);
-            }, texture_path);
+                _this.setupAppendixData(spritePaths, modelInfo, callback);
+            }, modelInfo.textureDir);
         }
         Model.prototype.selectionState = function (isActive) {
             var _this = this;
@@ -1279,7 +1321,8 @@ var PoseEditor;
             });
             this.scene.updateMatrixWorld(true);
             //
-            this.offsetOrgToBone = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
+            this.offsetOrgToBone
+                = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
             //
             this.jointMarkerSprites = new Array(this.mesh.skeleton.bones.length);
             this.jointMarkerMeshes = new Array(this.mesh.skeleton.bones.length);
@@ -1327,9 +1370,11 @@ var PoseEditor;
                 callback(this, null);
             }
         };
-        Model.prototype.destruct = function () {
+        Model.prototype.deactivate = function () {
             var _this = this;
-            this.ready = false;
+            if (!this.ready || this.disposed) {
+                return;
+            }
             this.scene.remove(this.mesh);
             this.scene.remove(this.skeletonHelper);
             this.jointMarkerSprites.forEach(function (m) {
@@ -1338,9 +1383,38 @@ var PoseEditor;
             this.jointMarkerMeshes.forEach(function (m) {
                 _this.scene.remove(m);
             });
+            this.sceneForPicking.remove(this.meshForPicking);
+            this.ready = false;
+        };
+        Model.prototype.reactivate = function () {
+            var _this = this;
+            if (this.ready || this.disposed) {
+                return;
+            }
+            this.scene.add(this.mesh);
+            this.scene.add(this.skeletonHelper);
+            this.jointMarkerSprites.forEach(function (m) {
+                _this.scene2d.add(m);
+            });
+            this.jointMarkerMeshes.forEach(function (m) {
+                _this.scene.add(m);
+            });
+            this.sceneForPicking.add(this.meshForPicking);
+            this.ready = true;
+        };
+        Model.prototype.dispose = function () {
+            if (this.disposed) {
+                return;
+            }
+            this.deactivate();
+            this.mesh.geometry.dispose();
+            this.disposed = true;
         };
         Model.prototype.isReady = function () {
             return this.ready;
+        };
+        Model.prototype.isDisposed = function () {
+            return this.disposed;
         };
         Model.prototype.update = function () {
             var _this = this;
@@ -1459,13 +1533,13 @@ var PoseEditor;
         var Action = (function () {
             function Action() {
             }
-            Action.prototype.undo = function () {
-            };
-            Action.prototype.redo = function () {
-            };
+            Action.prototype.undo = function () { };
+            Action.prototype.redo = function () { };
+            Action.prototype.dispose = function () { };
             return Action;
         })();
         TimeMachine.Action = Action;
+        //
         var ChangeModelStatusAction = (function (_super) {
             __extends(ChangeModelStatusAction, _super);
             function ChangeModelStatusAction(m, b, a) {
@@ -1483,60 +1557,142 @@ var PoseEditor;
             return ChangeModelStatusAction;
         })(Action);
         TimeMachine.ChangeModelStatusAction = ChangeModelStatusAction;
+        //
+        var ChangeModelRemoveAction = (function (_super) {
+            __extends(ChangeModelRemoveAction, _super);
+            function ChangeModelRemoveAction(m, b, real) {
+                _super.call(this);
+                this.model = m;
+                this.refModels = real;
+                this.beforeModels = b;
+                this.afterModels = real.concat(); // clone
+            }
+            ChangeModelRemoveAction.prototype.undo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.reactivate();
+            };
+            ChangeModelRemoveAction.prototype.redo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.afterModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.deactivate();
+            };
+            ChangeModelRemoveAction.prototype.dispose = function () {
+                if (!this.model.isReady) {
+                    this.model.dispose();
+                }
+            };
+            return ChangeModelRemoveAction;
+        })(Action);
+        TimeMachine.ChangeModelRemoveAction = ChangeModelRemoveAction;
+        //
+        var ChangeModelAppendAction = (function (_super) {
+            __extends(ChangeModelAppendAction, _super);
+            function ChangeModelAppendAction(m, b, real) {
+                _super.call(this);
+                this.model = m;
+                this.refModels = real;
+                this.beforeModels = b;
+                this.afterModels = real.concat(); // clone
+            }
+            ChangeModelAppendAction.prototype.undo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.deactivate();
+            };
+            ChangeModelAppendAction.prototype.redo = function () {
+                var _this = this;
+                this.refModels.splice(0, this.refModels.length);
+                this.afterModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.model.reactivate();
+            };
+            return ChangeModelAppendAction;
+        })(Action);
+        TimeMachine.ChangeModelAppendAction = ChangeModelAppendAction;
+    })(TimeMachine = PoseEditor.TimeMachine || (PoseEditor.TimeMachine = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="time_machine_action.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var TimeMachine;
+    (function (TimeMachine) {
+        //
         var Machine = (function () {
             function Machine(screen) {
                 this.history = [];
                 this.currentStep = -1;
+                this.side = 1;
+                this.reachedBottom = true;
+                this.reachedTop = true;
                 this.screen = screen; // TO data binding... (nullable)
             }
             Machine.prototype.undo = function () {
                 if (this.currentStep < 0 || this.history.length == 0)
                     return;
-                if (this.currentStep >= this.history.length)
-                    this.currentStep = this.history.length - 1;
                 this.history[this.currentStep].undo();
                 this.currentStep--;
+                this.side = 0;
+                this.clamp();
                 this.updateUI();
             };
             Machine.prototype.redo = function () {
                 if (this.currentStep >= this.history.length)
                     return;
-                if (this.currentStep < 0)
-                    this.currentStep = 0;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
+                this.side = 1; // redo side
+                this.clamp();
                 this.updateUI();
             };
             Machine.prototype.didAction = function (act) {
-                if (this.currentStep >= 0 && this.currentStep + 1 < this.history.length) {
-                    // remove all action to redo
-                    var deleteFrom = this.currentStep + 1;
-                    this.history.splice(deleteFrom, this.history.length - deleteFrom);
+                if (!this.reachedTop) {
+                    if (this.side == 0) {
+                        var a = this.currentStep == 0 ? 0 : 1;
+                        var deleteFrom = this.currentStep + a;
+                        var dels = this.history.splice(deleteFrom, this.history.length - deleteFrom);
+                        this.currentStep++;
+                        dels.forEach(function (d) { return d.dispose(); });
+                    }
+                    else {
+                        var deleteFrom = this.currentStep;
+                        var dels = this.history.splice(deleteFrom, this.history.length - deleteFrom);
+                        dels.forEach(function (d) { return d.dispose(); });
+                    }
+                }
+                else {
+                    this.currentStep++;
                 }
                 this.history.push(act);
-                this.currentStep++;
+                this.clamp();
+                this.reachedBottom = false;
+                this.reachedTop = true;
+                this.side = 1; // redo side
                 this.updateUI();
             };
             Machine.prototype.updateUI = function () {
                 var _this = this;
                 if (this.screen) {
                     this.screen.changeUIStatus('undo', function (dom) {
-                        if (_this.currentStep >= 0) {
-                            dom.disabled = false;
-                        }
-                        else {
-                            dom.disabled = true;
-                        }
+                        dom.disabled = _this.reachedBottom;
                     });
                     this.screen.changeUIStatus('redo', function (dom) {
-                        var isFirstTime = _this.currentStep == 0 && _this.history.length == 1; // ;( FIX
-                        if (!isFirstTime && _this.currentStep < _this.history.length) {
-                            dom.disabled = false;
-                        }
-                        else {
-                            dom.disabled = true;
-                        }
+                        dom.disabled = _this.reachedTop;
                     });
+                }
+            };
+            Machine.prototype.clamp = function () {
+                this.reachedBottom = false;
+                this.reachedTop = false;
+                if (this.currentStep < 0) {
+                    this.currentStep = 0;
+                    this.reachedBottom = true;
+                }
+                else if (this.currentStep >= this.history.length) {
+                    this.currentStep = this.history.length - 1;
+                    this.reachedTop = true;
                 }
             };
             return Machine;
@@ -1567,6 +1723,8 @@ var PoseEditor;
             };
             //
             this.models = [];
+            this.modelsIdIndexer = [];
+            this.modelIdNum = 0;
             //
             this.loadingTasks = 0;
             this.boneDebugDom = null;
@@ -1609,7 +1767,7 @@ var PoseEditor;
                 _this.onRestore(data);
             });
             // setup
-            this.actionController.onModeSelect(0 /* Camera */, this.screen);
+            this.actionController.onModeSelect(PoseEditor.Screen.Mode.Camera, this.screen);
             //
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
@@ -1628,11 +1786,11 @@ var PoseEditor;
             this.scene.add(this.ambientLight);
             //
             this.scene2d = new THREE.Scene();
+            //
             var propForRenderer = {
                 preserveDrawingBuffer: true
             };
             propForRenderer.alpha = config.enableBackgroundAlpha;
-            //
             this.renderer = new THREE.WebGLRenderer(propForRenderer);
             this.renderer.setSize(this.screen.width, this.screen.height);
             this.renderer.autoClear = false;
@@ -1666,7 +1824,8 @@ var PoseEditor;
                 _this.transformCtrl.update();
             });
             //
-            this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
+            this.transformCtrl
+                = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.scene.add(this.transformCtrl);
             // intersect helper
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
@@ -1677,6 +1836,13 @@ var PoseEditor;
             this.currentValues['format'] = 'png';
             //
             this.actionController.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
+            //
+            this.sceneForPicking = new THREE.Scene();
+            this.textureForPicking = new THREE.WebGLRenderTarget(this.screen.width, this.screen.height, {
+                minFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat,
+                generateMipmaps: false
+            });
             // jump into loop
             this.renderLoop();
         }
@@ -1713,15 +1879,60 @@ var PoseEditor;
         //
         Editor.prototype.selectModel = function (e, isTouch) {
             e.preventDefault();
-            var pos = this.cursorToWorld(e, isTouch);
-            var raycaster = new THREE.Raycaster(this.camera.position, pos.sub(this.camera.position).normalize());
-            var intersects = raycaster.intersectObjects(this.models.map(function (m) { return m.mesh; }));
-            var mesh = intersects.length > 0 ? intersects[0].object : null;
-            if (mesh == null)
+            this.sceneForPicking.updateMatrixWorld(true);
+            var c = this.renderer.getClearColor().clone();
+            this.renderer.setClearColor(0xffffff);
+            this.renderer.render(this.sceneForPicking, this.camera, this.textureForPicking, true);
+            this.renderer.setClearColor(c);
+            var clientCur = this.getCursor(e, isTouch);
+            var clientX = clientCur[0];
+            var clientY = clientCur[1];
+            var pixelBuffer = new Uint8Array(4);
+            // read the pixel under the mouse from the texture(workaround)
+            this.renderer.readRenderTargetPixels(this.textureForPicking, clientX, this.textureForPicking.height - clientY, 1.0, 1.0, pixelBuffer);
+            var id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | (pixelBuffer[2]);
+            console.log(id);
+            if (id == 0xffffff)
+                return null; // not matched
+            var model = this.modelsIdIndexer[id];
+            if (!model.isReady())
                 return null;
-            var modelPos = mesh.position.clone();
-            var localConfPos = intersects[0].point.clone();
-            return [mesh.userData.modelData, localConfPos];
+            model.mesh.updateMatrixWorld();
+            var vector = new THREE.Vector3();
+            vector.setFromMatrixPosition(model.mesh.matrixWorld);
+            this.cursorHelper.setBeginState(vector);
+            var pos = this.cursorHelper.move(this.cursorToWorld(e, isTouch));
+            if (!pos)
+                return null;
+            console.log("pos", pos);
+            /*
+                        model.mesh.updateMatrixWorld();
+                        var vector = new THREE.Vector3();
+                        vector.setFromMatrixPosition(model.mesh.matrixWorld);
+            
+                        var worldPos = model.mesh.localToWorld(model.mesh.position.clone());
+            
+                        console.log("worldPos: ", worldPos);
+                        console.log("vector: ", vector);
+            */
+            return [model, pos];
+            /*
+                        var pos = this.cursorToWorld(e, isTouch);
+                        var raycaster = new THREE.Raycaster(
+                            this.camera.position,
+                            pos.sub(this.camera.position).normalize()
+                        );
+                        var intersects = raycaster.intersectObjects(
+                            this.models.map((m) => m.mesh)
+                        );
+                        var mesh = intersects.length > 0 ? intersects[0].object : null;
+                        if ( mesh == null ) return null;
+            
+                        var modelPos = mesh.position.clone();
+                        var localConfPos = intersects[0].point.clone();
+            
+                        return [mesh.userData.modelData, localConfPos];
+            */
         };
         //
         Editor.prototype.selectJointMarker = function (e, isTouch) {
@@ -1744,7 +1955,7 @@ var PoseEditor;
                 var margin = Math.max(0.001, Math.min(1.4, diff_c)); // [0.001, 1.4]
                 //console.log("len: ", len, " / m: ", margin);
                 var d = ab.clone().cross(ap).length();
-                var h = d /* / 1.0 */;
+                var h = d;
                 if (h < margin) {
                     if (h < l) {
                         l = h;
@@ -1796,16 +2007,35 @@ var PoseEditor;
         };
         Editor.prototype.onResize = function () {
             this.renderer.setSize(this.screen.width, this.screen.height);
+            this.textureForPicking.setSize(this.screen.width, this.screen.height);
             this.camera.aspect = this.screen.aspect;
             this.camera.updateProjectionMatrix();
         };
-        Editor.prototype.loadAndAppendModel = function (name, model_info, sprite_paths, callback) {
+        Editor.prototype.loadAndAppendModel = function (name, modelInfo, spritePaths, callback) {
             var _this = this;
+            //
+            this.modelsIdIndexer.forEach(function (m, index) {
+                if (m.isDisposed()) {
+                    _this.modelsIdIndexer[index] = null;
+                    --_this.modelIdNum;
+                }
+            });
+            if (this.modelIdNum > 255) {
+                if (callback) {
+                    callback(null, "poseeditor cannot have a number of models over 255.");
+                }
+                return;
+            }
+            var modelId = this.modelsIdIndexer.indexOf(null);
+            if (modelId == -1) {
+                modelId = this.modelsIdIndexer.length;
+                this.modelsIdIndexer.push(null);
+            }
             this.incTask();
-            var model = new PoseEditor.Model(name, model_info, sprite_paths, this.scene, this.scene2d, function (m, e) {
+            var model = new PoseEditor.Model(name, modelInfo, spritePaths, this.scene, this.scene2d, modelId, this.sceneForPicking, function (m, e) {
                 _this.decTask();
                 // default IK stopper node indexes
-                var nx = model_info.ikInversePropagationJoints;
+                var nx = modelInfo.ikInversePropagationJoints;
                 nx.forEach(function (jointIndex) {
                     model.toggleIKPropagation(jointIndex);
                 });
@@ -1813,7 +2043,12 @@ var PoseEditor;
                     callback(m, e);
                 }
             });
+            var beforeModelsArray = this.models.concat(); // concat means clone array
             this.models.push(model);
+            this.modelsIdIndexer[modelId] = model;
+            ++this.modelIdNum;
+            //
+            this.history.didAction(new PoseEditor.TimeMachine.ChangeModelAppendAction(model, beforeModelsArray, this.models));
         };
         Editor.prototype.resetCtrl = function () {
             this.transformCtrl.detach();
@@ -1854,12 +2089,21 @@ var PoseEditor;
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         };
         Editor.prototype.cursorToWorld = function (e, isTouch) {
+            var client_cur = this.getCursor(e, isTouch);
+            var client_x = client_cur[0];
+            var client_y = client_cur[1];
             var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
             var mouse_x = client_x - dom_pos.left;
             var mouse_y = client_y - dom_pos.top;
             return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+        };
+        Editor.prototype.getCursor = function (e, isTouch) {
+            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            return [
+                client_x + document.body.scrollLeft,
+                client_y + document.body.scrollTop
+            ];
         };
         // ==================================================
         // ==================================================
@@ -1946,13 +2190,13 @@ var PoseEditor;
                     type: 'input',
                     name: 'bgColorHex',
                     value: '0x' + this.currentValues['bgColorHex'].toString(16),
-                    label: '色'
+                    label: '濶ｲ'
                 },
                 {
                     type: 'input',
                     name: 'bgAlpha',
                     value: this.currentValues['bgAlpha'].toFixed(6),
-                    label: 'アルファ'
+                    label: '繧｢繝ｫ繝輔ぃ'
                 }
             ];
             f(order);
@@ -2044,17 +2288,20 @@ var PoseEditor;
         };
         Editor.prototype.removeAllModel = function () {
             this.models.forEach(function (m) {
-                m.destruct();
+                m.deactivate(); // ?
             });
             this.models = [];
             this.resetCtrl();
         };
         Editor.prototype.removeModelByIndex = function (index) {
             var model = this.models[index];
-            model.destruct();
+            model.deactivate();
+            var beforeModelsArray = this.models.concat(); // concat means clone array
             this.models.splice(index, 1);
             this.resetCtrl();
             this.setSelectedModel(null);
+            //
+            this.history.didAction(new PoseEditor.TimeMachine.ChangeModelRemoveAction(model, beforeModelsArray, this.models));
         };
         Editor.prototype.removeModel = function (model) {
             var index = this.models.indexOf(model);

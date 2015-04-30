@@ -114,6 +114,7 @@
     .loading {
         $padding: 10px;
 
+        margin: 0;
         border-radius: 5px;
         background-color: #fff;
     }
@@ -122,6 +123,7 @@
         $tool-height: 38px;
         $padding: 10px;
 
+        margin: 0;
         opacity: 0.9;
 
         border-radius: 5px;
@@ -129,6 +131,7 @@
 
         .container {
             height: 100%;
+            width: 100%;
 
             margin-bottom: -$tool-height;
         }
@@ -138,6 +141,7 @@
 
             width: 100%;
             height: $tool-height;
+
             text-align: center;
 
             input[type="button"] {

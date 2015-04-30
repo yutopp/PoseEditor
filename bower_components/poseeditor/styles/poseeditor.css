@@ -143,16 +143,19 @@
   margin: 2px auto 2px auto;
 }
 .poseeditor-default .loading {
+  margin: 0;
   border-radius: 5px;
   background-color: #fff;
 }
 .poseeditor-default .config-dialog {
+  margin: 0;
   opacity: 0.9;
   border-radius: 5px;
   background-color: #fff;
 }
 .poseeditor-default .config-dialog .container {
   height: 100%;
+  width: 100%;
   margin-bottom: -38px;
 }
 .poseeditor-default .config-dialog .selection {
