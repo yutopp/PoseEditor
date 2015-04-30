@@ -1727,7 +1727,6 @@ var PoseEditor;
             this.modelIdNum = 0;
             //
             this.loadingTasks = 0;
-            this.boneDebugDom = null;
             //
             this.currentValues = {};
             // setup screen
@@ -1804,17 +1803,6 @@ var PoseEditor;
                 this.axisHelper = new THREE.AxisHelper(50.0);
                 this.scene.add(this.axisHelper);
             }
-            if (config.isDebugging) {
-                // bone: debug information tag
-                this.boneDebugDom = document.createElement("div");
-                this.boneDebugDom.style.display = "none";
-                this.boneDebugDom.style.position = "absolute";
-                this.boneDebugDom.style.padding = "0";
-                this.boneDebugDom.style.backgroundColor = "#fff";
-                this.boneDebugDom.style.opacity = "0.8";
-                this.boneDebugDom.style.width = "300px";
-                this.screen.targetDom.appendChild(this.boneDebugDom);
-            }
             //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.target.copy(defaultCamera.lookAt);
@@ -1846,36 +1834,6 @@ var PoseEditor;
             // jump into loop
             this.renderLoop();
         }
-        /// ==================================================
-        Editor.prototype.updateBoneDebugInfo = function (model, index) {
-            var bone = model.mesh.skeleton.bones[index];
-            // console.log(bone.position);
-            var pos = new THREE.Vector3();
-            pos.setFromMatrixPosition(bone.matrixWorld);
-            var pos2d = this.worldToScreen(pos);
-            this.boneDebugDom.style.left = "" + (pos2d.x + 40) + "px";
-            this.boneDebugDom.style.top = "" + (pos2d.y + 80) + "px";
-            var sx = "<span style='color: red'>X</span>";
-            var sy = "<span style='color: #00ff00'>Y</span>";
-            var sz = "<span style='color: blue'>Z</span>";
-            // local rotation
-            //var t_r = bone.quaternion.clone();
-            //bone.rotation.set(0,0,0);
-            //var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
-            this.boneDebugDom.innerHTML = "selected joint_id: " + index + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + PoseEditor.radToDeg(bone.rotation.x) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + PoseEditor.radToDeg(bone.rotation.y) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + PoseEditor.radToDeg(bone.rotation.z) + "<br>";
-            var p_bone = bone.parent;
-            if (p_bone) {
-                var p_index = p_bone.userData.index;
-                this.boneDebugDom.innerHTML += "<br>";
-                this.boneDebugDom.innerHTML += "parent joint_id: " + p_index + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + PoseEditor.radToDeg(p_bone.rotation.x) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + PoseEditor.radToDeg(p_bone.rotation.y) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + PoseEditor.radToDeg(p_bone.rotation.z) + "<br>";
-            }
-        };
         //
         Editor.prototype.selectModel = function (e, isTouch) {
             e.preventDefault();
