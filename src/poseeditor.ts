@@ -195,7 +195,7 @@ module PoseEditor {
 
 			var id = ( pixelBuffer[0] << 16 ) | ( pixelBuffer[1] << 8 ) | ( pixelBuffer[2] );
 
-            console.log(id);
+            //console.log(id);
             if (id == 0xffffff) return null;    // not matched
 
             var model = this.modelsIdIndexer[id];
@@ -208,35 +208,8 @@ module PoseEditor {
             this.cursorHelper.setBeginState(vector);
             var pos = this.cursorHelper.move(this.cursorToWorld(e, isTouch));
             if (!pos) return null;
-            console.log("pos", pos);
-/*
-            model.mesh.updateMatrixWorld();
-            var vector = new THREE.Vector3();
-            vector.setFromMatrixPosition(model.mesh.matrixWorld);
 
-            var worldPos = model.mesh.localToWorld(model.mesh.position.clone());
-
-            console.log("worldPos: ", worldPos);
-            console.log("vector: ", vector);
-*/
             return [model, pos];
-/*
-            var pos = this.cursorToWorld(e, isTouch);
-            var raycaster = new THREE.Raycaster(
-                this.camera.position,
-                pos.sub(this.camera.position).normalize()
-            );
-            var intersects = raycaster.intersectObjects(
-                this.models.map((m) => m.mesh)
-            );
-            var mesh = intersects.length > 0 ? intersects[0].object : null;
-            if ( mesh == null ) return null;
-
-            var modelPos = mesh.position.clone();
-            var localConfPos = intersects[0].point.clone();
-
-            return [mesh.userData.modelData, localConfPos];
-*/
         }
 
         //

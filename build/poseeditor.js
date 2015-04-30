@@ -8,10 +8,8 @@ var PoseEditor;
             return "";
         };
         Action.prototype.onActive = function () {
-            console.log("base::onActive");
         };
         Action.prototype.onDestroy = function () {
-            console.log("base::onDestroy");
         };
         Action.prototype.onTapStart = function (e, isTouch, isActive) {
             return true;
@@ -1849,7 +1847,7 @@ var PoseEditor;
             // read the pixel under the mouse from the texture(workaround)
             this.renderer.readRenderTargetPixels(this.textureForPicking, clientX, this.textureForPicking.height - clientY, 1.0, 1.0, pixelBuffer);
             var id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | (pixelBuffer[2]);
-            console.log(id);
+            //console.log(id);
             if (id == 0xffffff)
                 return null; // not matched
             var model = this.modelsIdIndexer[id];
@@ -1862,35 +1860,7 @@ var PoseEditor;
             var pos = this.cursorHelper.move(this.cursorToWorld(e, isTouch));
             if (!pos)
                 return null;
-            console.log("pos", pos);
-            /*
-                        model.mesh.updateMatrixWorld();
-                        var vector = new THREE.Vector3();
-                        vector.setFromMatrixPosition(model.mesh.matrixWorld);
-            
-                        var worldPos = model.mesh.localToWorld(model.mesh.position.clone());
-            
-                        console.log("worldPos: ", worldPos);
-                        console.log("vector: ", vector);
-            */
             return [model, pos];
-            /*
-                        var pos = this.cursorToWorld(e, isTouch);
-                        var raycaster = new THREE.Raycaster(
-                            this.camera.position,
-                            pos.sub(this.camera.position).normalize()
-                        );
-                        var intersects = raycaster.intersectObjects(
-                            this.models.map((m) => m.mesh)
-                        );
-                        var mesh = intersects.length > 0 ? intersects[0].object : null;
-                        if ( mesh == null ) return null;
-            
-                        var modelPos = mesh.position.clone();
-                        var localConfPos = intersects[0].point.clone();
-            
-                        return [mesh.userData.modelData, localConfPos];
-            */
         };
         //
         Editor.prototype.selectJointMarker = function (e, isTouch) {

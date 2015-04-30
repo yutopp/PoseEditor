@@ -9,11 +9,9 @@ module PoseEditor {
         }
 
         public onActive(): void {
-            console.log("base::onActive");
         }
 
         public onDestroy(): void {
-            console.log("base::onDestroy");
         }
 
         public onTapStart(e: any, isTouch: boolean, isActive: boolean): boolean {
