@@ -32,11 +32,11 @@
     "bootstrap": "~3.2.0"
   },
   "homepage": "https://github.com/yutopp/PoseEditor",
-  "_release": "fbef77904b",
+  "_release": "6c2cfaa4cf",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "fbef77904b027d9ad7fb2536c2d21db6caca75f8"
+    "commit": "6c2cfaa4cf1018bf590506021a7a97334e46139f"
   },
   "_source": "git://github.com/yutopp/PoseEditor.git",
   "_target": "*",

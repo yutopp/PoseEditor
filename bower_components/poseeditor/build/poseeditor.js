@@ -8,10 +8,8 @@ var PoseEditor;
             return "";
         };
         Action.prototype.onActive = function () {
-            console.log("base::onActive");
         };
         Action.prototype.onDestroy = function () {
-            console.log("base::onDestroy");
         };
         Action.prototype.onTapStart = function (e, isTouch, isActive) {
             return true;
@@ -1727,7 +1725,6 @@ var PoseEditor;
             this.modelIdNum = 0;
             //
             this.loadingTasks = 0;
-            this.boneDebugDom = null;
             //
             this.currentValues = {};
             // setup screen
@@ -1804,17 +1801,6 @@ var PoseEditor;
                 this.axisHelper = new THREE.AxisHelper(50.0);
                 this.scene.add(this.axisHelper);
             }
-            if (config.isDebugging) {
-                // bone: debug information tag
-                this.boneDebugDom = document.createElement("div");
-                this.boneDebugDom.style.display = "none";
-                this.boneDebugDom.style.position = "absolute";
-                this.boneDebugDom.style.padding = "0";
-                this.boneDebugDom.style.backgroundColor = "#fff";
-                this.boneDebugDom.style.opacity = "0.8";
-                this.boneDebugDom.style.width = "300px";
-                this.screen.targetDom.appendChild(this.boneDebugDom);
-            }
             //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.target.copy(defaultCamera.lookAt);
@@ -1846,36 +1832,6 @@ var PoseEditor;
             // jump into loop
             this.renderLoop();
         }
-        /// ==================================================
-        Editor.prototype.updateBoneDebugInfo = function (model, index) {
-            var bone = model.mesh.skeleton.bones[index];
-            // console.log(bone.position);
-            var pos = new THREE.Vector3();
-            pos.setFromMatrixPosition(bone.matrixWorld);
-            var pos2d = this.worldToScreen(pos);
-            this.boneDebugDom.style.left = "" + (pos2d.x + 40) + "px";
-            this.boneDebugDom.style.top = "" + (pos2d.y + 80) + "px";
-            var sx = "<span style='color: red'>X</span>";
-            var sy = "<span style='color: #00ff00'>Y</span>";
-            var sz = "<span style='color: blue'>Z</span>";
-            // local rotation
-            //var t_r = bone.quaternion.clone();
-            //bone.rotation.set(0,0,0);
-            //var w_to_l_comp_q = bone.getWorldQuaternion(null).inverse();
-            this.boneDebugDom.innerHTML = "selected joint_id: " + index + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sx + "   : " + PoseEditor.radToDeg(bone.rotation.x) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sy + "   : " + PoseEditor.radToDeg(bone.rotation.y) + "<br>";
-            this.boneDebugDom.innerHTML += "rot " + sz + "   : " + PoseEditor.radToDeg(bone.rotation.z) + "<br>";
-            var p_bone = bone.parent;
-            if (p_bone) {
-                var p_index = p_bone.userData.index;
-                this.boneDebugDom.innerHTML += "<br>";
-                this.boneDebugDom.innerHTML += "parent joint_id: " + p_index + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sx + " : " + PoseEditor.radToDeg(p_bone.rotation.x) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sy + " : " + PoseEditor.radToDeg(p_bone.rotation.y) + "<br>";
-                this.boneDebugDom.innerHTML += "parent rot " + sz + " : " + PoseEditor.radToDeg(p_bone.rotation.z) + "<br>";
-            }
-        };
         //
         Editor.prototype.selectModel = function (e, isTouch) {
             e.preventDefault();
@@ -1891,7 +1847,7 @@ var PoseEditor;
             // read the pixel under the mouse from the texture(workaround)
             this.renderer.readRenderTargetPixels(this.textureForPicking, clientX, this.textureForPicking.height - clientY, 1.0, 1.0, pixelBuffer);
             var id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | (pixelBuffer[2]);
-            console.log(id);
+            //console.log(id);
             if (id == 0xffffff)
                 return null; // not matched
             var model = this.modelsIdIndexer[id];
@@ -1904,35 +1860,7 @@ var PoseEditor;
             var pos = this.cursorHelper.move(this.cursorToWorld(e, isTouch));
             if (!pos)
                 return null;
-            console.log("pos", pos);
-            /*
-                        model.mesh.updateMatrixWorld();
-                        var vector = new THREE.Vector3();
-                        vector.setFromMatrixPosition(model.mesh.matrixWorld);
-            
-                        var worldPos = model.mesh.localToWorld(model.mesh.position.clone());
-            
-                        console.log("worldPos: ", worldPos);
-                        console.log("vector: ", vector);
-            */
             return [model, pos];
-            /*
-                        var pos = this.cursorToWorld(e, isTouch);
-                        var raycaster = new THREE.Raycaster(
-                            this.camera.position,
-                            pos.sub(this.camera.position).normalize()
-                        );
-                        var intersects = raycaster.intersectObjects(
-                            this.models.map((m) => m.mesh)
-                        );
-                        var mesh = intersects.length > 0 ? intersects[0].object : null;
-                        if ( mesh == null ) return null;
-            
-                        var modelPos = mesh.position.clone();
-                        var localConfPos = intersects[0].point.clone();
-            
-                        return [mesh.userData.modelData, localConfPos];
-            */
         };
         //
         Editor.prototype.selectJointMarker = function (e, isTouch) {
@@ -2089,20 +2017,20 @@ var PoseEditor;
             return new THREE.Vector2(screen_pos.x, screen_pos.y);
         };
         Editor.prototype.cursorToWorld = function (e, isTouch) {
-            var client_cur = this.getCursor(e, isTouch);
-            var client_x = client_cur[0];
-            var client_y = client_cur[1];
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-            return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            var cur = this.getCursor(e, isTouch);
+            var mouseX = cur[0];
+            var mouseY = cur[1];
+            return this.screenToWorld(new THREE.Vector2(mouseX, mouseY));
         };
         Editor.prototype.getCursor = function (e, isTouch) {
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var clientX = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var clientY = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var domPos = this.renderer.domElement.getBoundingClientRect();
+            var mouseX = clientX - domPos.left;
+            var mouseY = clientY - domPos.top;
             return [
-                client_x + document.body.scrollLeft,
-                client_y + document.body.scrollTop
+                mouseX,
+                mouseY
             ];
         };
         // ==================================================
