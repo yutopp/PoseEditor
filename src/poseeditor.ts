@@ -516,23 +516,24 @@ module PoseEditor {
         }
 
         public cursorToWorld(e: any, isTouch: boolean): THREE.Vector3 {
-            var client_cur = this.getCursor(e, isTouch);
-            var client_x = client_cur[0];
-            var client_y = client_cur[1];
+            var cur = this.getCursor(e, isTouch);
+            var mouseX = cur[0];
+            var mouseY = cur[1];
 
-            var dom_pos = this.renderer.domElement.getBoundingClientRect();
-            var mouse_x = client_x - dom_pos.left;
-            var mouse_y = client_y - dom_pos.top;
-            return this.screenToWorld(new THREE.Vector2(mouse_x, mouse_y));
+            return this.screenToWorld(new THREE.Vector2(mouseX, mouseY));
         }
 
         public getCursor(e: any, isTouch: boolean): [number, number] {
-            var client_x = isTouch ? e.changedTouches[0].pageX : e.clientX;
-            var client_y = isTouch ? e.changedTouches[0].pageY : e.clientY;
+            var clientX = isTouch ? e.changedTouches[0].pageX : e.clientX;
+            var clientY = isTouch ? e.changedTouches[0].pageY : e.clientY;
+
+            var domPos = this.renderer.domElement.getBoundingClientRect();
+            var mouseX = clientX - domPos.left;
+            var mouseY = clientY - domPos.top;
 
             return [
-                client_x + document.body.scrollLeft,
-                client_y + document.body.scrollTop
+                mouseX,
+                mouseY
             ];
         }
 
