@@ -467,12 +467,7 @@ var PoseEditor;
             function Dialog(parentDom, tagName, className) {
                 if (className === void 0) { className = 'dialog'; }
                 _super.call(this);
-                this.offsetLeft = 0;
-                this.offsetTop = 0;
                 this.parentDom = parentDom;
-                var rect = this.parentDom.getClientRects()[0];
-                this.offsetLeft = rect.left;
-                this.offsetTop = rect.top;
                 // shadowing element(hide background)
                 this.shadowingDom = document.createElement('div');
                 this.shadowingDom.className = 'poseeditor-shadowing';
