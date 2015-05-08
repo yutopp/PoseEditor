@@ -3,17 +3,10 @@
 module PoseEditor {
     export module Screen {
         export class Dialog<T extends HTMLElement> extends EventDispatcher {
-            protected offsetLeft = 0;
-            protected offsetTop = 0;
-
             constructor(parentDom: HTMLElement, tagName: string, className: string = 'dialog') {
                 super();
 
                 this.parentDom = parentDom;
-
-                var rect = this.parentDom.getClientRects()[0];
-                this.offsetLeft = rect.left;
-                this.offsetTop = rect.top;
 
                 // shadowing element(hide background)
                 this.shadowingDom = document.createElement('div');
