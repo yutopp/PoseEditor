@@ -376,10 +376,6 @@ module PoseEditor {
         }
 
 
-
-
-
-
         private renderLoop = () => {
             requestAnimationFrame(this.renderLoop);
 
@@ -408,7 +404,6 @@ module PoseEditor {
             this.renderer.clearDepth();
             this.renderer.render(this.scene2d, this.camera);
         }
-
 
 
         public screenToWorld(screen_pos: THREE.Vector2): THREE.Vector3 {
