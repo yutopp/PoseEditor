@@ -2204,8 +2204,14 @@ var PoseEditor;
             // var ss = this.selectedSphere;
             // this.transformCtrl.detach();
             //
+            var dom = this.renderer.domElement;
+            var w = dom.width;
+            var h = dom.height;
+            this.renderer.setSize(w * 2, h * 2);
             this.render();
-            var data = this.renderer.domElement.toDataURL(type);
+            var data = dom.toDataURL(type);
+            dom.width = w;
+            dom.height = h;
             //
             this.models.forEach(function (m, i) {
                 m.setMarkerVisibility(vis[i]);

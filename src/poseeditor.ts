@@ -720,9 +720,16 @@ module PoseEditor {
             // this.transformCtrl.detach();
 
             //
-            this.render();
+            var dom = this.renderer.domElement;
+            var w = dom.width;
+            var h = dom.height;
 
-            var data = this.renderer.domElement.toDataURL(type);
+            this.renderer.setSize(w * 2, h * 2);
+            this.render();
+            var data = dom.toDataURL(type);
+
+            dom.width = w;
+            dom.height = h;
 
             //
             this.models.forEach((m, i) => {
