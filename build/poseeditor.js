@@ -2207,19 +2207,25 @@ var PoseEditor;
             var dom = this.renderer.domElement;
             var w = dom.width;
             var h = dom.height;
-            this.renderer.setSize(w * 2, h * 2);
-            this.render();
-            var data = dom.toDataURL(type);
-            dom.width = w;
-            dom.height = h;
-            //
-            this.models.forEach(function (m, i) {
-                m.setMarkerVisibility(vis[i]);
-            });
-            // if ( ss ) {
-            // this.transformCtrl.attach(ss);
-            // }
-            return data;
+            try {
+                this.renderer.setSize(w * 2, h * 2);
+                this.render();
+                var data = dom.toDataURL(type);
+                return data;
+            }
+            catch (e) {
+                console.error(e);
+                throw e;
+            }
+            finally {
+                dom.width = w;
+                dom.height = h;
+                this.renderer.setSize(w, h);
+                //
+                this.models.forEach(function (m, i) {
+                    m.setMarkerVisibility(vis[i]);
+                });
+            }
         };
         Editor.prototype.incTask = function () {
             if (this.loadingTasks == 0) {
