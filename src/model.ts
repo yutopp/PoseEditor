@@ -438,18 +438,15 @@ module PoseEditor {
         }
 
         public hideMarker() {
-            this.showingMarker = false;
-            this.setMarkerVisibility(this.showingMarker);
+            this.setMarkerVisibility(false);
         }
 
         public showMarker() {
-            this.showingMarker = true;
-            this.setMarkerVisibility(this.showingMarker);
+            this.setMarkerVisibility(true);
         }
 
         public toggleMarker() {
-            this.showingMarker = !this.showingMarker;
-            this.setMarkerVisibility(this.showingMarker);
+            this.setMarkerVisibility(!this.showingMarker);
         }
 
         public setMarkerVisibility(showing: boolean) {
@@ -458,6 +455,7 @@ module PoseEditor {
             });
 
             this.skeletonHelper.visible = showing;
+            this.showingMarker = showing;
         }
 
         public getMarkerVisibility(): boolean {
@@ -478,7 +476,7 @@ module PoseEditor {
         private disposed: boolean = false;
 
         //
-        private showingMarker: boolean = true;
+        private showingMarker: boolean = false;
 
         //
         private selectedColor = 0xff0000;
