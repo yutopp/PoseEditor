@@ -589,7 +589,12 @@ module PoseEditor {
             var jsonString = <string>data;
             if ( jsonString == null ) return;
 
-            this.loadSceneDataFromString(jsonString);
+            try {
+                this.loadSceneDataFromString(jsonString);
+            } catch(e) {
+                this.screen.getDialog('error').show();
+                console.error(e);
+            }
         }
 
 

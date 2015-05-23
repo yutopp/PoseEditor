@@ -183,6 +183,19 @@ module PoseEditor {
                     });
                 });
                 ///
+
+                // dialogs for error...
+                this.dialogs['error'] = this.addDialog((c) => {
+                    c.addCallback('show', () => {
+                        c.setValues([{
+                            type: 'message',
+                            text: 'エラーが発生しました．'
+                        }]);
+                    });
+
+                    c.addCallback('onsubmit', (data: any) => {
+                    });
+                }, false);
             }
 
             private addButton(callback: (d: HTMLInputElement) => void) {
@@ -195,11 +208,18 @@ module PoseEditor {
                 return dom;
             }
 
-            private addDialog(callback: (c: ConfigurationDialog) => void) {
-                var ctrl = new ConfigurationDialog(this.screen.targetDom);
+            private addDialog(
+                callback: (c: ConfigurationDialog) => void,
+                hasCancel: boolean = true
+            ) {
+                var ctrl = new ConfigurationDialog(this.screen.targetDom, hasCancel);
                 callback(ctrl);
 
                 return ctrl;
+            }
+
+            public getDialog(name: string) {
+                return this.dialogs[name];
             }
 
             private addClearDom() {

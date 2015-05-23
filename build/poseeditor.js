@@ -510,8 +510,9 @@ var PoseEditor;
     (function (Screen) {
         var ConfigurationDialog = (function (_super) {
             __extends(ConfigurationDialog, _super);
-            function ConfigurationDialog(parentDom) {
+            function ConfigurationDialog(parentDom, hasCancel) {
                 var _this = this;
+                if (hasCancel === void 0) { hasCancel = true; }
                 _super.call(this, parentDom, 'div', 'poseeditor-config-dialog');
                 this.actions = [];
                 // container element
@@ -540,7 +541,7 @@ var PoseEditor;
                         });
                         d.appendChild(dom);
                     }
-                    {
+                    if (hasCancel) {
                         var dom = document.createElement("input");
                         dom.type = "button";
                         dom.value = 'Cancel';
@@ -651,6 +652,16 @@ var PoseEditor;
                                     }
                                     var input = selects[0];
                                     return input.value;
+                                });
+                                break;
+                            case 'message':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct input box
+                                    var labelDom = document.createElement("label");
+                                    labelDom.innerText = v.text;
+                                    wrapperDom.appendChild(labelDom);
+                                }, function () {
+                                    return null;
                                 });
                                 break;
                             default:
@@ -785,6 +796,9 @@ var PoseEditor;
                 if (this.loadingDom) {
                     this.loadingDom.hide();
                 }
+            };
+            ScreenController.prototype.getDialog = function (name) {
+                return this.controlPanel.getDialog(name);
             };
             return ScreenController;
         })(PoseEditor.EventDispatcher);
@@ -954,6 +968,17 @@ var PoseEditor;
                     });
                 });
                 ///
+                // dialogs for error...
+                this.dialogs['error'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        c.setValues([{
+                                type: 'message',
+                                text: 'エラーが発生しました．'
+                            }]);
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                    });
+                }, false);
             }
             ControlPanel.prototype.addButton = function (callback) {
                 var dom = document.createElement("input");
@@ -962,10 +987,14 @@ var PoseEditor;
                 this.panelDom.appendChild(dom);
                 return dom;
             };
-            ControlPanel.prototype.addDialog = function (callback) {
-                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom);
+            ControlPanel.prototype.addDialog = function (callback, hasCancel) {
+                if (hasCancel === void 0) { hasCancel = true; }
+                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom, hasCancel);
                 callback(ctrl);
                 return ctrl;
+            };
+            ControlPanel.prototype.getDialog = function (name) {
+                return this.dialogs[name];
             };
             ControlPanel.prototype.addClearDom = function () {
                 var dom = document.createElement("div");
@@ -2105,7 +2134,13 @@ var PoseEditor;
             var jsonString = data;
             if (jsonString == null)
                 return;
-            this.loadSceneDataFromString(jsonString);
+            try {
+                this.loadSceneDataFromString(jsonString);
+            }
+            catch (e) {
+                this.screen.getDialog('error').show();
+                console.error(e);
+            }
         };
         Editor.prototype.getSceneInfo = function () {
             return {

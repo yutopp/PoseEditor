@@ -8,7 +8,7 @@ module PoseEditor {
         }
 
         export class ConfigurationDialog extends Dialog<HTMLDivElement> {
-            constructor(parentDom: HTMLElement) {
+            constructor(parentDom: HTMLElement, hasCancel: boolean = true) {
                 super(parentDom, 'div', 'poseeditor-config-dialog');
 
                 // container element
@@ -42,7 +42,7 @@ module PoseEditor {
                         d.appendChild(dom);
                     }
 
-                    {
+                    if (hasCancel) {
                         var dom = document.createElement("input");
                         dom.type = "button";
                         dom.value = 'Cancel';
@@ -196,6 +196,23 @@ module PoseEditor {
                                     var input = <HTMLInputElement>selects[0];
 
                                     return input.value;
+                                }
+                            );
+                            break;
+
+                        case 'message':
+                            this.addElement(
+                                name,
+                                (wrapperDom: HTMLElement) => {
+                                    // construct input box
+                                    var labelDom
+                                        = document.createElement("label");
+                                    labelDom.innerText = v.text;
+
+                                    wrapperDom.appendChild(labelDom);
+                                },
+                                () => {
+                                    return null;
                                 }
                             );
                             break;

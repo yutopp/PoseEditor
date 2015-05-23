@@ -92,6 +92,9 @@ module PoseEditor {
                 }
             }
 
+            public getDialog(name: string) {
+                return this.controlPanel.getDialog(name);
+            }
 
             //
             public targetDom: HTMLElement;
