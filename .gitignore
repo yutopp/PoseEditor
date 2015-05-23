@@ -1,2 +1,4 @@
 typings/*
 .sass-cache
+
+node_modules/*
