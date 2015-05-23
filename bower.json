@@ -18,6 +18,7 @@
     "test",
     "tests",
     "src",
+    "ext",
     "js",
     "sass",
     "typing",

@@ -1,0 +1,28 @@
+{
+  "name": "poseeditor",
+  "version": "0.0.0",
+  "description": "",
+  "main": "",
+  "dependencies": {},
+  "devDependencies": {
+    "gulp": "^3.8.11",
+    "gulp-concat": "^2.5.2",
+    "gulp-plumber": "^1.0.0",
+    "gulp-sass": "^2.0.0",
+    "gulp-shell": "^0.4.1",
+    "run-sequence": "^1.1.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yutopp/PoseEditor.git"
+  },
+  "author": "yutopp",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yutopp/PoseEditor/issues"
+  },
+  "homepage": "https://github.com/yutopp/PoseEditor#readme"
+}

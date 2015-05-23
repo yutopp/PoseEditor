@@ -1,6 +1,5 @@
-build/*.js
-!build/poseeditor.js
 typings/*
 .sass-cache/*
 bower_components/*
+node_modules/
 js/*
