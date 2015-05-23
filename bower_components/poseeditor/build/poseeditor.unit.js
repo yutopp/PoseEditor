@@ -510,8 +510,9 @@ var PoseEditor;
     (function (Screen) {
         var ConfigurationDialog = (function (_super) {
             __extends(ConfigurationDialog, _super);
-            function ConfigurationDialog(parentDom) {
+            function ConfigurationDialog(parentDom, hasCancel) {
                 var _this = this;
+                if (hasCancel === void 0) { hasCancel = true; }
                 _super.call(this, parentDom, 'div', 'poseeditor-config-dialog');
                 this.actions = [];
                 // container element
@@ -540,7 +541,7 @@ var PoseEditor;
                         });
                         d.appendChild(dom);
                     }
-                    {
+                    if (hasCancel) {
                         var dom = document.createElement("input");
                         dom.type = "button";
                         dom.value = 'Cancel';
@@ -651,6 +652,16 @@ var PoseEditor;
                                     }
                                     var input = selects[0];
                                     return input.value;
+                                });
+                                break;
+                            case 'message':
+                                _this.addElement(name, function (wrapperDom) {
+                                    // construct input box
+                                    var labelDom = document.createElement("label");
+                                    labelDom.innerText = v.text;
+                                    wrapperDom.appendChild(labelDom);
+                                }, function () {
+                                    return null;
                                 });
                                 break;
                             default:
@@ -785,6 +796,9 @@ var PoseEditor;
                 if (this.loadingDom) {
                     this.loadingDom.hide();
                 }
+            };
+            ScreenController.prototype.getDialog = function (name) {
+                return this.controlPanel.getDialog(name);
             };
             return ScreenController;
         })(PoseEditor.EventDispatcher);
@@ -954,6 +968,17 @@ var PoseEditor;
                     });
                 });
                 ///
+                // dialogs for error...
+                this.dialogs['error'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        c.setValues([{
+                                type: 'message',
+                                text: 'エラーが発生しました．'
+                            }]);
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                    });
+                }, false);
             }
             ControlPanel.prototype.addButton = function (callback) {
                 var dom = document.createElement("input");
@@ -962,10 +987,14 @@ var PoseEditor;
                 this.panelDom.appendChild(dom);
                 return dom;
             };
-            ControlPanel.prototype.addDialog = function (callback) {
-                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom);
+            ControlPanel.prototype.addDialog = function (callback, hasCancel) {
+                if (hasCancel === void 0) { hasCancel = true; }
+                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom, hasCancel);
                 callback(ctrl);
                 return ctrl;
+            };
+            ControlPanel.prototype.getDialog = function (name) {
+                return this.dialogs[name];
             };
             ControlPanel.prototype.addClearDom = function () {
                 var dom = document.createElement("div");
@@ -1120,7 +1149,7 @@ var PoseEditor;
             this.ready = false;
             this.disposed = false;
             //
-            this.showingMarker = true;
+            this.showingMarker = false;
             //
             this.selectedColor = 0xff0000;
             this.normalColor = 0x0000ff;
@@ -1452,22 +1481,20 @@ var PoseEditor;
             }
         };
         Model.prototype.hideMarker = function () {
-            this.showingMarker = false;
-            this.setMarkerVisibility(this.showingMarker);
+            this.setMarkerVisibility(false);
         };
         Model.prototype.showMarker = function () {
-            this.showingMarker = true;
-            this.setMarkerVisibility(this.showingMarker);
+            this.setMarkerVisibility(true);
         };
         Model.prototype.toggleMarker = function () {
-            this.showingMarker = !this.showingMarker;
-            this.setMarkerVisibility(this.showingMarker);
+            this.setMarkerVisibility(!this.showingMarker);
         };
         Model.prototype.setMarkerVisibility = function (showing) {
             this.jointMarkerSprites.forEach(function (marker) {
                 marker.visible = showing;
             });
             this.skeletonHelper.visible = showing;
+            this.showingMarker = showing;
         };
         Model.prototype.getMarkerVisibility = function () {
             return this.showingMarker;
@@ -2107,7 +2134,13 @@ var PoseEditor;
             var jsonString = data;
             if (jsonString == null)
                 return;
-            this.loadSceneDataFromString(jsonString);
+            try {
+                this.loadSceneDataFromString(jsonString);
+            }
+            catch (e) {
+                this.screen.getDialog('error').show();
+                console.error(e);
+            }
         };
         Editor.prototype.getSceneInfo = function () {
             return {
@@ -2199,10 +2232,10 @@ var PoseEditor;
         };
         Editor.prototype.makeDataUrl = function (type) {
             //
-            var vis = this.models.map(function (m) { return m.getMarkerVisibility(); });
+            var markerVis = this.models.map(function (m) { return m.getMarkerVisibility(); });
             this.models.forEach(function (m) { return m.setMarkerVisibility(false); });
-            // var ss = this.selectedSphere;
-            // this.transformCtrl.detach();
+            var transVis = this.transformCtrl.visible;
+            this.transformCtrl.visible = false;
             //
             var dom = this.renderer.domElement;
             var w = dom.width;
@@ -2214,7 +2247,6 @@ var PoseEditor;
                 return data;
             }
             catch (e) {
-                console.error(e);
                 throw e;
             }
             finally {
@@ -2222,8 +2254,10 @@ var PoseEditor;
                 dom.height = h;
                 this.renderer.setSize(w, h);
                 //
+                this.transformCtrl.visible = transVis;
+                //
                 this.models.forEach(function (m, i) {
-                    m.setMarkerVisibility(vis[i]);
+                    m.setMarkerVisibility(markerVis[i]);
                 });
             }
         };
