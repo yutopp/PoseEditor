@@ -17,6 +17,7 @@
     "test",
     "tests",
     "src",
+    "ext",
     "js",
     "sass",
     "typing",
@@ -32,11 +33,11 @@
     "bootstrap": "~3.2.0"
   },
   "homepage": "https://github.com/yutopp/PoseEditor",
-  "_release": "68035a995c",
+  "_release": "12840a5a52",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "68035a995ce3a9325996aa67fcf4d30af6588327"
+    "commit": "12840a5a52328b1e39177002bc3c4ff853340555"
   },
   "_source": "git://github.com/yutopp/PoseEditor.git",
   "_target": "*",
