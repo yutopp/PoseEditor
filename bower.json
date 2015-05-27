@@ -28,7 +28,7 @@
     "index.html"
   ],
   "dependencies": {
-    "three.js": "https://github.com/mrdoob/three.js/tree/6764247d108e068451c5bd98e6760d90ce89ac98"
+    "three.js": "https://github.com/mrdoob/three.js.git#6764247d108e068451c5bd98e6760d90ce89ac98"
   },
 
   "devDependencies": {
