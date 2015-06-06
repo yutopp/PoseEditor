@@ -600,14 +600,15 @@ module PoseEditor {
 
         public getSceneInfo(): any {
             return {
-                'camera' : {
+                'camera': {
                     'position': this.camera.position,
-                    'quaternion': this.camera.quaternion,
+                    'target': this.controls.target,
                 },
                 'models': {
                     'num': this.models.length,
                     'list': this.models.map((m) => m.modelData())
-                }
+                },
+                'version': '0.0.1'
             };
         }
 
@@ -616,7 +617,7 @@ module PoseEditor {
 
             var camera = obj.camera;
             this.camera.position.copy(<THREE.Vector3>camera.position);
-            this.camera.quaternion.copy(<THREE.Quaternion>camera.quaternion);
+            this.controls.target.copy(<THREE.Vector3>camera.target);
             this.controls.update();
 
             this.removeAllModel();

@@ -2146,19 +2146,20 @@ var PoseEditor;
             return {
                 'camera': {
                     'position': this.camera.position,
-                    'quaternion': this.camera.quaternion
+                    'target': this.controls.target
                 },
                 'models': {
                     'num': this.models.length,
                     'list': this.models.map(function (m) { return m.modelData(); })
-                }
+                },
+                'version': '0.0.1'
             };
         };
         Editor.prototype.loadSceneDataFromString = function (data) {
             var obj = JSON.parse(data);
             var camera = obj.camera;
             this.camera.position.copy(camera.position);
-            this.camera.quaternion.copy(camera.quaternion);
+            this.controls.target.copy(camera.target);
             this.controls.update();
             this.removeAllModel();
             var models = obj.models;
