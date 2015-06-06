@@ -6,6 +6,7 @@
     padding: 0 2px; }
     .poseeditor-default .control-panel input[type="button"] {
       width: 100%;
+      height: 28px;
       border-radius: 2px;
       margin-top: 2px;
       margin-bottom: 2px;
@@ -52,6 +53,38 @@
           border: 1px solid black; }
           .poseeditor-default .control-panel input[type="button"].redo:disabled.hover {
             background-color: black; }
+      .poseeditor-default .control-panel input[type="button"].init-bone {
+        font-size: 0.7em;
+        padding-left: 2px;
+        padding-right: 2px;
+        color: #fff;
+        background-color: #eb6562;
+        border: 1px solid #E53935; }
+        .poseeditor-default .control-panel input[type="button"].init-bone:hover {
+          border: 1px solid #72110f;
+          background-color: #9f1815; }
+        .poseeditor-default .control-panel input[type="button"].init-bone:disabled {
+          color: #777;
+          background-color: #450a09;
+          border: 1px solid #450a09; }
+          .poseeditor-default .control-panel input[type="button"].init-bone:disabled.hover {
+            background-color: #450a09; }
+      .poseeditor-default .control-panel input[type="button"].init-pose {
+        font-size: 0.7em;
+        padding-left: 2px;
+        padding-right: 2px;
+        color: #fff;
+        background-color: #eb6562;
+        border: 1px solid #E53935; }
+        .poseeditor-default .control-panel input[type="button"].init-pose:hover {
+          border: 1px solid #72110f;
+          background-color: #9f1815; }
+        .poseeditor-default .control-panel input[type="button"].init-pose:disabled {
+          color: #777;
+          background-color: #450a09;
+          border: 1px solid #450a09; }
+          .poseeditor-default .control-panel input[type="button"].init-pose:disabled.hover {
+            background-color: #450a09; }
       .poseeditor-default .control-panel input[type="button"].add-model {
         color: #fff;
         background-color: #5bbb60;

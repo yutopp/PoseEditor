@@ -74,6 +74,30 @@ module PoseEditor {
                 this.addClearDom();
                 this.addHR();
 
+                //
+                this.doms['initial_bone'] = this.addButton((dom) => {
+                    dom.value = 'Init Bone';
+                    dom.className = 'init-bone half';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onboneinitialize");
+                    });
+
+                    dom.disabled = true;
+                });
+
+                this.doms['initial_pose'] = this.addButton((dom) => {
+                    dom.value = 'Init Pose';
+                    dom.className = 'init-pose half';
+                    dom.addEventListener("click", () => {
+                        this.screen.dispatchCallback("onposeinitialize");
+                    });
+
+                    dom.disabled = true;
+                });
+
+                this.addClearDom();
+                this.addHR();
+
                 ///
                 this.dialogs['addmodel'] = this.addDialog((c) => {
                     c.addCallback('show', () => {

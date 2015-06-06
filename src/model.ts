@@ -184,6 +184,7 @@ module PoseEditor {
                 bone.updateMatrixWorld(true);
                 bone.userData = {
                     index: index,
+                    initQuaternion: bone.quaternion.clone(),
                     preventIKPropagation: !ikDefaultPropagation,
                     rotLimit: new RotationLimitation(),
                     rotMin: null,
@@ -404,6 +405,20 @@ module PoseEditor {
             this.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
         }
 
+        public initializePose(bone: THREE.Bone = null) {
+            if ( bone ) {
+                // if bone is specified, initialize bone of that
+                var q = bone.userData.initQuaternion;
+                bone.quaternion.copy(q);
+
+            } else {
+                // initialize all bones
+                this.mesh.skeleton.bones.map((bone) => {
+                    var q = bone.userData.initQuaternion;
+                    bone.quaternion.copy(q);
+                });
+            }
+        }
 
         public toggleIKPropagation(bone_index: number) {
             var bone = this.mesh.skeleton.bones[bone_index];

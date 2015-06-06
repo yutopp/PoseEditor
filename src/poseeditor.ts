@@ -32,6 +32,9 @@ module PoseEditor {
             this.screen.addCallback('onundo', () => this.history.undo());
             this.screen.addCallback('onredo', () => this.history.redo());
 
+            this.screen.addCallback('onboneinitialize', () => this.initializeCurrentBone());
+            this.screen.addCallback('onposeinitialize', () => this.initializeCurrentPose());
+
             this.screen.addCallback('showdownload', (f: (d: any) => void) => {
                 this.setDownloadTypes(f);
             });
@@ -265,7 +268,29 @@ module PoseEditor {
 
             // UI operation
             this.screen.changeUIStatus('deletemodel', (dom: HTMLElement) => {
+                // if model is NOT selected, disable
                 dom.disabled = this.selectedModel == null;
+            });
+
+            this.screen.changeUIStatus('initial_pose', (dom: HTMLElement) => {
+                // if model is NOT selected, disable
+                dom.disabled = this.selectedModel == null;
+            });
+        }
+
+        public setSelectedBoneAndModel(bone: THREE.Bone, model: Model) {
+            // if bone or model are null, regards as NOT selected
+            if ( bone == null || model == null ) {
+                this.selectedBoneAndModel = null;
+
+            } else {
+                this.selectedBoneAndModel = [bone, model];
+            }
+
+            // UI operation
+            this.screen.changeUIStatus('initial_bone', (dom: HTMLElement) => {
+                // if joint is NOT selected, disable
+                dom.disabled = this.selectedBoneAndModel == null;
             });
         }
 
@@ -663,6 +688,42 @@ module PoseEditor {
             });
         }
 
+        public initializeCurrentBone() {
+            if ( this.selectedBoneAndModel ) {
+                var beforeModelStatus = this.selectedBoneAndModel[1].modelData();
+
+                // initialize bone...
+                this.selectedBoneAndModel[1].initializePose(this.selectedBoneAndModel[0]);
+
+                var currentModelStatus = this.selectedBoneAndModel[1].modelData();
+                if ( !isEqualModelStatus(beforeModelStatus, currentModelStatus) ) {
+                    this.history.didAction(new TimeMachine.ChangeModelStatusAction(
+                        this.selectedBoneAndModel[1],
+                        beforeModelStatus,
+                        currentModelStatus
+                    ));
+                }
+            }
+        }
+
+        public initializeCurrentPose() {
+            if ( this.selectedModel ) {
+                var beforeModelStatus = this.selectedModel.modelData();
+
+                // initialize pose...
+                this.selectedModel.initializePose();
+
+                var currentModelStatus = this.selectedModel.modelData();
+                if ( !isEqualModelStatus(beforeModelStatus, currentModelStatus) ) {
+                    this.history.didAction(new TimeMachine.ChangeModelStatusAction(
+                        this.selectedModel,
+                        beforeModelStatus,
+                        currentModelStatus
+                    ));
+                }
+            }
+        }
+
         public appendModel(
             name: string,
             callback: (m: Model, error: string) => void = null
@@ -696,6 +757,7 @@ module PoseEditor {
             this.resetCtrl();
 
             this.setSelectedModel(null);
+            this.setSelectedBoneAndModel(null, null);
 
             //
             this.history.didAction( new TimeMachine.ChangeModelRemoveAction(
@@ -788,7 +850,7 @@ module PoseEditor {
         private modelIdNum: number = 0;
 
         private selectedModel: Model;
-
+        private selectedBoneAndModel: [THREE.Bone, Model];
         //
         private renderer: THREE.WebGLRenderer;
 

@@ -24,6 +24,7 @@ module PoseEditor {
 
         public onDestroy(): void {
             this.releaseJoint();
+            this.editor.setSelectedBoneAndModel(null, null);
 
             this.editor.hideAllMarkerSprite();
         }
@@ -60,14 +61,13 @@ module PoseEditor {
 
             // record action
             var currentModelStatus = this.model.modelData();
-            // TODO:
-            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
-            this.editor.history.didAction( new TimeMachine.ChangeModelStatusAction(
-                this.model,
-                this.beforeModelStatus,
-                currentModelStatus
-            ));
-            // }
+            if ( !isEqualModelStatus(this.beforeModelStatus, currentModelStatus) ) {
+                this.editor.history.didAction(new TimeMachine.ChangeModelStatusAction(
+                    this.model,
+                    this.beforeModelStatus,
+                    currentModelStatus
+                ));
+            }
 
             return false;
         }
@@ -98,12 +98,15 @@ module PoseEditor {
             this.currentJointMarker = m;
             if (this.currentJointMarker == null) {
                 this.releaseJoint();
+                this.editor.setSelectedBoneAndModel(null, null);
                 return;
             }
 
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
+
+            this.editor.setSelectedBoneAndModel(this.bone, this.model);
 
             //
             var pos = this.currentJointMarker.position;

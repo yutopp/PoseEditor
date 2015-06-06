@@ -156,6 +156,7 @@ var PoseEditor;
         };
         BoneAction.prototype.onDestroy = function () {
             this.releaseJoint();
+            this.editor.setSelectedBoneAndModel(null, null);
             this.editor.hideAllMarkerSprite();
         };
         BoneAction.prototype.onTapStart = function (e, isTouch) {
@@ -186,10 +187,9 @@ var PoseEditor;
             this.isMoving = false;
             // record action
             var currentModelStatus = this.model.modelData();
-            // TODO:
-            // if ( !this.beforeModelStatus.equals(currentModelStatus) ) {
-            this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
-            // }
+            if (!PoseEditor.isEqualModelStatus(this.beforeModelStatus, currentModelStatus)) {
+                this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
+            }
             return false;
         };
         BoneAction.prototype.onDoubleTap = function (e, isTouch) {
@@ -214,11 +214,13 @@ var PoseEditor;
             this.currentJointMarker = m;
             if (this.currentJointMarker == null) {
                 this.releaseJoint();
+                this.editor.setSelectedBoneAndModel(null, null);
                 return;
             }
             this.model = this.currentJointMarker.userData.ownerModel;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
+            this.editor.setSelectedBoneAndModel(this.bone, this.model);
             //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
@@ -875,6 +877,25 @@ var PoseEditor;
                 });
                 this.addClearDom();
                 this.addHR();
+                //
+                this.doms['initial_bone'] = this.addButton(function (dom) {
+                    dom.value = 'Init Bone';
+                    dom.className = 'init-bone half';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onboneinitialize");
+                    });
+                    dom.disabled = true;
+                });
+                this.doms['initial_pose'] = this.addButton(function (dom) {
+                    dom.value = 'Init Pose';
+                    dom.className = 'init-pose half';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onposeinitialize");
+                    });
+                    dom.disabled = true;
+                });
+                this.addClearDom();
+                this.addHR();
                 ///
                 this.dialogs['addmodel'] = this.addDialog(function (c) {
                     c.addCallback('show', function () {
@@ -1280,6 +1301,7 @@ var PoseEditor;
                 bone.updateMatrixWorld(true);
                 bone.userData = {
                     index: index,
+                    initQuaternion: bone.quaternion.clone(),
                     preventIKPropagation: !ikDefaultPropagation,
                     rotLimit: new RotationLimitation(),
                     rotMin: null,
@@ -1453,6 +1475,21 @@ var PoseEditor;
             var q = status.quaternion;
             this.mesh.position.set(p[0], p[1], p[2]);
             this.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
+        };
+        Model.prototype.initializePose = function (bone) {
+            if (bone === void 0) { bone = null; }
+            if (bone) {
+                // if bone is specified, initialize bone of that
+                var q = bone.userData.initQuaternion;
+                bone.quaternion.copy(q);
+            }
+            else {
+                // initialize all bones
+                this.mesh.skeleton.bones.map(function (bone) {
+                    var q = bone.userData.initQuaternion;
+                    bone.quaternion.copy(q);
+                });
+            }
         };
         Model.prototype.toggleIKPropagation = function (bone_index) {
             var bone = this.mesh.skeleton.bones[bone_index];
@@ -1726,6 +1763,8 @@ var PoseEditor;
             });
             this.screen.addCallback('onundo', function () { return _this.history.undo(); });
             this.screen.addCallback('onredo', function () { return _this.history.redo(); });
+            this.screen.addCallback('onboneinitialize', function () { return _this.initializeCurrentBone(); });
+            this.screen.addCallback('onposeinitialize', function () { return _this.initializeCurrentPose(); });
             this.screen.addCallback('showdownload', function (f) {
                 _this.setDownloadTypes(f);
             });
@@ -1895,7 +1934,27 @@ var PoseEditor;
             }
             // UI operation
             this.screen.changeUIStatus('deletemodel', function (dom) {
+                // if model is NOT selected, disable
                 dom.disabled = _this.selectedModel == null;
+            });
+            this.screen.changeUIStatus('initial_pose', function (dom) {
+                // if model is NOT selected, disable
+                dom.disabled = _this.selectedModel == null;
+            });
+        };
+        Editor.prototype.setSelectedBoneAndModel = function (bone, model) {
+            var _this = this;
+            // if bone or model are null, regards as NOT selected
+            if (bone == null || model == null) {
+                this.selectedBoneAndModel = null;
+            }
+            else {
+                this.selectedBoneAndModel = [bone, model];
+            }
+            // UI operation
+            this.screen.changeUIStatus('initial_bone', function (dom) {
+                // if joint is NOT selected, disable
+                dom.disabled = _this.selectedBoneAndModel == null;
             });
         };
         Editor.prototype.cancelAllMarkerSprite = function () {
@@ -2197,6 +2256,28 @@ var PoseEditor;
                 model.toggleMarker();
             });
         };
+        Editor.prototype.initializeCurrentBone = function () {
+            if (this.selectedBoneAndModel) {
+                var beforeModelStatus = this.selectedBoneAndModel[1].modelData();
+                // initialize bone...
+                this.selectedBoneAndModel[1].initializePose(this.selectedBoneAndModel[0]);
+                var currentModelStatus = this.selectedBoneAndModel[1].modelData();
+                if (!PoseEditor.isEqualModelStatus(beforeModelStatus, currentModelStatus)) {
+                    this.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.selectedBoneAndModel[1], beforeModelStatus, currentModelStatus));
+                }
+            }
+        };
+        Editor.prototype.initializeCurrentPose = function () {
+            if (this.selectedModel) {
+                var beforeModelStatus = this.selectedModel.modelData();
+                // initialize pose...
+                this.selectedModel.initializePose();
+                var currentModelStatus = this.selectedModel.modelData();
+                if (!PoseEditor.isEqualModelStatus(beforeModelStatus, currentModelStatus)) {
+                    this.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.selectedModel, beforeModelStatus, currentModelStatus));
+                }
+            }
+        };
         Editor.prototype.appendModel = function (name, callback) {
             if (callback === void 0) { callback = null; }
             if (name in this.modelInfoTable) {
@@ -2222,6 +2303,7 @@ var PoseEditor;
             this.models.splice(index, 1);
             this.resetCtrl();
             this.setSelectedModel(null);
+            this.setSelectedBoneAndModel(null, null);
             //
             this.history.didAction(new PoseEditor.TimeMachine.ChangeModelRemoveAction(model, beforeModelsArray, this.models));
         };

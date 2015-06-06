@@ -69,7 +69,7 @@ module PoseEditor {
             // record action
             var currentModelStatus = this.currentModel.modelData();
             if ( !isEqualModelStatus(this.beforeModelStatus, currentModelStatus) ) {
-                this.editor.history.didAction( new TimeMachine.ChangeModelStatusAction(
+                this.editor.history.didAction(new TimeMachine.ChangeModelStatusAction(
                     this.currentModel,
                     this.beforeModelStatus,
                     currentModelStatus
