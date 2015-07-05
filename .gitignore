@@ -3,3 +3,5 @@ typings/*
 bower_components/*
 node_modules/
 js/*
+
+*.xcf

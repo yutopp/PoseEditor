@@ -7,7 +7,27 @@ module PoseEditor {
         backgroundAlpha: number = 1.0;
         loadingImagePath: string = null;
         isDebugging: boolean = false;
-        theme: string = 'poseeditor-default'
+        theme: string = 'poseeditor-default';
+        logoConfig: LogoConfig = null;
+    }
+
+    export enum LogoPosition {
+        LeftBottom
+    }
+
+    export interface LogoConfig {
+        path: string;
+        position: LogoPosition;
+        left: string | number;
+        top: string | number;
+        bottom: string | number;
+        right: string | number;
+
+        width: string | number;
+        height: string | number;
+
+        rawWidth: number;
+        rawHeight: number;
     }
 
     export class SpritePaths {

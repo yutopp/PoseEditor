@@ -21,15 +21,6 @@
         <script type="text/javascript">
          var editor = null;
 
-         function shareScene() {
-           var address = 'http://yutopp.github.io/PoseEditor/';
-           if ( editor != null ) {
-             var target = address + '#' + encodeURIComponent(JSON.stringify(editor.getSceneInfo()));
-
-             window.open("https://twitter.com/share?url=" + encodeURIComponent(target) + "&text=PoseEditorでポーズを作ったぞい！");
-           }
-         }
-
          $(function() {
            var config = new PoseEditor.Config();
            config.enableBackgroundAlpha = true;
@@ -37,6 +28,20 @@
            config.backgroundAlpha = 1.0;
            config.loadingImagePath = "images/loading.gif";
            config.isDebugging = true;
+
+/*
+           var logoConfig = {
+             path: "images/test_logo.png",
+             position: PoseEditor.LogoPosition.LeftBottom,
+             left: 10,
+             bottom: 10,
+             width: "50%",
+             height: "50%",
+             rawWidth: 400,
+             rawHeight: 80,
+           };
+           config.logoConfig = logoConfig;
+*/
 
            var sprite_paths = {
              normal: "images/marker.png",
@@ -89,7 +94,5 @@
            }
          });
         </script>
-
-        <input type="button" value="Twitterでシーンを共有" onClick="shareScene()">
     </body>
 </html>
