@@ -81,12 +81,22 @@ module PoseEditor {
             this.camera = new THREE.PerspectiveCamera(this.fov, this.screen.aspect, this.near, this.far);
             this.camera.position.copy(defaultCamera.position);
 
-            this.directionalLight = new THREE.DirectionalLight(0xffffff);
-            this.directionalLight.position.set(0, 0.7, 0.7);
-            this.scene.add(this.directionalLight);
+            (() => {
+                var light = new THREE.DirectionalLight(0xffffff);
+                light.position.set(0, 0.7, 0.7);
+                this.scene.add(light);
+            })();
 
-            this.ambientLight = new THREE.AmbientLight(0xaaaaaa);
-            this.scene.add(this.ambientLight);
+            (() => {
+                var light = new THREE.DirectionalLight(0xffffff);
+                light.position.set(0, 0.7, -0.7);
+                this.scene.add(light);
+            })();
+
+            (() => {
+                var light = new THREE.AmbientLight(0xffffff);
+                this.scene.add(light);
+            })();
 
             //
             this.scene2d = new THREE.Scene();
@@ -741,8 +751,12 @@ module PoseEditor {
                 this.loadAndAppendModel(name, this.modelInfoTable[name], this.spritePaths, callback);
 
             } else {
+                var errMsg = `model name[${name}] is not found`;
+
                 if ( callback ) {
-                    callback(null, "model name[" + name + "] is not found");
+                    callback(null, errMsg);
+                } else {
+                    console.error(errMsg)
                 }
             }
         }
@@ -875,8 +889,6 @@ module PoseEditor {
         //
         private scene: THREE.Scene;
         private camera: THREE.PerspectiveCamera;
-        private directionalLight: THREE.DirectionalLight;
-        private ambientLight: THREE.AmbientLight;
         private transformCtrl: THREE.TransformControls;
         private controls: THREE.OrbitControls;
         private gridHelper: THREE.GridHelper;

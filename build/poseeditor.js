@@ -1933,11 +1933,20 @@ var PoseEditor;
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.screen.aspect, this.near, this.far);
             this.camera.position.copy(defaultCamera.position);
-            this.directionalLight = new THREE.DirectionalLight(0xffffff);
-            this.directionalLight.position.set(0, 0.7, 0.7);
-            this.scene.add(this.directionalLight);
-            this.ambientLight = new THREE.AmbientLight(0xaaaaaa);
-            this.scene.add(this.ambientLight);
+            (function () {
+                var light = new THREE.DirectionalLight(0xffffff);
+                light.position.set(0, 0.7, 0.7);
+                _this.scene.add(light);
+            })();
+            (function () {
+                var light = new THREE.DirectionalLight(0xffffff);
+                light.position.set(0, 0.7, -0.7);
+                _this.scene.add(light);
+            })();
+            (function () {
+                var light = new THREE.AmbientLight(0xffffff);
+                _this.scene.add(light);
+            })();
             //
             this.scene2d = new THREE.Scene();
             //
@@ -2421,8 +2430,12 @@ var PoseEditor;
                 this.loadAndAppendModel(name, this.modelInfoTable[name], this.spritePaths, callback);
             }
             else {
+                var errMsg = "model name[" + name + "] is not found";
                 if (callback) {
-                    callback(null, "model name[" + name + "] is not found");
+                    callback(null, errMsg);
+                }
+                else {
+                    console.error(errMsg);
                 }
             }
         };
