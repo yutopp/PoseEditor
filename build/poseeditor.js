@@ -1176,6 +1176,10 @@ var PoseEditor;
     var Model = (function () {
         function Model(name, modelInfo, spritePaths, scene, scene2d, id, sceneForPicking, callback) {
             var _this = this;
+            this.name = name;
+            this.scene = scene;
+            this.scene2d = scene2d;
+            this.sceneForPicking = sceneForPicking;
             //
             this.ready = false;
             this.disposed = false;
@@ -1192,12 +1196,6 @@ var PoseEditor;
             //
             this.jointMarkerSprites = [];
             this.jointMarkerMeshes = [];
-            //
-            this.name = name;
-            //
-            this.scene = scene;
-            this.scene2d = scene2d;
-            this.sceneForPicking = sceneForPicking;
             //
             if (modelInfo.markerScale) {
                 this.markerScale = modelInfo.markerScale;
@@ -1258,12 +1256,12 @@ var PoseEditor;
                     skinning: true
                 });
                 _this.meshForPicking = new THREE.SkinnedMesh(geometry, pickingMaterial);
-                if (initPos) {
-                    _this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
-                }
-                if (initScale) {
-                    _this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
-                }
+                //if ( initPos ) {
+                //    this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
+                //}
+                //if ( initScale ) {
+                //    this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
+                //}
                 _this.meshForPicking.bind(_this.mesh.skeleton); // important!!
                 _this.sceneForPicking.add(_this.meshForPicking);
                 //
@@ -1891,7 +1889,7 @@ var PoseEditor;
             // read the pixel under the mouse from the texture(workaround)
             this.renderer.readRenderTargetPixels(this.textureForPicking, clientX, this.textureForPicking.height - clientY, 1.0, 1.0, pixelBuffer);
             var id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | (pixelBuffer[2]);
-            //console.log(id);
+            // console.log(id);
             if (id == 0xffffff)
                 return null; // not matched
             var model = this.modelsIdIndexer[id];

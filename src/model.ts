@@ -27,23 +27,15 @@ module PoseEditor {
     export class Model
     {
         constructor(
-            name: string,
+            private name: string,
             modelInfo: ModelInfo,
             spritePaths: SpritePaths,
-            scene: THREE.Scene,
-            scene2d: THREE.Scene,
+            private scene: THREE.Scene,
+            private scene2d: THREE.Scene,
             id: number,
-            sceneForPicking: THREE.Scene,
+            private sceneForPicking: THREE.Scene,
             callback: (m: Model, error: string) => void
         ) {
-            //
-            this.name = name;
-
-            //
-            this.scene = scene;
-            this.scene2d = scene2d;
-            this.sceneForPicking = sceneForPicking;
-
             //
             if ( modelInfo.markerScale ) {
                 this.markerScale = modelInfo.markerScale;
@@ -115,12 +107,12 @@ module PoseEditor {
                 });
 
                 this.meshForPicking = new THREE.SkinnedMesh(geometry, pickingMaterial);
-                if ( initPos ) {
-                    this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
-                }
-                if ( initScale ) {
-                    this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
-                }
+                //if ( initPos ) {
+                //    this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
+                //}
+                //if ( initScale ) {
+                //    this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
+                //}
                 this.meshForPicking.bind(this.mesh.skeleton);     // important!!
                 this.sceneForPicking.add(this.meshForPicking);
 
@@ -508,14 +500,6 @@ module PoseEditor {
 
         //
         private offsetOrgToBone: THREE.Vector3;
-
-        //
-        private name: string;
-
-        //
-        private scene: THREE.Scene;
-        private scene2d: THREE.Scene;
-        private sceneForPicking: THREE.Scene;
 
         //
         public mesh: THREE.SkinnedMesh = null;

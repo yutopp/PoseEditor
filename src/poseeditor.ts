@@ -199,7 +199,7 @@ module PoseEditor {
 
 			var id = ( pixelBuffer[0] << 16 ) | ( pixelBuffer[1] << 8 ) | ( pixelBuffer[2] );
 
-            //console.log(id);
+            // console.log(id);
             if (id == 0xffffff) return null;    // not matched
 
             var model = this.modelsIdIndexer[id];
