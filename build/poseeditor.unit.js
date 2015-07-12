@@ -1157,6 +1157,121 @@ var PoseEditor;
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="etc.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var LogoRenderer = (function () {
+        function LogoRenderer(screen, logoConfig) {
+            this.screen = screen;
+            this.logoConfig = logoConfig;
+            this.visible = true; //false;
+            this.scene = new THREE.Scene();
+            // X: left -> right
+            // Y: Bottom -> Top
+            this.camera = new THREE.OrthographicCamera(-screen.width / 2, screen.width / 2, screen.height / 2, -screen.height / 2, 1, 100);
+            this.camera.position.set(0, 0, 10);
+            var texture = THREE.ImageUtils.loadTexture(logoConfig.path);
+            var material = new THREE.SpriteMaterial({
+                map: texture,
+                color: 0xffffff
+            });
+            this.sprite = new THREE.Sprite(material);
+            this.setSpriteSize();
+            this.setSpritePosition();
+            this.scene.add(this.sprite);
+        }
+        LogoRenderer.prototype.setSpriteSize = function () {
+            var _this = this;
+            this.width = (function () {
+                if (typeof _this.logoConfig.width === 'string') {
+                    return _this.toPercent(_this.logoConfig.width) * _this.screen.width;
+                }
+                else if (typeof _this.logoConfig.width === 'number') {
+                    return _this.logoConfig.width;
+                }
+                else {
+                    console.error("");
+                    return null;
+                }
+            })();
+            this.widthRatio = this.logoConfig.rawWidth / this.screen.width;
+            this.width *= this.widthRatio;
+            this.height = (function () {
+                if (typeof _this.logoConfig.height === 'string') {
+                    return _this.toPercent(_this.logoConfig.height) * _this.screen.height;
+                }
+                else if (typeof _this.logoConfig.height === 'number') {
+                    return _this.logoConfig.height;
+                }
+                else {
+                    console.error("");
+                    return null;
+                }
+            })();
+            this.heightRatio = this.logoConfig.rawHeight / this.screen.height;
+            this.height *= this.heightRatio;
+            this.offsetX = (this.screen.width - this.width) / 2.0;
+            this.offsetY = (this.screen.height - this.height) / 2.0;
+            this.sprite.scale.set(this.width, this.height, 1);
+        };
+        LogoRenderer.prototype.setSpritePosition = function () {
+            switch (this.logoConfig.position) {
+                case 0 /* LeftBottom */:
+                    var lpos = this.getLeftPosition(this.logoConfig.left);
+                    var bpos = this.getBottomPosition(this.logoConfig.bottom);
+                    this.sprite.position.set(lpos, bpos, 1);
+                    break;
+                default:
+                    break;
+            }
+        };
+        LogoRenderer.prototype.getLeftPosition = function (s) {
+            if (typeof s === 'string') {
+                return (this.toPercent(s) * this.width) - this.offsetX;
+            }
+            else if (typeof s === 'number') {
+                return s - this.offsetX;
+            }
+            else {
+                console.error("");
+                return null;
+            }
+        };
+        // NOTE: direction of Y asix is inversed
+        LogoRenderer.prototype.getBottomPosition = function (s) {
+            if (typeof s === 'string') {
+                return (this.toPercent(s) * this.height) - this.offsetY;
+            }
+            else if (typeof s === 'number') {
+                return s - this.offsetY;
+            }
+            else {
+                console.error("");
+                return null;
+            }
+        };
+        LogoRenderer.prototype.toPercent = function (s) {
+            return parseFloat(s) / 100.0;
+        };
+        LogoRenderer.prototype.onResize = function () {
+            this.camera.left = -this.screen.width / 2;
+            this.camera.right = this.screen.width / 2;
+            this.camera.top = this.screen.height / 2;
+            this.camera.bottom = -this.screen.height / 2;
+            this.camera.updateProjectionMatrix();
+            this.setSpriteSize();
+            this.setSpritePosition();
+        };
+        LogoRenderer.prototype.render = function (renderer) {
+            if (this.visible) {
+                renderer.render(this.scene, this.camera);
+            }
+        };
+        return LogoRenderer;
+    })();
+    PoseEditor.LogoRenderer = LogoRenderer;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="../ext/SkeletonHelper.d.ts"/>
 /// <reference path="etc.ts"/>
 var PoseEditor;
@@ -1869,7 +1984,7 @@ var PoseEditor;
                 generateMipmaps: false
             });
             if (config.logoConfig) {
-                this.logoRenderer = new LogoRenderer(this.screen, config.logoConfig);
+                this.logoRenderer = new PoseEditor.LogoRenderer(this.screen, config.logoConfig);
             }
             // jump into loop
             this.renderLoop();
@@ -2388,114 +2503,5 @@ var PoseEditor;
         return Editor;
     })();
     PoseEditor.Editor = Editor;
-    var LogoRenderer = (function () {
-        function LogoRenderer(screen, logoConfig) {
-            this.screen = screen;
-            this.logoConfig = logoConfig;
-            this.visible = true; //false;
-            this.scene = new THREE.Scene();
-            // X: left -> right
-            // Y: Bottom -> Top
-            this.camera = new THREE.OrthographicCamera(-screen.width / 2, screen.width / 2, screen.height / 2, -screen.height / 2, 1, 100);
-            this.camera.position.set(0, 0, 10);
-            var texture = THREE.ImageUtils.loadTexture(logoConfig.path);
-            var material = new THREE.SpriteMaterial({
-                map: texture,
-                color: 0xffffff
-            });
-            this.sprite = new THREE.Sprite(material);
-            this.setSpriteSize();
-            this.setSpritePosition();
-            this.scene.add(this.sprite);
-        }
-        LogoRenderer.prototype.setSpriteSize = function () {
-            var _this = this;
-            this.width = (function () {
-                if (typeof _this.logoConfig.width === 'string') {
-                    return _this.toPercent(_this.logoConfig.width) * _this.screen.width;
-                }
-                else if (typeof _this.logoConfig.width === 'number') {
-                    return _this.logoConfig.width;
-                }
-                else {
-                    console.error("");
-                    return null;
-                }
-            })();
-            this.widthRatio = this.logoConfig.rawWidth / this.screen.width;
-            this.width *= this.widthRatio;
-            this.height = (function () {
-                if (typeof _this.logoConfig.height === 'string') {
-                    return _this.toPercent(_this.logoConfig.height) * _this.screen.height;
-                }
-                else if (typeof _this.logoConfig.height === 'number') {
-                    return _this.logoConfig.height;
-                }
-                else {
-                    console.error("");
-                    return null;
-                }
-            })();
-            this.heightRatio = this.logoConfig.rawHeight / this.screen.height;
-            this.height *= this.heightRatio;
-            this.offsetX = (this.screen.width - this.width) / 2.0;
-            this.offsetY = (this.screen.height - this.height) / 2.0;
-            this.sprite.scale.set(this.width, this.height, 1);
-        };
-        LogoRenderer.prototype.setSpritePosition = function () {
-            switch (this.logoConfig.position) {
-                case 0 /* LeftBottom */:
-                    var lpos = this.getLeftPosition(this.logoConfig.left);
-                    var bpos = this.getBottomPosition(this.logoConfig.bottom);
-                    this.sprite.position.set(lpos, bpos, 1);
-                    break;
-                default:
-                    break;
-            }
-        };
-        LogoRenderer.prototype.getLeftPosition = function (s) {
-            if (typeof s === 'string') {
-                return (this.toPercent(s) * this.width) - this.offsetX;
-            }
-            else if (typeof s === 'number') {
-                return s - this.offsetX;
-            }
-            else {
-                console.error("");
-                return null;
-            }
-        };
-        // NOTE: direction of Y asix is inversed
-        LogoRenderer.prototype.getBottomPosition = function (s) {
-            if (typeof s === 'string') {
-                return (this.toPercent(s) * this.height) - this.offsetY;
-            }
-            else if (typeof s === 'number') {
-                return s - this.offsetY;
-            }
-            else {
-                console.error("");
-                return null;
-            }
-        };
-        LogoRenderer.prototype.toPercent = function (s) {
-            return parseFloat(s) / 100.0;
-        };
-        LogoRenderer.prototype.onResize = function () {
-            this.camera.left = -this.screen.width / 2;
-            this.camera.right = this.screen.width / 2;
-            this.camera.top = this.screen.height / 2;
-            this.camera.bottom = -this.screen.height / 2;
-            this.camera.updateProjectionMatrix();
-            this.setSpriteSize();
-            this.setSpritePosition();
-        };
-        LogoRenderer.prototype.render = function (renderer) {
-            if (this.visible) {
-                renderer.render(this.scene, this.camera);
-            }
-        };
-        return LogoRenderer;
-    })();
 })(PoseEditor || (PoseEditor = {}));
 //# sourceMappingURL=poseeditor.unit.js.map
