@@ -1160,6 +1160,122 @@ var PoseEditor;
 /// <reference path="etc.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
+    var LogoRenderer = (function () {
+        function LogoRenderer(screen, logoConfig) {
+            this.screen = screen;
+            this.logoConfig = logoConfig;
+            this.visible = true; //false;
+            this.scene = new THREE.Scene();
+            // X: left -> right
+            // Y: Bottom -> Top
+            this.camera = new THREE.OrthographicCamera(-screen.width / 2, screen.width / 2, screen.height / 2, -screen.height / 2, 1, 100);
+            this.camera.position.set(0, 0, 10);
+            var texture = THREE.ImageUtils.loadTexture(logoConfig.path);
+            var material = new THREE.SpriteMaterial({
+                map: texture,
+                color: 0xffffff
+            });
+            this.sprite = new THREE.Sprite(material);
+            this.setSpriteSize();
+            this.setSpritePosition();
+            this.scene.add(this.sprite);
+        }
+        LogoRenderer.prototype.setSpriteSize = function () {
+            var _this = this;
+            this.width = (function () {
+                if (typeof _this.logoConfig.width === 'string') {
+                    return _this.toPercent(_this.logoConfig.width) * _this.screen.width;
+                }
+                else if (typeof _this.logoConfig.width === 'number') {
+                    return _this.logoConfig.width;
+                }
+                else {
+                    console.error("");
+                    return null;
+                }
+            })();
+            this.widthRatio = this.logoConfig.rawWidth / this.screen.width;
+            this.width *= this.widthRatio;
+            this.height = (function () {
+                if (typeof _this.logoConfig.height === 'string') {
+                    return _this.toPercent(_this.logoConfig.height) * _this.screen.height;
+                }
+                else if (typeof _this.logoConfig.height === 'number') {
+                    return _this.logoConfig.height;
+                }
+                else {
+                    console.error("");
+                    return null;
+                }
+            })();
+            this.heightRatio = this.logoConfig.rawHeight / this.screen.height;
+            this.height *= this.heightRatio;
+            this.offsetX = (this.screen.width - this.width) / 2.0;
+            this.offsetY = (this.screen.height - this.height) / 2.0;
+            this.sprite.scale.set(this.width, this.height, 1);
+        };
+        LogoRenderer.prototype.setSpritePosition = function () {
+            switch (this.logoConfig.position) {
+                case 0 /* LeftBottom */:
+                    var lpos = this.getLeftPosition(this.logoConfig.left);
+                    var bpos = this.getBottomPosition(this.logoConfig.bottom);
+                    this.sprite.position.set(lpos, bpos, 1);
+                    break;
+                default:
+                    break;
+            }
+        };
+        LogoRenderer.prototype.getLeftPosition = function (s) {
+            if (typeof s === 'string') {
+                return (this.toPercent(s) * this.width) - this.offsetX;
+            }
+            else if (typeof s === 'number') {
+                return s - this.offsetX;
+            }
+            else {
+                console.error("");
+                return null;
+            }
+        };
+        // NOTE: direction of Y asix is inversed
+        LogoRenderer.prototype.getBottomPosition = function (s) {
+            if (typeof s === 'string') {
+                return (this.toPercent(s) * this.height) - this.offsetY;
+            }
+            else if (typeof s === 'number') {
+                return s - this.offsetY;
+            }
+            else {
+                console.error("");
+                return null;
+            }
+        };
+        LogoRenderer.prototype.toPercent = function (s) {
+            return parseFloat(s) / 100.0;
+        };
+        LogoRenderer.prototype.onResize = function () {
+            this.camera.left = -this.screen.width / 2;
+            this.camera.right = this.screen.width / 2;
+            this.camera.top = this.screen.height / 2;
+            this.camera.bottom = -this.screen.height / 2;
+            this.camera.updateProjectionMatrix();
+            this.setSpriteSize();
+            this.setSpritePosition();
+        };
+        LogoRenderer.prototype.render = function (renderer) {
+            if (this.visible) {
+                renderer.render(this.scene, this.camera);
+            }
+        };
+        return LogoRenderer;
+    })();
+    PoseEditor.LogoRenderer = LogoRenderer;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../ext/SkeletonHelper.d.ts"/>
+/// <reference path="etc.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
     var RotationLimitation = (function () {
         function RotationLimitation() {
             this.x = false;
@@ -1175,6 +1291,10 @@ var PoseEditor;
     var Model = (function () {
         function Model(name, modelInfo, spritePaths, scene, scene2d, id, sceneForPicking, callback) {
             var _this = this;
+            this.name = name;
+            this.scene = scene;
+            this.scene2d = scene2d;
+            this.sceneForPicking = sceneForPicking;
             //
             this.ready = false;
             this.disposed = false;
@@ -1191,12 +1311,6 @@ var PoseEditor;
             //
             this.jointMarkerSprites = [];
             this.jointMarkerMeshes = [];
-            //
-            this.name = name;
-            //
-            this.scene = scene;
-            this.scene2d = scene2d;
-            this.sceneForPicking = sceneForPicking;
             //
             if (modelInfo.markerScale) {
                 this.markerScale = modelInfo.markerScale;
@@ -1257,21 +1371,21 @@ var PoseEditor;
                     skinning: true
                 });
                 _this.meshForPicking = new THREE.SkinnedMesh(geometry, pickingMaterial);
-                if (initPos) {
-                    _this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
-                }
-                if (initScale) {
-                    _this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
-                }
+                //if ( initPos ) {
+                //    this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
+                //}
+                //if ( initScale ) {
+                //    this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
+                //}
                 _this.meshForPicking.bind(_this.mesh.skeleton); // important!!
                 _this.sceneForPicking.add(_this.meshForPicking);
                 //
-                _this.skeletonHelper = new THREE.SkeletonHelper(_this.mesh);
+                _this.setupAppendixData(spritePaths, modelInfo, callback);
+                //
+                _this.skeletonHelper = new PoseEditor.SkeletonHelper(_this.mesh);
                 _this.skeletonHelper.material.linewidth = 2;
                 _this.skeletonHelper.visible = false;
                 _this.scene.add(_this.skeletonHelper);
-                //
-                _this.setupAppendixData(spritePaths, modelInfo, callback);
             }, modelInfo.textureDir);
         }
         Model.prototype.selectionState = function (isActive) {
@@ -1358,7 +1472,11 @@ var PoseEditor;
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 if (hiddenJoints.indexOf(index) != -1) {
                     // this bone is hidden
+                    bone.userData.hidden = true;
                     return;
+                }
+                else {
+                    bone.userData.hidden = false;
                 }
                 _this.availableBones.push(bone);
                 //
@@ -1749,6 +1867,7 @@ var PoseEditor;
             var _this = this;
             if (defaultCamera === void 0) { defaultCamera = new PoseEditor.CameraConfig(); }
             if (config === void 0) { config = new PoseEditor.Config(); }
+            this.config = config;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.update();
@@ -1814,11 +1933,20 @@ var PoseEditor;
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.screen.aspect, this.near, this.far);
             this.camera.position.copy(defaultCamera.position);
-            this.directionalLight = new THREE.DirectionalLight(0xffffff);
-            this.directionalLight.position.set(0, 0.7, 0.7);
-            this.scene.add(this.directionalLight);
-            this.ambientLight = new THREE.AmbientLight(0xaaaaaa);
-            this.scene.add(this.ambientLight);
+            (function () {
+                var light = new THREE.DirectionalLight(0xffffff);
+                light.position.set(0, 0.7, 0.7);
+                _this.scene.add(light);
+            })();
+            (function () {
+                var light = new THREE.DirectionalLight(0xffffff);
+                light.position.set(0, 0.7, -0.7);
+                _this.scene.add(light);
+            })();
+            (function () {
+                var light = new THREE.AmbientLight(0xffffff);
+                _this.scene.add(light);
+            })();
             //
             this.scene2d = new THREE.Scene();
             //
@@ -1852,8 +1980,6 @@ var PoseEditor;
             this.scene.add(this.transformCtrl);
             // intersect helper
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
-            // save Config
-            this.config = config;
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
             this.currentValues['format'] = 'png';
@@ -1867,7 +1993,7 @@ var PoseEditor;
                 generateMipmaps: false
             });
             if (config.logoConfig) {
-                this.logoRenderer = new LogoRenderer(this.screen, config.logoConfig);
+                this.logoRenderer = new PoseEditor.LogoRenderer(this.screen, config.logoConfig);
             }
             // jump into loop
             this.renderLoop();
@@ -1887,7 +2013,7 @@ var PoseEditor;
             // read the pixel under the mouse from the texture(workaround)
             this.renderer.readRenderTargetPixels(this.textureForPicking, clientX, this.textureForPicking.height - clientY, 1.0, 1.0, pixelBuffer);
             var id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | (pixelBuffer[2]);
-            //console.log(id);
+            // console.log(id);
             if (id == 0xffffff)
                 return null; // not matched
             var model = this.modelsIdIndexer[id];
@@ -2304,8 +2430,12 @@ var PoseEditor;
                 this.loadAndAppendModel(name, this.modelInfoTable[name], this.spritePaths, callback);
             }
             else {
+                var errMsg = "model name[" + name + "] is not found";
                 if (callback) {
-                    callback(null, "model name[" + name + "] is not found");
+                    callback(null, errMsg);
+                }
+                else {
+                    console.error(errMsg);
                 }
             }
         };
@@ -2386,115 +2516,6 @@ var PoseEditor;
         return Editor;
     })();
     PoseEditor.Editor = Editor;
-    var LogoRenderer = (function () {
-        function LogoRenderer(screen, logoConfig) {
-            this.screen = screen;
-            this.logoConfig = logoConfig;
-            this.visible = true; //false;
-            this.scene = new THREE.Scene();
-            // X: left -> right
-            // Y: Bottom -> Top
-            this.camera = new THREE.OrthographicCamera(-screen.width / 2, screen.width / 2, screen.height / 2, -screen.height / 2, 1, 100);
-            this.camera.position.set(0, 0, 10);
-            var texture = THREE.ImageUtils.loadTexture(logoConfig.path);
-            var material = new THREE.SpriteMaterial({
-                map: texture,
-                color: 0xffffff
-            });
-            this.sprite = new THREE.Sprite(material);
-            this.setSpriteSize();
-            this.setSpritePosition();
-            this.scene.add(this.sprite);
-        }
-        LogoRenderer.prototype.setSpriteSize = function () {
-            var _this = this;
-            this.width = (function () {
-                if (typeof _this.logoConfig.width === 'string') {
-                    return _this.toPercent(_this.logoConfig.width) * _this.screen.width;
-                }
-                else if (typeof _this.logoConfig.width === 'number') {
-                    return _this.logoConfig.width;
-                }
-                else {
-                    console.error("");
-                    return null;
-                }
-            })();
-            this.widthRatio = this.logoConfig.rawWidth / this.screen.width;
-            this.width *= this.widthRatio;
-            this.height = (function () {
-                if (typeof _this.logoConfig.height === 'string') {
-                    return _this.toPercent(_this.logoConfig.height) * _this.screen.height;
-                }
-                else if (typeof _this.logoConfig.height === 'number') {
-                    return _this.logoConfig.height;
-                }
-                else {
-                    console.error("");
-                    return null;
-                }
-            })();
-            this.heightRatio = this.logoConfig.rawHeight / this.screen.height;
-            this.height *= this.heightRatio;
-            this.offsetX = (this.screen.width - this.width) / 2.0;
-            this.offsetY = (this.screen.height - this.height) / 2.0;
-            this.sprite.scale.set(this.width, this.height, 1);
-        };
-        LogoRenderer.prototype.setSpritePosition = function () {
-            switch (this.logoConfig.position) {
-                case 0 /* LeftBottom */:
-                    var lpos = this.getLeftPosition(this.logoConfig.left);
-                    var bpos = this.getBottomPosition(this.logoConfig.bottom);
-                    this.sprite.position.set(lpos, bpos, 1);
-                    break;
-                default:
-                    break;
-            }
-        };
-        LogoRenderer.prototype.getLeftPosition = function (s) {
-            if (typeof s === 'string') {
-                return (this.toPercent(s) * this.width) - this.offsetX;
-            }
-            else if (typeof s === 'number') {
-                return s - this.offsetX;
-            }
-            else {
-                console.error("");
-                return null;
-            }
-        };
-        // NOTE: direction of Y asix is inversed
-        LogoRenderer.prototype.getBottomPosition = function (s) {
-            if (typeof s === 'string') {
-                return (this.toPercent(s) * this.height) - this.offsetY;
-            }
-            else if (typeof s === 'number') {
-                return s - this.offsetY;
-            }
-            else {
-                console.error("");
-                return null;
-            }
-        };
-        LogoRenderer.prototype.toPercent = function (s) {
-            return parseFloat(s) / 100.0;
-        };
-        LogoRenderer.prototype.onResize = function () {
-            this.camera.left = -this.screen.width / 2;
-            this.camera.right = this.screen.width / 2;
-            this.camera.top = this.screen.height / 2;
-            this.camera.bottom = -this.screen.height / 2;
-            this.camera.updateProjectionMatrix();
-            this.setSpriteSize();
-            this.setSpritePosition();
-        };
-        LogoRenderer.prototype.render = function (renderer) {
-            if (this.visible) {
-                renderer.render(this.scene, this.camera);
-            }
-        };
-        return LogoRenderer;
-    })();
 })(PoseEditor || (PoseEditor = {}));
 //# sourceMappingURL=poseeditor.unit.js.map
 /**
@@ -4176,3 +4197,109 @@ THREE.OrbitControls.prototype.constructor = THREE.OrbitControls;
 	THREE.TransformControls.prototype.constructor = THREE.TransformControls;
 
 }());
+/**
+ * @author Sean Griffin / http://twitter.com/sgrif
+ * @author Michael Guerrero / http://realitymeltdown.com
+ * @author mrdoob / http://mrdoob.com/
+ * @author ikerr / http://verold.com
+ *
+ * @modified yutopp
+ */
+
+PoseEditor.SkeletonHelper = function ( object ) {
+
+	this.bones = this.getBoneList( object );
+
+	var geometry = new THREE.Geometry();
+
+	for ( var i = 0; i < this.bones.length; i ++ ) {
+
+		var bone = this.bones[ i ];
+        if ( bone.userData.hidden ) {
+            continue;
+        }
+
+		if ( bone.parent instanceof THREE.Bone ) {
+
+			geometry.vertices.push( new THREE.Vector3() );
+			geometry.vertices.push( new THREE.Vector3() );
+			geometry.colors.push( new THREE.Color( 0, 0, 1 ) );
+			geometry.colors.push( new THREE.Color( 0, 1, 0 ) );
+
+		}
+
+	}
+
+	var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, depthTest: false, depthWrite: false, transparent: true } );
+
+	THREE.Line.call( this, geometry, material, THREE.LinePieces );
+
+	this.root = object;
+
+	this.matrix = object.matrixWorld;
+	this.matrixAutoUpdate = false;
+
+	this.update();
+
+};
+
+
+PoseEditor.SkeletonHelper.prototype = Object.create( THREE.Line.prototype );
+PoseEditor.SkeletonHelper.prototype.constructor = THREE.SkeletonHelper;
+
+PoseEditor.SkeletonHelper.prototype.getBoneList = function( object ) {
+
+	var boneList = [];
+
+	if ( object instanceof THREE.Bone ) {
+
+		boneList.push( object );
+
+	}
+
+	for ( var i = 0; i < object.children.length; i ++ ) {
+
+		boneList.push.apply( boneList, this.getBoneList( object.children[ i ] ) );
+
+	}
+
+	return boneList;
+
+};
+
+PoseEditor.SkeletonHelper.prototype.update = function () {
+
+	var geometry = this.geometry;
+
+	var matrixWorldInv = new THREE.Matrix4().getInverse( this.root.matrixWorld );
+
+	var boneMatrix = new THREE.Matrix4();
+
+	var j = 0;
+
+	for ( var i = 0; i < this.bones.length; i ++ ) {
+
+		var bone = this.bones[ i ];
+        if ( bone.userData.hidden ) {
+            continue;
+        }
+
+		if ( bone.parent instanceof THREE.Bone ) {
+
+			boneMatrix.multiplyMatrices( matrixWorldInv, bone.matrixWorld );
+			geometry.vertices[ j ].setFromMatrixPosition( boneMatrix );
+
+			boneMatrix.multiplyMatrices( matrixWorldInv, bone.parent.matrixWorld );
+			geometry.vertices[ j + 1 ].setFromMatrixPosition( boneMatrix );
+
+			j += 2;
+
+		}
+
+	}
+
+	geometry.verticesNeedUpdate = true;
+
+	geometry.computeBoundingSphere();
+
+};

@@ -56,24 +56,34 @@ $(function() {
 
   model_table = {
     "sport_man": {
-      modelPath: "bower_components/poseeditor/models/model/model.js",
-      textureDir: "bower_components/poseeditor/models/model/",
+      modelPath: "bower_components/poseeditor/models/sport_man/model.js",
+      textureDir: "bower_components/poseeditor/models/sport_man/",
       ikDefaultPropagation: false,
       ikInversePropagationJoints: [],
       hiddenJoints: [
         16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
       ],
-      presets: {
-      },
-      boneLimits: {
-        32: [[-160, 17], [-7, 5.7], [-74.4, 148.9]],
-        33: [[0, 166], [-22.9, 11.4], [-34.3, 51.5]],
-        34: [[-17, 34.3], [34.3, 68.7], [-126, -17]]
-      },
+      presets: {},
+      boneLimits: {},
       baseJointId: 0,
       initPos: [0, 0, 0],
       initScale: [1, 1, 1],
+      markerScale: [0.5, 0.5]
+    },
+
+    "sports_jirou": {
+      modelPath: "bower_components/poseeditor/models/sports_jirou/model.js",
+      textureDir: "bower_components/poseeditor/models/sports_jirou/",
+      ikDefaultPropagation: false,
+      ikInversePropagationJoints: [],
+      hiddenJoints: [19, 20, 21, 3, 4, 5, 22, 23, 24, 6, 7, 8, 31, 38, 39, 41, 40, 42],
+      presets: {
+      },
+      boneLimits: {},
+      baseJointId: 0,
+      initPos: [0, 0, 0],
+      initScale: [0.45, 0.45, 0.45],
       markerScale: [0.5, 0.5]
     }
   };
