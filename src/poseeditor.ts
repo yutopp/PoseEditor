@@ -15,7 +15,7 @@ module PoseEditor {
             modelInfoTable: {[key: string]: ModelInfo;},
             spritePaths: SpritePaths,
             defaultCamera: CameraConfig = new CameraConfig(),
-            config: Config = new Config()
+            private config: Config = new Config()
         ) {
             // setup screen
             this.screen = new Screen.ScreenController(parentDomId, config);
@@ -134,9 +134,6 @@ module PoseEditor {
                 this.controls
             );
 
-            // save Config
-            this.config = config;
-
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
             this.currentValues['format'] = 'png';
@@ -164,7 +161,6 @@ module PoseEditor {
             if (config.logoConfig) {
                 this.logoRenderer = new LogoRenderer(this.screen, config.logoConfig);
             }
-
 
             // jump into loop
             this.renderLoop();
@@ -901,9 +897,6 @@ module PoseEditor {
 
         //
         private loadingTasks = 0;
-
-        //
-        private config: Config;
 
         //
         private currentValues: {[key: string]: any} = {};

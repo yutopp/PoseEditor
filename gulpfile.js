@@ -18,16 +18,19 @@ gulp.task('build-css', function() {
 });
 
 gulp.task('build-ts', function() {
-  runSequence('run-tsc', 'combine', 'minify');
+  runSequence('run-tsc', 'complete-js');
 });
 
+gulp.task('complete-js', function() {
+  runSequence('combine', 'minify');
+});
 
 gulp.task('run-tsc', shell.task([
   'tsc src/*.ts --out build/poseeditor.unit.js --noImplicitAny -sourcemap'
 ]));
 
 gulp.task('combine', function() {
-  return gulp.src(['./build/poseeditor.unit.js', './ext/OrbitControls.js', './ext/TransformControls.js'])
+  return gulp.src(['./build/poseeditor.unit.js', './ext/OrbitControls.js', './ext/TransformControls.js', './ext/SkeletonHelper.js'])
          .pipe(concat('poseeditor.js'))
          .pipe(gulp.dest('./build/'));
 });
@@ -39,6 +42,8 @@ gulp.task('minify', shell.task([
 
 gulp.task('watch', function() {
   gulp.watch('./src/*.ts', ['build-ts']);
+  gulp.watch('./ext/*.js', ['complete-js']);
+  gulp.watch('./ext/*.d.ts', ['complete-js']);
   gulp.watch('./scss/*.scss', ['build-css']);
 });
 

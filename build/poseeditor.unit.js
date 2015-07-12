@@ -1157,6 +1157,7 @@ var PoseEditor;
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../ext/SkeletonHelper.d.ts"/>
 /// <reference path="etc.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
@@ -1266,12 +1267,12 @@ var PoseEditor;
                 _this.meshForPicking.bind(_this.mesh.skeleton); // important!!
                 _this.sceneForPicking.add(_this.meshForPicking);
                 //
-                _this.skeletonHelper = new THREE.SkeletonHelper(_this.mesh);
+                _this.setupAppendixData(spritePaths, modelInfo, callback);
+                //
+                _this.skeletonHelper = new PoseEditor.SkeletonHelper(_this.mesh);
                 _this.skeletonHelper.material.linewidth = 2;
                 _this.skeletonHelper.visible = false;
                 _this.scene.add(_this.skeletonHelper);
-                //
-                _this.setupAppendixData(spritePaths, modelInfo, callback);
             }, modelInfo.textureDir);
         }
         Model.prototype.selectionState = function (isActive) {
@@ -1358,7 +1359,11 @@ var PoseEditor;
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 if (hiddenJoints.indexOf(index) != -1) {
                     // this bone is hidden
+                    bone.userData.hidden = true;
                     return;
+                }
+                else {
+                    bone.userData.hidden = false;
                 }
                 _this.availableBones.push(bone);
                 //
@@ -1749,6 +1754,7 @@ var PoseEditor;
             var _this = this;
             if (defaultCamera === void 0) { defaultCamera = new PoseEditor.CameraConfig(); }
             if (config === void 0) { config = new PoseEditor.Config(); }
+            this.config = config;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.update();
@@ -1852,8 +1858,6 @@ var PoseEditor;
             this.scene.add(this.transformCtrl);
             // intersect helper
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
-            // save Config
-            this.config = config;
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
             this.currentValues['format'] = 'png';

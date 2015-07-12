@@ -1,4 +1,5 @@
 /// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../ext/SkeletonHelper.d.ts"/>
 /// <reference path="etc.ts"/>
 
 module PoseEditor {
@@ -124,17 +125,17 @@ module PoseEditor {
                 this.sceneForPicking.add(this.meshForPicking);
 
                 //
-                this.skeletonHelper = new THREE.SkeletonHelper(this.mesh);
-				(<THREE.LineBasicMaterial>this.skeletonHelper.material).linewidth = 2;
-                this.skeletonHelper.visible = false;
-				this.scene.add(this.skeletonHelper);
-
-                //
                 this.setupAppendixData(
                     spritePaths,
                     modelInfo,
                     callback
                 );
+
+                //
+                this.skeletonHelper = new PoseEditor.SkeletonHelper(this.mesh);
+				(<THREE.LineBasicMaterial>this.skeletonHelper.material).linewidth = 2;
+                this.skeletonHelper.visible = false;
+				this.scene.add(this.skeletonHelper);
 
             }, modelInfo.textureDir);
         }
@@ -245,7 +246,10 @@ module PoseEditor {
             this.mesh.skeleton.bones.forEach((bone, index) => {
                 if (hiddenJoints.indexOf(index) != -1) {
                     // this bone is hidden
+                    bone.userData.hidden = true;
                     return;
+                } else {
+                    bone.userData.hidden = false;
                 }
 
                 this.availableBones.push(bone);
@@ -529,6 +533,6 @@ module PoseEditor {
         private defaultMat: any;
 
         //
-        private skeletonHelper: THREE.SkeletonHelper;
+        private skeletonHelper: PoseEditor.SkeletonHelper;
     }
 }

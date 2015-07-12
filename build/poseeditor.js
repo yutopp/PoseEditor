@@ -1157,6 +1157,7 @@ var PoseEditor;
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="../ext/SkeletonHelper.d.ts"/>
 /// <reference path="etc.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
@@ -1266,12 +1267,12 @@ var PoseEditor;
                 _this.meshForPicking.bind(_this.mesh.skeleton); // important!!
                 _this.sceneForPicking.add(_this.meshForPicking);
                 //
-                _this.skeletonHelper = new THREE.SkeletonHelper(_this.mesh);
+                _this.setupAppendixData(spritePaths, modelInfo, callback);
+                //
+                _this.skeletonHelper = new PoseEditor.SkeletonHelper(_this.mesh);
                 _this.skeletonHelper.material.linewidth = 2;
                 _this.skeletonHelper.visible = false;
                 _this.scene.add(_this.skeletonHelper);
-                //
-                _this.setupAppendixData(spritePaths, modelInfo, callback);
             }, modelInfo.textureDir);
         }
         Model.prototype.selectionState = function (isActive) {
@@ -1358,7 +1359,11 @@ var PoseEditor;
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 if (hiddenJoints.indexOf(index) != -1) {
                     // this bone is hidden
+                    bone.userData.hidden = true;
                     return;
+                }
+                else {
+                    bone.userData.hidden = false;
                 }
                 _this.availableBones.push(bone);
                 //
@@ -1749,6 +1754,7 @@ var PoseEditor;
             var _this = this;
             if (defaultCamera === void 0) { defaultCamera = new PoseEditor.CameraConfig(); }
             if (config === void 0) { config = new PoseEditor.Config(); }
+            this.config = config;
             this.renderLoop = function () {
                 requestAnimationFrame(_this.renderLoop);
                 _this.update();
@@ -1852,8 +1858,6 @@ var PoseEditor;
             this.scene.add(this.transformCtrl);
             // intersect helper
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
-            // save Config
-            this.config = config;
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
             this.currentValues['format'] = 'png';
@@ -4176,3 +4180,109 @@ THREE.OrbitControls.prototype.constructor = THREE.OrbitControls;
 	THREE.TransformControls.prototype.constructor = THREE.TransformControls;
 
 }());
+/**
+ * @author Sean Griffin / http://twitter.com/sgrif
+ * @author Michael Guerrero / http://realitymeltdown.com
+ * @author mrdoob / http://mrdoob.com/
+ * @author ikerr / http://verold.com
+ *
+ * @modified yutopp
+ */
+
+PoseEditor.SkeletonHelper = function ( object ) {
+
+	this.bones = this.getBoneList( object );
+
+	var geometry = new THREE.Geometry();
+
+	for ( var i = 0; i < this.bones.length; i ++ ) {
+
+		var bone = this.bones[ i ];
+        if ( bone.userData.hidden ) {
+            continue;
+        }
+
+		if ( bone.parent instanceof THREE.Bone ) {
+
+			geometry.vertices.push( new THREE.Vector3() );
+			geometry.vertices.push( new THREE.Vector3() );
+			geometry.colors.push( new THREE.Color( 0, 0, 1 ) );
+			geometry.colors.push( new THREE.Color( 0, 1, 0 ) );
+
+		}
+
+	}
+
+	var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors, depthTest: false, depthWrite: false, transparent: true } );
+
+	THREE.Line.call( this, geometry, material, THREE.LinePieces );
+
+	this.root = object;
+
+	this.matrix = object.matrixWorld;
+	this.matrixAutoUpdate = false;
+
+	this.update();
+
+};
+
+
+PoseEditor.SkeletonHelper.prototype = Object.create( THREE.Line.prototype );
+PoseEditor.SkeletonHelper.prototype.constructor = THREE.SkeletonHelper;
+
+PoseEditor.SkeletonHelper.prototype.getBoneList = function( object ) {
+
+	var boneList = [];
+
+	if ( object instanceof THREE.Bone ) {
+
+		boneList.push( object );
+
+	}
+
+	for ( var i = 0; i < object.children.length; i ++ ) {
+
+		boneList.push.apply( boneList, this.getBoneList( object.children[ i ] ) );
+
+	}
+
+	return boneList;
+
+};
+
+PoseEditor.SkeletonHelper.prototype.update = function () {
+
+	var geometry = this.geometry;
+
+	var matrixWorldInv = new THREE.Matrix4().getInverse( this.root.matrixWorld );
+
+	var boneMatrix = new THREE.Matrix4();
+
+	var j = 0;
+
+	for ( var i = 0; i < this.bones.length; i ++ ) {
+
+		var bone = this.bones[ i ];
+        if ( bone.userData.hidden ) {
+            continue;
+        }
+
+		if ( bone.parent instanceof THREE.Bone ) {
+
+			boneMatrix.multiplyMatrices( matrixWorldInv, bone.matrixWorld );
+			geometry.vertices[ j ].setFromMatrixPosition( boneMatrix );
+
+			boneMatrix.multiplyMatrices( matrixWorldInv, bone.parent.matrixWorld );
+			geometry.vertices[ j + 1 ].setFromMatrixPosition( boneMatrix );
+
+			j += 2;
+
+		}
+
+	}
+
+	geometry.verticesNeedUpdate = true;
+
+	geometry.computeBoundingSphere();
+
+};
