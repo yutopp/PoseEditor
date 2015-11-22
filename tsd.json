@@ -6,19 +6,16 @@
   "bundle": "typings/tsd.d.ts",
   "installed": {
     "threejs/three.d.ts": {
-      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
+      "commit": "c71755a6ab800b3776b9e23ce9817b5f0ccbb7e6"
     },
     "threejs/three-orbitcontrols.d.ts": {
-      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
+      "commit": "c71755a6ab800b3776b9e23ce9817b5f0ccbb7e6"
     },
     "jquery/jquery.d.ts": {
-      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
-    },
-    "webaudioapi/waa.d.ts": {
-      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
+      "commit": "c71755a6ab800b3776b9e23ce9817b5f0ccbb7e6"
     },
     "webrtc/MediaStream.d.ts": {
-      "commit": "0605ebbdbdd8183c70b4a14e1e34ecb3f2b446bf"
+      "commit": "c71755a6ab800b3776b9e23ce9817b5f0ccbb7e6"
     }
   }
 }

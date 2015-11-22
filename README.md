@@ -28,7 +28,7 @@ For detail to `index.html`.
 ### Setup
 ```
 bower install
-tsd update
+tsd install
 npm install
 gulp watch
 ./s.sh  # start server
