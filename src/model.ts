@@ -46,8 +46,7 @@ module PoseEditor {
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
 
-            // load mesh data from path
-            loader.load(modelInfo.modelPath, (geometry, materials) => {
+            var f = (geometry: THREE.Geometry, materials: THREE.Material[]) => {
                 //console.log("finished to load");
                 // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material: any;
@@ -128,8 +127,10 @@ module PoseEditor {
 				(<THREE.LineBasicMaterial>this.skeletonHelper.material).linewidth = 2;
                 this.skeletonHelper.visible = false;
 				this.scene.add(this.skeletonHelper);
+            };
 
-            }, modelInfo.textureDir);
+            // load mesh data from path
+            loader.load(modelInfo.modelPath, f, modelInfo.textureDir);
         }
 
         public selectionState(isActive: boolean) {

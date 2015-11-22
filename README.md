@@ -29,6 +29,7 @@ For detail to `index.html`.
 ```
 bower install
 tsd update
+npm install
 gulp watch
 ./s.sh  # start server
 ```
