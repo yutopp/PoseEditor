@@ -31,11 +31,10 @@ var PoseEditor;
     PoseEditor.Action = Action;
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="action.ts"/>
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
-    __.prototype = b.prototype;
-    d.prototype = new __();
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var PoseEditor;
 (function (PoseEditor) {
@@ -43,7 +42,6 @@ var PoseEditor;
         __extends(CameraAction, _super);
         function CameraAction(e, c) {
             _super.call(this, e);
-            // copy ownership
             this.controls = c;
         }
         CameraAction.prototype.name = function () {
@@ -55,7 +53,7 @@ var PoseEditor;
         CameraAction.prototype.onTapStart = function (e, isTouch, isActive) {
             this.controls.enabled = isActive;
             if (this.controls.enabled) {
-                this.controls.beginControl(e); // ;(
+                this.controls.beginControl(e);
             }
             return true;
         };
@@ -101,9 +99,7 @@ var PoseEditor;
             var localConfPos = mp[1];
             this.offsetOrgToBone = localConfPos.clone().sub(this.currentModel.mesh.position);
             this.editor.setSelectedModel(this.currentModel);
-            //
             this.editor.cursorHelper.setBeginState(localConfPos.clone());
-            //
             this.beforeModelStatus = this.currentModel.modelData();
             return false;
         };
@@ -119,7 +115,6 @@ var PoseEditor;
         MoveAction.prototype.releaseModel = function () {
             if (this.currentModel == null)
                 return true;
-            // record action
             var currentModelStatus = this.currentModel.modelData();
             if (!PoseEditor.isEqualModelStatus(this.beforeModelStatus, currentModelStatus)) {
                 this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.currentModel, this.beforeModelStatus, currentModelStatus));
@@ -165,7 +160,7 @@ var PoseEditor;
             var isLeftClick = isTouch ? true : (e.button == 0);
             this.catchJoint(this.editor.selectJointMarker(e, isTouch));
             if (this.currentJointMarker == null) {
-                return true; // pass events to other action
+                return true;
             }
             this.beforeModelStatus = this.model.modelData();
             if (isLeftClick) {
@@ -185,7 +180,6 @@ var PoseEditor;
             if (this.currentJointMarker == null || !this.isMoving)
                 return true;
             this.isMoving = false;
-            // record action
             var currentModelStatus = this.model.modelData();
             if (!PoseEditor.isEqualModelStatus(this.beforeModelStatus, currentModelStatus)) {
                 this.editor.history.didAction(new PoseEditor.TimeMachine.ChangeModelStatusAction(this.model, this.beforeModelStatus, currentModelStatus));
@@ -221,7 +215,6 @@ var PoseEditor;
             this.bone = this.model.mesh.skeleton.bones[this.currentJointMarker.userData.jointIndex];
             this.editor.selectMarkerSprite(this.currentJointMarker);
             this.editor.setSelectedBoneAndModel(this.bone, this.model);
-            //
             var pos = this.currentJointMarker.position;
             this.curPos = pos;
             this.editor.cursorHelper.setBeginState(pos);
@@ -244,20 +237,16 @@ var PoseEditor;
             this.transformCtrl.detach();
             this.isOnManipurator = false;
         };
-        // CCD IK
         BoneAction.prototype.ik = function (selected_bone, target_pos) {
             var c_bone = selected_bone;
             var p_bone = c_bone.parent;
             while (p_bone != null && p_bone.type != "SkinnedMesh") {
-                // console.log("bone!", c_bone.parent);
-                // local rotation
                 var t_r = p_bone.quaternion.clone();
                 p_bone.rotation.set(0, 0, 0);
                 p_bone.updateMatrixWorld(true);
                 var w_to_l_comp_q = p_bone.getWorldQuaternion(null).inverse();
                 p_bone.quaternion.copy(t_r);
                 p_bone.updateMatrixWorld(true);
-                //
                 var c_b_pos = c_bone.getWorldPosition(null);
                 var p_b_pos = p_bone.getWorldPosition(null);
                 var p_to_c_vec = c_b_pos.clone().sub(p_b_pos);
@@ -267,9 +256,7 @@ var PoseEditor;
                 bone_diff_q.multiply(base_bone_q);
                 var qm = new THREE.Quaternion();
                 THREE.Quaternion.slerp(base_bone_q, bone_diff_q, qm, 0.5);
-                // update bone quaternion
                 var to_q = w_to_l_comp_q.multiply(qm).normalize();
-                // set
                 p_bone.quaternion.copy(to_q);
                 p_bone.updateMatrixWorld(true);
                 if (p_bone.userData.preventIKPropagation)
@@ -282,17 +269,13 @@ var PoseEditor;
             if (this.transformCtrl.axis != null) {
                 this.isOnManipurator = true;
                 if (this.currentJointMarker != null) {
-                    // local rotation
                     var t_r = this.bone.quaternion.clone();
                     this.bone.quaternion.set(0, 0, 0, 0);
                     this.bone.updateMatrixWorld(true);
                     var w_to_l_comp_q = this.bone.getWorldQuaternion(null).inverse();
                     this.currentJointMarker.updateMatrixWorld(true);
-                    //console.log(this.selectedSphere.rotation);
                     var sph_q = this.currentJointMarker.getWorldQuaternion(null);
-                    // copy to the marker model
                     this.currentJointMarker.quaternion.copy(sph_q);
-                    // update bone quaternion
                     var to_q = w_to_l_comp_q.multiply(sph_q).normalize();
                     this.bone.quaternion.copy(to_q);
                     this.bone.updateMatrixWorld(true);
@@ -313,12 +296,6 @@ var PoseEditor;
 (function (PoseEditor) {
     var ActionController = (function () {
         function ActionController() {
-            /// ==================================================
-            /// Stack of Actions (execute from top to bottom)
-            /// ↑ top     | ...    | index: n
-            ///           | ...    | index: 1
-            /// ↓ bottom  | Camera | index: 0
-            /// ==================================================
             this.currentActions = [];
         }
         ActionController.prototype.setup = function (editor, trans, ctrls, dom) {
@@ -326,13 +303,9 @@ var PoseEditor;
             this.editor = editor;
             this.transformCtrl = trans;
             this.controls = ctrls;
-            // add camera
-            /// | Camera |
             var camAction = new PoseEditor.CameraAction(this.editor, this.controls);
             this.currentActions.push(camAction);
             camAction.onActive();
-            // setup events hooks
-            //
             dom.addEventListener('mousedown', function (e) { return _this.onTapStart(e, false); }, false);
             dom.addEventListener('touchstart', function (e) { return _this.onTapStart(e, true); }, false);
             dom.addEventListener('mousemove', function (e) { return _this.onMoving(e, false); }, false);
@@ -346,20 +319,15 @@ var PoseEditor;
         ActionController.prototype.onModeSelect = function (mode, screen) {
             var _this = this;
             switch (mode) {
-                case 0 /* Camera */:
-                    /// | Camera |
+                case PoseEditor.Screen.Mode.Camera:
                     this.destroyActionFrom(1);
                     screen.selectModeUI('camera');
                     break;
-                case 1 /* Move */:
-                    /// | Move   |
-                    /// | Camera |
+                case PoseEditor.Screen.Mode.Move:
                     this.makeStandardModeForm('move', function () { return new PoseEditor.MoveAction(_this.editor); });
                     screen.selectModeUI('move');
                     break;
-                case 2 /* Bone */:
-                    /// | Bone   |
-                    /// | Camera |
+                case PoseEditor.Screen.Mode.Bone:
                     this.makeStandardModeForm('bone_action', function () { return new PoseEditor.BoneAction(_this.editor, _this.transformCtrl); });
                     screen.selectModeUI('bone');
                     break;
@@ -367,25 +335,18 @@ var PoseEditor;
                     console.error('unexpected mode');
             }
         };
-        // make standard form likes below
-        /// | EXPECTED |
-        /// | Camera   |
         ActionController.prototype.makeStandardModeForm = function (actionName, factory) {
-            // stack has some actions except for Camera
             if (this.currentActions.length > 1) {
                 if (this.currentActions[1].name() != actionName) {
                     this.destroyActionFrom(1);
                 }
                 else {
-                    // if stack of actions is already expected form, so do nothing
                     if (this.currentActions.length == 2)
                         return;
-                    // stack has extra actions, so delete them
                     this.destroyActionFrom(2);
                     return;
                 }
             }
-            // push new action
             var action = factory();
             this.currentActions.push(action);
             action.onActive();
@@ -435,7 +396,6 @@ var PoseEditor;
 (function (PoseEditor) {
     var EventDispatcher = (function () {
         function EventDispatcher() {
-            //
             this.events = {};
         }
         EventDispatcher.prototype.addCallback = function (type, f) {
@@ -470,15 +430,12 @@ var PoseEditor;
                 if (className === void 0) { className = 'dialog'; }
                 _super.call(this);
                 this.parentDom = parentDom;
-                // shadowing element(hide background)
                 this.shadowingDom = document.createElement('div');
                 this.shadowingDom.className = 'poseeditor-shadowing';
                 this.parentDom.appendChild(this.shadowingDom);
-                // base element
                 this.baseDom = document.createElement('div');
                 this.baseDom.className = 'poseeditor-base-element';
                 this.parentDom.appendChild(this.baseDom);
-                // core dom
                 this.coreDom = document.createElement(tagName);
                 this.coreDom.className = className;
                 {
@@ -517,14 +474,12 @@ var PoseEditor;
                 if (hasCancel === void 0) { hasCancel = true; }
                 _super.call(this, parentDom, 'div', 'poseeditor-config-dialog');
                 this.actions = [];
-                // container element
                 this.containerDom = document.createElement("div");
                 {
                     var d = this.containerDom;
                     d.className = 'container';
                 }
                 this.coreDom.appendChild(this.containerDom);
-                // selection element
                 this.selectionDom = document.createElement("div");
                 {
                     var d = this.selectionDom;
@@ -567,7 +522,6 @@ var PoseEditor;
                         switch (type) {
                             case 'radio':
                                 _this.addElement(name, function (wrapperDom) {
-                                    // construct radio boxes
                                     var num = v.value.length;
                                     for (var i = 0; i < num; ++i) {
                                         var value = v.value[i];
@@ -587,7 +541,6 @@ var PoseEditor;
                                         wrapperDom.appendChild(labelDom);
                                     }
                                 }, function () {
-                                    // result collector
                                     var domName = 'poseeditor-' + name;
                                     var radios = document.getElementsByName(domName);
                                     var format = "";
@@ -603,7 +556,6 @@ var PoseEditor;
                                 break;
                             case 'select':
                                 _this.addElement(name, function (wrapperDom) {
-                                    // construct select/options
                                     var num = v.value.length;
                                     var selectDom = document.createElement("select");
                                     selectDom.name = 'poseeditor-' + name;
@@ -622,11 +574,9 @@ var PoseEditor;
                                     }
                                     wrapperDom.appendChild(selectDom);
                                 }, function () {
-                                    // result collector
                                     var domName = 'poseeditor-' + name;
                                     var selects = document.getElementsByName(domName);
                                     if (selects.length != 1) {
-                                        // TODO: throw exception
                                         console.warn("");
                                     }
                                     var select = selects[0];
@@ -636,7 +586,6 @@ var PoseEditor;
                                 break;
                             case 'input':
                                 _this.addElement(name, function (wrapperDom) {
-                                    // construct input box
                                     var labelDom = document.createElement("label");
                                     labelDom.innerText = v.label;
                                     var inputDom = document.createElement("input");
@@ -645,11 +594,9 @@ var PoseEditor;
                                     labelDom.appendChild(inputDom);
                                     wrapperDom.appendChild(labelDom);
                                 }, function () {
-                                    // result collector
                                     var domName = 'poseeditor-' + name;
                                     var selects = document.getElementsByName(domName);
                                     if (selects.length != 1) {
-                                        // TODO: throw exception
                                         console.warn("");
                                     }
                                     var input = selects[0];
@@ -658,7 +605,6 @@ var PoseEditor;
                                 break;
                             case 'message':
                                 _this.addElement(name, function (wrapperDom) {
-                                    // construct input box
                                     var labelDom = document.createElement("label");
                                     labelDom.innerText = v.text;
                                     wrapperDom.appendChild(labelDom);
@@ -675,11 +621,9 @@ var PoseEditor;
             };
             ConfigurationDialog.prototype.addElement = function (name, createDom, clawlAction) {
                 var _this = this;
-                //
                 var wrapperDom = document.createElement("div");
                 createDom(wrapperDom);
                 this.containerDom.appendChild(wrapperDom);
-                //
                 var action = {
                     destruction: function () {
                         _this.containerDom.removeChild(wrapperDom);
@@ -703,349 +647,6 @@ var PoseEditor;
         Screen.ConfigurationDialog = ConfigurationDialog;
     })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
-/// <reference path="dialog.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var Screen;
-    (function (Screen) {
-        var LoadingDialog = (function (_super) {
-            __extends(LoadingDialog, _super);
-            function LoadingDialog(parentDom, imagePath) {
-                _super.call(this, parentDom, 'div', 'poseeditor-loading');
-                var imageDom = document.createElement('img');
-                imageDom.src = imagePath;
-                this.coreDom.appendChild(imageDom);
-                var spanDom = document.createElement('span');
-                spanDom.innerText = "Loading...";
-                this.coreDom.appendChild(spanDom);
-            }
-            return LoadingDialog;
-        })(Screen.Dialog);
-        Screen.LoadingDialog = LoadingDialog;
-    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="event_dispatcher.ts"/>
-/// <reference path="control_panel.ts"/>
-/// <reference path="loading_dialog.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var Screen;
-    (function (Screen) {
-        (function (Mode) {
-            Mode[Mode["Camera"] = 0] = "Camera";
-            Mode[Mode["Move"] = 1] = "Move";
-            Mode[Mode["Bone"] = 2] = "Bone";
-        })(Screen.Mode || (Screen.Mode = {}));
-        var Mode = Screen.Mode;
-        var ScreenController = (function (_super) {
-            __extends(ScreenController, _super);
-            function ScreenController(parentDomId, config) {
-                var _this = this;
-                _super.call(this);
-                //
-                this.loadingDom = null;
-                //
-                var parentDom = document.getElementById(parentDomId);
-                if (parentDom == null) {
-                    console.log("parent dom was not found...");
-                }
-                this.targetDom = parentDom ? parentDom : document.body;
-                //
-                this.width = this.targetDom.offsetWidth;
-                this.height = this.targetDom.offsetHeight;
-                this.aspect = this.width / this.height;
-                //
-                if (config.loadingImagePath) {
-                    this.loadingDom = new Screen.LoadingDialog(this.targetDom, config.loadingImagePath);
-                    this.showLoadingDom();
-                }
-                //
-                this.controlPanel = new Screen.ControlPanel(this);
-                //
-                window.addEventListener('resize', function () { return _this.onResize(); }, false);
-            }
-            ScreenController.prototype.selectModeUI = function (mode) {
-                this.controlPanel.selectModeUI(mode);
-            };
-            ScreenController.prototype.changeUIStatus = function (name, callback) {
-                return this.controlPanel.changeUIStatus(name, callback);
-            };
-            ScreenController.prototype.appendChild = function (dom) {
-                this.targetDom.appendChild(dom);
-            };
-            ScreenController.prototype.onResize = function () {
-                var w = this.targetDom.offsetWidth;
-                var h = this.targetDom.offsetHeight;
-                if (this.width == w && this.height == h) {
-                    return false;
-                }
-                // update size
-                this.width = w;
-                this.height = h;
-                this.aspect = this.width / this.height;
-                //
-                this.dispatchCallback('resize');
-                //
-                this.controlPanel.onResize(this.width, this.height);
-                return false;
-            };
-            ScreenController.prototype.showLoadingDom = function () {
-                if (this.loadingDom) {
-                    this.loadingDom.show();
-                }
-            };
-            ScreenController.prototype.hideLoadingDom = function () {
-                if (this.loadingDom) {
-                    this.loadingDom.hide();
-                }
-            };
-            ScreenController.prototype.getDialog = function (name) {
-                return this.controlPanel.getDialog(name);
-            };
-            return ScreenController;
-        })(PoseEditor.EventDispatcher);
-        Screen.ScreenController = ScreenController;
-    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
-})(PoseEditor || (PoseEditor = {}));
-/// <reference path="screen.ts"/>
-/// <reference path="configuration_dialog.ts"/>
-var PoseEditor;
-(function (PoseEditor) {
-    var Screen;
-    (function (Screen) {
-        var ControlPanel = (function () {
-            function ControlPanel(screen) {
-                var _this = this;
-                this.toggleDom = {};
-                this.doms = {};
-                this.dialogs = {};
-                this.screen = screen;
-                //
-                this.panelDom = document.createElement("div");
-                this.panelDom.className = 'control-panel';
-                {
-                    var s = this.panelDom.style;
-                    s.position = 'absolute';
-                    s.right = '0';
-                    //s.width = <number>(this.screen.width / 10) + 'px';
-                    s.width = '100px';
-                    s.height = this.screen.height + 'px';
-                }
-                this.screen.targetDom.appendChild(this.panelDom);
-                //
-                this.toggleDom['camera'] = this.addButton(function (dom) {
-                    dom.value = 'Camera';
-                    dom.className = 'modes';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 0 /* Camera */);
-                    });
-                });
-                //
-                this.toggleDom['move'] = this.addButton(function (dom) {
-                    dom.value = 'Move/Select';
-                    dom.className = 'modes';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 1 /* Move */);
-                    });
-                });
-                //
-                this.toggleDom['bone'] = this.addButton(function (dom) {
-                    dom.value = 'Bone';
-                    dom.className = 'modes';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onmodeclick", 2 /* Bone */);
-                    });
-                });
-                this.addHR();
-                //
-                this.doms['undo'] = this.addButton(function (dom) {
-                    dom.value = 'Undo';
-                    dom.className = 'undo half';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onundo");
-                    });
-                    dom.disabled = true;
-                });
-                //
-                this.doms['redo'] = this.addButton(function (dom) {
-                    dom.value = 'Redo';
-                    dom.className = 'redo half';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onredo");
-                    });
-                    dom.disabled = true;
-                });
-                this.addClearDom();
-                this.addHR();
-                //
-                this.doms['initial_bone'] = this.addButton(function (dom) {
-                    dom.value = 'Init Bone';
-                    dom.className = 'init-bone half';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onboneinitialize");
-                    });
-                    dom.disabled = true;
-                });
-                this.doms['initial_pose'] = this.addButton(function (dom) {
-                    dom.value = 'Init Pose';
-                    dom.className = 'init-pose half';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("onposeinitialize");
-                    });
-                    dom.disabled = true;
-                });
-                this.addClearDom();
-                this.addHR();
-                ///
-                this.dialogs['addmodel'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showaddmodel', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('onaddmodel', data);
-                    });
-                });
-                this.doms['addmodel'] = this.addButton(function (dom) {
-                    dom.value = 'AddModel';
-                    dom.className = 'add-model';
-                    dom.addEventListener("click", function () {
-                        _this.dialogs['addmodel'].show();
-                    });
-                });
-                ///
-                this.doms['deletemodel'] = this.addButton(function (dom) {
-                    dom.value = 'DeleteModel';
-                    dom.className = 'remove-model';
-                    dom.addEventListener("click", function () {
-                        _this.screen.dispatchCallback("ondeletemodel");
-                    });
-                    dom.disabled = true;
-                });
-                this.addHR();
-                ///
-                this.dialogs['download'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showdownload', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('ondownload', data);
-                    });
-                });
-                this.doms['download'] = this.addButton(function (dom) {
-                    dom.value = 'Download';
-                    dom.className = 'saving';
-                    dom.addEventListener("click", function () {
-                        _this.dialogs['download'].show();
-                    });
-                });
-                ///
-                ///
-                this.doms['restore'] = this.addButton(function (dom) {
-                    dom.value = 'Restore';
-                    dom.className = 'saving';
-                    // to open the file dialog
-                    var fileInput = document.createElement("input");
-                    fileInput.type = 'file';
-                    fileInput.style.display = 'none';
-                    fileInput.onchange = function (e) {
-                        var files = fileInput.files;
-                        if (files.length != 1) {
-                            return false;
-                        }
-                        var file = files[0];
-                        var reader = new FileReader();
-                        reader.onload = function (e) {
-                            var data = reader.result;
-                            _this.screen.dispatchCallback('onrestore', data);
-                        };
-                        reader.readAsText(file);
-                    };
-                    dom.appendChild(fileInput);
-                    dom.addEventListener("click", function () { return fileInput.click(); });
-                });
-                ///
-                this.addHR();
-                ///
-                this.dialogs['config'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        _this.screen.dispatchCallback('showconfig', function (data) {
-                            c.setValues(data);
-                        });
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                        _this.screen.dispatchCallback('onconfig', data);
-                    });
-                });
-                this.doms['config'] = this.addButton(function (dom) {
-                    dom.value = 'Config';
-                    dom.className = 'config';
-                    dom.addEventListener("click", function () {
-                        // call onshowdownload
-                        _this.dialogs['config'].show();
-                    });
-                });
-                ///
-                // dialogs for error...
-                this.dialogs['error'] = this.addDialog(function (c) {
-                    c.addCallback('show', function () {
-                        c.setValues([{
-                            type: 'message',
-                            text: 'エラーが発生しました．'
-                        }]);
-                    });
-                    c.addCallback('onsubmit', function (data) {
-                    });
-                }, false);
-            }
-            ControlPanel.prototype.addButton = function (callback) {
-                var dom = document.createElement("input");
-                dom.type = "button";
-                callback(dom);
-                this.panelDom.appendChild(dom);
-                return dom;
-            };
-            ControlPanel.prototype.addDialog = function (callback, hasCancel) {
-                if (hasCancel === void 0) { hasCancel = true; }
-                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom, hasCancel);
-                callback(ctrl);
-                return ctrl;
-            };
-            ControlPanel.prototype.getDialog = function (name) {
-                return this.dialogs[name];
-            };
-            ControlPanel.prototype.addClearDom = function () {
-                var dom = document.createElement("div");
-                dom.style.clear = 'both';
-                this.panelDom.appendChild(dom);
-            };
-            ControlPanel.prototype.addHR = function () {
-                var dom = document.createElement("hr");
-                this.panelDom.appendChild(dom);
-            };
-            ControlPanel.prototype.selectModeUI = function (mode) {
-                for (var key in this.toggleDom) {
-                    this.toggleDom[key].disabled = false;
-                }
-                this.toggleDom[mode].disabled = true;
-            };
-            ControlPanel.prototype.changeUIStatus = function (name, callback) {
-                var dom = this.doms[name];
-                if (dom == null)
-                    return false;
-                return callback(dom);
-            };
-            ControlPanel.prototype.onResize = function (width, height) {
-                // DO nothing...
-            };
-            return ControlPanel;
-        })();
-        Screen.ControlPanel = ControlPanel;
-    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
-})(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
@@ -1054,7 +655,6 @@ var PoseEditor;
             this.scene = scene;
             this.camera = camera;
             this.targeter = targeter;
-            //
             this.plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 8, 8), new THREE.MeshBasicMaterial({
                 color: 0x0000ff,
                 opacity: 0.2,
@@ -1062,14 +662,12 @@ var PoseEditor;
             }));
             this.plane.visible = false;
             this.scene.add(this.plane);
-            //
             var sphereGeo = new THREE.SphereGeometry(1, 14, 14);
             var material = new THREE.MeshBasicMaterial({ wireframe: true });
             this.targetMesh = new THREE.Mesh(sphereGeo, material);
             this.targetMesh.matrixWorldNeedsUpdate = true;
             this.targetMesh.visible = false;
             this.scene.add(this.targetMesh);
-            //
             var boxGeo = new THREE.BoxGeometry(1, 1, 1);
             var boxMat = new THREE.MeshBasicMaterial({ wireframe: true });
             this.debugMesh = new THREE.Mesh(boxGeo, boxMat);
@@ -1078,10 +676,8 @@ var PoseEditor;
             this.scene.add(this.debugMesh);
         }
         CursorPositionHelper.prototype.setBeginState = function (startPos) {
-            //
             this.targetMesh.position.copy(startPos);
             this.debugMesh.position.copy(startPos);
-            // set plane
             var c_to_p = this.targeter.target.clone().sub(this.camera.position);
             var c_to_o = startPos.clone().sub(this.camera.position);
             var n_c_to_p = c_to_p.clone().normalize();
@@ -1095,11 +691,10 @@ var PoseEditor;
         };
         CursorPositionHelper.prototype.move = function (worldCursorPos) {
             var raycaster = new THREE.Raycaster(this.camera.position, worldCursorPos.clone().sub(this.camera.position).normalize());
-            //
             var intersects = raycaster.intersectObject(this.plane);
             if (intersects.length == 0)
                 return;
-            var pos = intersects[0].point; // world coordinates
+            var pos = intersects[0].point;
             this.targetMesh.position.copy(pos);
             return pos;
         };
@@ -1147,129 +742,31 @@ var PoseEditor;
         return CameraConfig;
     })();
     PoseEditor.CameraConfig = CameraConfig;
-    function degToRad(deg) {
-        return deg * Math.PI / 180.0;
-    }
+    function degToRad(deg) { return deg * Math.PI / 180.0; }
     PoseEditor.degToRad = degToRad;
-    function radToDeg(rad) {
-        return rad / Math.PI * 180.0;
-    }
+    function radToDeg(rad) { return rad / Math.PI * 180.0; }
     PoseEditor.radToDeg = radToDeg;
 })(PoseEditor || (PoseEditor = {}));
-/// <reference path="../typings/threejs/three.d.ts"/>
-/// <reference path="etc.ts"/>
+/// <reference path="dialog.ts"/>
 var PoseEditor;
 (function (PoseEditor) {
-    var LogoRenderer = (function () {
-        function LogoRenderer(screen, logoConfig) {
-            this.screen = screen;
-            this.logoConfig = logoConfig;
-            this.visible = true; //false;
-            this.scene = new THREE.Scene();
-            // X: left -> right
-            // Y: Bottom -> Top
-            this.camera = new THREE.OrthographicCamera(-screen.width / 2, screen.width / 2, screen.height / 2, -screen.height / 2, 1, 100);
-            this.camera.position.set(0, 0, 10);
-            var texture = THREE.ImageUtils.loadTexture(logoConfig.path);
-            var material = new THREE.SpriteMaterial({
-                map: texture,
-                color: 0xffffff
-            });
-            this.sprite = new THREE.Sprite(material);
-            this.setSpriteSize();
-            this.setSpritePosition();
-            this.scene.add(this.sprite);
-        }
-        LogoRenderer.prototype.setSpriteSize = function () {
-            var _this = this;
-            this.width = (function () {
-                if (typeof _this.logoConfig.width === 'string') {
-                    return _this.toPercent(_this.logoConfig.width) * _this.screen.width;
-                }
-                else if (typeof _this.logoConfig.width === 'number') {
-                    return _this.logoConfig.width;
-                }
-                else {
-                    console.error("");
-                    return null;
-                }
-            })();
-            this.widthRatio = this.logoConfig.rawWidth / this.screen.width;
-            this.width *= this.widthRatio;
-            this.height = (function () {
-                if (typeof _this.logoConfig.height === 'string') {
-                    return _this.toPercent(_this.logoConfig.height) * _this.screen.height;
-                }
-                else if (typeof _this.logoConfig.height === 'number') {
-                    return _this.logoConfig.height;
-                }
-                else {
-                    console.error("");
-                    return null;
-                }
-            })();
-            this.heightRatio = this.logoConfig.rawHeight / this.screen.height;
-            this.height *= this.heightRatio;
-            this.offsetX = (this.screen.width - this.width) / 2.0;
-            this.offsetY = (this.screen.height - this.height) / 2.0;
-            this.sprite.scale.set(this.width, this.height, 1);
-        };
-        LogoRenderer.prototype.setSpritePosition = function () {
-            switch (this.logoConfig.position) {
-                case 0 /* LeftBottom */:
-                    var lpos = this.getLeftPosition(this.logoConfig.left);
-                    var bpos = this.getBottomPosition(this.logoConfig.bottom);
-                    this.sprite.position.set(lpos, bpos, 1);
-                    break;
-                default:
-                    break;
+    var Screen;
+    (function (Screen) {
+        var LoadingDialog = (function (_super) {
+            __extends(LoadingDialog, _super);
+            function LoadingDialog(parentDom, imagePath) {
+                _super.call(this, parentDom, 'div', 'poseeditor-loading');
+                var imageDom = document.createElement('img');
+                imageDom.src = imagePath;
+                this.coreDom.appendChild(imageDom);
+                var spanDom = document.createElement('span');
+                spanDom.innerText = "Loading...";
+                this.coreDom.appendChild(spanDom);
             }
-        };
-        LogoRenderer.prototype.getLeftPosition = function (s) {
-            if (typeof s === 'string') {
-                return (this.toPercent(s) * this.width) - this.offsetX;
-            }
-            else if (typeof s === 'number') {
-                return s - this.offsetX;
-            }
-            else {
-                console.error("");
-                return null;
-            }
-        };
-        // NOTE: direction of Y asix is inversed
-        LogoRenderer.prototype.getBottomPosition = function (s) {
-            if (typeof s === 'string') {
-                return (this.toPercent(s) * this.height) - this.offsetY;
-            }
-            else if (typeof s === 'number') {
-                return s - this.offsetY;
-            }
-            else {
-                console.error("");
-                return null;
-            }
-        };
-        LogoRenderer.prototype.toPercent = function (s) {
-            return parseFloat(s) / 100.0;
-        };
-        LogoRenderer.prototype.onResize = function () {
-            this.camera.left = -this.screen.width / 2;
-            this.camera.right = this.screen.width / 2;
-            this.camera.top = this.screen.height / 2;
-            this.camera.bottom = -this.screen.height / 2;
-            this.camera.updateProjectionMatrix();
-            this.setSpriteSize();
-            this.setSpritePosition();
-        };
-        LogoRenderer.prototype.render = function (renderer) {
-            if (this.visible) {
-                renderer.render(this.scene, this.camera);
-            }
-        };
-        return LogoRenderer;
-    })();
-    PoseEditor.LogoRenderer = LogoRenderer;
+            return LoadingDialog;
+        })(Screen.Dialog);
+        Screen.LoadingDialog = LoadingDialog;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
 })(PoseEditor || (PoseEditor = {}));
 /// <reference path="../typings/threejs/three.d.ts"/>
 /// <reference path="../ext/SkeletonHelper.d.ts"/>
@@ -1295,35 +792,25 @@ var PoseEditor;
             this.scene = scene;
             this.scene2d = scene2d;
             this.sceneForPicking = sceneForPicking;
-            //
             this.ready = false;
             this.disposed = false;
-            //
             this.showingMarker = false;
-            //
             this.selectedColor = 0xff0000;
             this.normalColor = 0x0000ff;
-            //
             this.mesh = null;
             this.availableBones = [];
-            //
             this.meshForPicking = null;
-            //
             this.jointMarkerSprites = [];
             this.jointMarkerMeshes = [];
-            //
             if (modelInfo.markerScale) {
                 this.markerScale = modelInfo.markerScale;
             }
             else {
-                this.markerScale = [12.0, 12.0]; // default
+                this.markerScale = [12.0, 12.0];
             }
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
-            // load mesh data from path
             loader.load(modelInfo.modelPath, function (geometry, materials) {
-                //console.log("finished to load");
-                // ref. https://github.com/mrdoob/three.js/blob/master/editor/js/Loader.js
                 var material;
                 if (materials !== undefined) {
                     _this.defaultMat = [];
@@ -1348,7 +835,6 @@ var PoseEditor;
                 }
                 var initPos = modelInfo.initPos;
                 var initScale = modelInfo.initScale;
-                // create mesh data
                 _this.mesh = new THREE.SkinnedMesh(geometry, material);
                 if (initPos) {
                     _this.mesh.position.set(initPos[0], initPos[1], initPos[2]);
@@ -1356,13 +842,10 @@ var PoseEditor;
                 if (initScale) {
                     _this.mesh.scale.set(initScale[0], initScale[1], initScale[2]);
                 }
-                //
                 _this.mesh.userData = {
                     modelData: _this
                 };
-                // add mesh to model
                 _this.scene.add(_this.mesh);
-                // create mesh data
                 var color = new THREE.Color();
                 var pickingMaterial = new THREE.MeshBasicMaterial({
                     shading: THREE.NoShading,
@@ -1371,17 +854,9 @@ var PoseEditor;
                     skinning: true
                 });
                 _this.meshForPicking = new THREE.SkinnedMesh(geometry, pickingMaterial);
-                //if ( initPos ) {
-                //    this.meshForPicking.position.set(initPos[0], initPos[1], initPos[2]);
-                //}
-                //if ( initScale ) {
-                //    this.meshForPicking.scale.set(initScale[0], initScale[1], initScale[2]);
-                //}
-                _this.meshForPicking.bind(_this.mesh.skeleton); // important!!
+                _this.meshForPicking.bind(_this.mesh.skeleton);
                 _this.sceneForPicking.add(_this.meshForPicking);
-                //
                 _this.setupAppendixData(spritePaths, modelInfo, callback);
-                //
                 _this.skeletonHelper = new PoseEditor.SkeletonHelper(_this.mesh);
                 _this.skeletonHelper.material.linewidth = 2;
                 _this.skeletonHelper.visible = false;
@@ -1410,15 +885,12 @@ var PoseEditor;
         };
         Model.prototype.setupAppendixData = function (sprite_paths, model_info, callback) {
             var _this = this;
-            //
             var bone_limits = model_info.boneLimits;
             var base_joint_id = model_info.baseJointId;
             var ikDefaultPropagation = model_info.ikDefaultPropagation;
             var hiddenJoints = model_info.hiddenJoints;
-            //
             var default_cross_origin = THREE.ImageUtils.crossOrigin;
             THREE.ImageUtils.crossOrigin = '*';
-            //
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 bone.matrixWorldNeedsUpdate = true;
                 bone.updateMatrixWorld(true);
@@ -1452,12 +924,10 @@ var PoseEditor;
                 }
             });
             this.scene.updateMatrixWorld(true);
-            //
-            this.offsetOrgToBone = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
-            //
+            this.offsetOrgToBone
+                = this.mesh.skeleton.bones[base_joint_id].getWorldPosition(null).sub(this.mesh.position);
             this.jointMarkerSprites = new Array(this.mesh.skeleton.bones.length);
             this.jointMarkerMeshes = new Array(this.mesh.skeleton.bones.length);
-            // load textures(marker for bone)
             this.normalMarkerTex = THREE.ImageUtils.loadTexture(sprite_paths.normal);
             this.normalMarkerMat = new THREE.SpriteMaterial({
                 map: this.normalMarkerTex,
@@ -1468,10 +938,8 @@ var PoseEditor;
                 map: this.specialMarkerTex,
                 color: this.normalColor
             });
-            // make sphere objects(attached by transform ctrl)
             this.mesh.skeleton.bones.forEach(function (bone, index) {
                 if (hiddenJoints.indexOf(index) != -1) {
-                    // this bone is hidden
                     bone.userData.hidden = true;
                     return;
                 }
@@ -1479,16 +947,11 @@ var PoseEditor;
                     bone.userData.hidden = false;
                 }
                 _this.availableBones.push(bone);
-                //
-                // load textures(marker for bone)
                 var sprite = _this.createMarkerSprite(bone);
                 sprite.scale.set(_this.markerScale[0], _this.markerScale[1], 1);
                 sprite.visible = false;
                 _this.jointMarkerSprites[index] = sprite;
                 _this.scene2d.add(sprite);
-                //var sphere_geo = new THREE.SphereGeometry(1, 14, 14);
-                //var material = new THREE.MeshBasicMaterial({wireframe: true});
-                //var sphere = new THREE.Mesh(sphere_geo, material);
                 var markerMesh = new THREE.AxisHelper(2.0);
                 markerMesh.matrixWorldNeedsUpdate = true;
                 markerMesh.userData = {
@@ -1496,7 +959,7 @@ var PoseEditor;
                     ownerModel: _this
                 };
                 markerMesh.visible = false;
-                _this.jointMarkerMeshes[index] = markerMesh; // TODO: rename
+                _this.jointMarkerMeshes[index] = markerMesh;
                 _this.scene.add(markerMesh);
             });
             THREE.ImageUtils.crossOrigin = default_cross_origin;
@@ -1553,21 +1016,16 @@ var PoseEditor;
         };
         Model.prototype.update = function () {
             var _this = this;
-            //
             this.availableBones.forEach(function (bone) {
                 var index = bone.userData.index;
                 var b_pos = new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld);
-                //
                 var markerSprite = _this.jointMarkerSprites[index];
                 markerSprite.position.set(b_pos.x, b_pos.y, b_pos.z);
-                //
                 var markerMesh = _this.jointMarkerMeshes[index];
                 markerMesh.position.set(b_pos.x, b_pos.y, b_pos.z);
-                //
                 bone.updateMatrixWorld(true);
                 var to_q = bone.getWorldQuaternion(null);
                 markerMesh.quaternion.copy(to_q);
-                //
                 _this.skeletonHelper.update();
             });
         };
@@ -1605,12 +1063,10 @@ var PoseEditor;
         Model.prototype.initializePose = function (bone) {
             if (bone === void 0) { bone = null; }
             if (bone) {
-                // if bone is specified, initialize bone of that
                 var q = bone.userData.initQuaternion;
                 bone.quaternion.copy(q);
             }
             else {
-                // initialize all bones
                 this.mesh.skeleton.bones.map(function (bone) {
                     var q = bone.userData.initQuaternion;
                     bone.quaternion.copy(q);
@@ -1674,6 +1130,299 @@ var PoseEditor;
     })();
     PoseEditor.Model = Model;
 })(PoseEditor || (PoseEditor = {}));
+/// <reference path="screen.ts"/>
+/// <reference path="configuration_dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        var ControlPanel = (function () {
+            function ControlPanel(screen) {
+                var _this = this;
+                this.toggleDom = {};
+                this.doms = {};
+                this.dialogs = {};
+                this.screen = screen;
+                this.panelDom = document.createElement("div");
+                this.panelDom.className = 'control-panel';
+                {
+                    var s = this.panelDom.style;
+                    s.position = 'absolute';
+                    s.right = '0';
+                    s.width = '100px';
+                    s.height = this.screen.height + 'px';
+                }
+                this.screen.targetDom.appendChild(this.panelDom);
+                this.toggleDom['camera'] = this.addButton(function (dom) {
+                    dom.value = 'Camera';
+                    dom.className = 'modes';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", Screen.Mode.Camera);
+                    });
+                });
+                this.toggleDom['move'] = this.addButton(function (dom) {
+                    dom.value = 'Move/Select';
+                    dom.className = 'modes';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", Screen.Mode.Move);
+                    });
+                });
+                this.toggleDom['bone'] = this.addButton(function (dom) {
+                    dom.value = 'Bone';
+                    dom.className = 'modes';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onmodeclick", Screen.Mode.Bone);
+                    });
+                });
+                this.addHR();
+                this.doms['undo'] = this.addButton(function (dom) {
+                    dom.value = 'Undo';
+                    dom.className = 'undo half';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onundo");
+                    });
+                    dom.disabled = true;
+                });
+                this.doms['redo'] = this.addButton(function (dom) {
+                    dom.value = 'Redo';
+                    dom.className = 'redo half';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onredo");
+                    });
+                    dom.disabled = true;
+                });
+                this.addClearDom();
+                this.addHR();
+                this.doms['initial_bone'] = this.addButton(function (dom) {
+                    dom.value = 'Init Bone';
+                    dom.className = 'init-bone half';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onboneinitialize");
+                    });
+                    dom.disabled = true;
+                });
+                this.doms['initial_pose'] = this.addButton(function (dom) {
+                    dom.value = 'Init Pose';
+                    dom.className = 'init-pose half';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("onposeinitialize");
+                    });
+                    dom.disabled = true;
+                });
+                this.addClearDom();
+                this.addHR();
+                this.dialogs['addmodel'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showaddmodel', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onaddmodel', data);
+                    });
+                });
+                this.doms['addmodel'] = this.addButton(function (dom) {
+                    dom.value = 'AddModel';
+                    dom.className = 'add-model';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['addmodel'].show();
+                    });
+                });
+                this.doms['deletemodel'] = this.addButton(function (dom) {
+                    dom.value = 'DeleteModel';
+                    dom.className = 'remove-model';
+                    dom.addEventListener("click", function () {
+                        _this.screen.dispatchCallback("ondeletemodel");
+                    });
+                    dom.disabled = true;
+                });
+                this.addHR();
+                this.dialogs['download'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showdownload', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('ondownload', data);
+                    });
+                });
+                this.doms['download'] = this.addButton(function (dom) {
+                    dom.value = 'Download';
+                    dom.className = 'saving';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['download'].show();
+                    });
+                });
+                this.doms['restore'] = this.addButton(function (dom) {
+                    dom.value = 'Restore';
+                    dom.className = 'saving';
+                    var fileInput = document.createElement("input");
+                    fileInput.type = 'file';
+                    fileInput.style.display = 'none';
+                    fileInput.onchange = function (e) {
+                        var files = fileInput.files;
+                        if (files.length != 1) {
+                            return false;
+                        }
+                        var file = files[0];
+                        var reader = new FileReader();
+                        reader.onload = function (e) {
+                            var data = reader.result;
+                            _this.screen.dispatchCallback('onrestore', data);
+                        };
+                        reader.readAsText(file);
+                    };
+                    dom.appendChild(fileInput);
+                    dom.addEventListener("click", function () { return fileInput.click(); });
+                });
+                this.addHR();
+                this.dialogs['config'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        _this.screen.dispatchCallback('showconfig', function (data) {
+                            c.setValues(data);
+                        });
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                        _this.screen.dispatchCallback('onconfig', data);
+                    });
+                });
+                this.doms['config'] = this.addButton(function (dom) {
+                    dom.value = 'Config';
+                    dom.className = 'config';
+                    dom.addEventListener("click", function () {
+                        _this.dialogs['config'].show();
+                    });
+                });
+                this.dialogs['error'] = this.addDialog(function (c) {
+                    c.addCallback('show', function () {
+                        c.setValues([{
+                                type: 'message',
+                                text: 'エラーが発生しました．'
+                            }]);
+                    });
+                    c.addCallback('onsubmit', function (data) {
+                    });
+                }, false);
+            }
+            ControlPanel.prototype.addButton = function (callback) {
+                var dom = document.createElement("input");
+                dom.type = "button";
+                callback(dom);
+                this.panelDom.appendChild(dom);
+                return dom;
+            };
+            ControlPanel.prototype.addDialog = function (callback, hasCancel) {
+                if (hasCancel === void 0) { hasCancel = true; }
+                var ctrl = new Screen.ConfigurationDialog(this.screen.targetDom, hasCancel);
+                callback(ctrl);
+                return ctrl;
+            };
+            ControlPanel.prototype.getDialog = function (name) {
+                return this.dialogs[name];
+            };
+            ControlPanel.prototype.addClearDom = function () {
+                var dom = document.createElement("div");
+                dom.style.clear = 'both';
+                this.panelDom.appendChild(dom);
+            };
+            ControlPanel.prototype.addHR = function () {
+                var dom = document.createElement("hr");
+                this.panelDom.appendChild(dom);
+            };
+            ControlPanel.prototype.selectModeUI = function (mode) {
+                for (var key in this.toggleDom) {
+                    this.toggleDom[key].disabled = false;
+                }
+                this.toggleDom[mode].disabled = true;
+            };
+            ControlPanel.prototype.changeUIStatus = function (name, callback) {
+                var dom = this.doms[name];
+                if (dom == null)
+                    return false;
+                return callback(dom);
+            };
+            ControlPanel.prototype.onResize = function (width, height) {
+            };
+            return ControlPanel;
+        })();
+        Screen.ControlPanel = ControlPanel;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="event_dispatcher.ts"/>
+/// <reference path="control_panel.ts"/>
+/// <reference path="loading_dialog.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var Screen;
+    (function (Screen) {
+        (function (Mode) {
+            Mode[Mode["Camera"] = 0] = "Camera";
+            Mode[Mode["Move"] = 1] = "Move";
+            Mode[Mode["Bone"] = 2] = "Bone";
+        })(Screen.Mode || (Screen.Mode = {}));
+        var Mode = Screen.Mode;
+        var ScreenController = (function (_super) {
+            __extends(ScreenController, _super);
+            function ScreenController(parentDomId, config) {
+                var _this = this;
+                _super.call(this);
+                this.loadingDom = null;
+                var parentDom = document.getElementById(parentDomId);
+                if (parentDom == null) {
+                    console.log("parent dom was not found...");
+                }
+                this.targetDom = parentDom ? parentDom : document.body;
+                this.width = this.targetDom.offsetWidth;
+                this.height = this.targetDom.offsetHeight;
+                this.aspect = this.width / this.height;
+                if (config.loadingImagePath) {
+                    this.loadingDom = new Screen.LoadingDialog(this.targetDom, config.loadingImagePath);
+                    this.showLoadingDom();
+                }
+                this.controlPanel = new Screen.ControlPanel(this);
+                window.addEventListener('resize', function () { return _this.onResize(); }, false);
+            }
+            ScreenController.prototype.selectModeUI = function (mode) {
+                this.controlPanel.selectModeUI(mode);
+            };
+            ScreenController.prototype.changeUIStatus = function (name, callback) {
+                return this.controlPanel.changeUIStatus(name, callback);
+            };
+            ScreenController.prototype.appendChild = function (dom) {
+                this.targetDom.appendChild(dom);
+            };
+            ScreenController.prototype.onResize = function () {
+                var w = this.targetDom.offsetWidth;
+                var h = this.targetDom.offsetHeight;
+                if (this.width == w && this.height == h) {
+                    return false;
+                }
+                this.width = w;
+                this.height = h;
+                this.aspect = this.width / this.height;
+                this.dispatchCallback('resize');
+                this.controlPanel.onResize(this.width, this.height);
+                return false;
+            };
+            ScreenController.prototype.showLoadingDom = function () {
+                if (this.loadingDom) {
+                    this.loadingDom.show();
+                }
+            };
+            ScreenController.prototype.hideLoadingDom = function () {
+                if (this.loadingDom) {
+                    this.loadingDom.hide();
+                }
+            };
+            ScreenController.prototype.getDialog = function (name) {
+                return this.controlPanel.getDialog(name);
+            };
+            return ScreenController;
+        })(PoseEditor.EventDispatcher);
+        Screen.ScreenController = ScreenController;
+    })(Screen = PoseEditor.Screen || (PoseEditor.Screen = {}));
+})(PoseEditor || (PoseEditor = {}));
 var PoseEditor;
 (function (PoseEditor) {
     var TimeMachine;
@@ -1681,16 +1430,12 @@ var PoseEditor;
         var Action = (function () {
             function Action() {
             }
-            Action.prototype.undo = function () {
-            };
-            Action.prototype.redo = function () {
-            };
-            Action.prototype.dispose = function () {
-            };
+            Action.prototype.undo = function () { };
+            Action.prototype.redo = function () { };
+            Action.prototype.dispose = function () { };
             return Action;
         })();
         TimeMachine.Action = Action;
-        //
         var ChangeModelStatusAction = (function (_super) {
             __extends(ChangeModelStatusAction, _super);
             function ChangeModelStatusAction(m, b, a) {
@@ -1708,7 +1453,6 @@ var PoseEditor;
             return ChangeModelStatusAction;
         })(Action);
         TimeMachine.ChangeModelStatusAction = ChangeModelStatusAction;
-        //
         var ChangeModelRemoveAction = (function (_super) {
             __extends(ChangeModelRemoveAction, _super);
             function ChangeModelRemoveAction(m, b, real) {
@@ -1716,18 +1460,18 @@ var PoseEditor;
                 this.model = m;
                 this.refModels = real;
                 this.beforeModels = b;
-                this.afterModels = real.concat(); // clone
+                this.afterModels = real.concat();
             }
             ChangeModelRemoveAction.prototype.undo = function () {
                 var _this = this;
                 this.refModels.splice(0, this.refModels.length);
-                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); });
                 this.model.reactivate();
             };
             ChangeModelRemoveAction.prototype.redo = function () {
                 var _this = this;
                 this.refModels.splice(0, this.refModels.length);
-                this.afterModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.afterModels.forEach(function (e) { return _this.refModels.push(e); });
                 this.model.deactivate();
             };
             ChangeModelRemoveAction.prototype.dispose = function () {
@@ -1738,7 +1482,6 @@ var PoseEditor;
             return ChangeModelRemoveAction;
         })(Action);
         TimeMachine.ChangeModelRemoveAction = ChangeModelRemoveAction;
-        //
         var ChangeModelAppendAction = (function (_super) {
             __extends(ChangeModelAppendAction, _super);
             function ChangeModelAppendAction(m, b, real) {
@@ -1746,18 +1489,18 @@ var PoseEditor;
                 this.model = m;
                 this.refModels = real;
                 this.beforeModels = b;
-                this.afterModels = real.concat(); // clone
+                this.afterModels = real.concat();
             }
             ChangeModelAppendAction.prototype.undo = function () {
                 var _this = this;
                 this.refModels.splice(0, this.refModels.length);
-                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.beforeModels.forEach(function (e) { return _this.refModels.push(e); });
                 this.model.deactivate();
             };
             ChangeModelAppendAction.prototype.redo = function () {
                 var _this = this;
                 this.refModels.splice(0, this.refModels.length);
-                this.afterModels.forEach(function (e) { return _this.refModels.push(e); }); // X(
+                this.afterModels.forEach(function (e) { return _this.refModels.push(e); });
                 this.model.reactivate();
             };
             return ChangeModelAppendAction;
@@ -1770,7 +1513,6 @@ var PoseEditor;
 (function (PoseEditor) {
     var TimeMachine;
     (function (TimeMachine) {
-        //
         var Machine = (function () {
             function Machine(screen) {
                 this.history = [];
@@ -1778,7 +1520,7 @@ var PoseEditor;
                 this.side = 1;
                 this.reachedBottom = true;
                 this.reachedTop = true;
-                this.screen = screen; // TO data binding... (nullable)
+                this.screen = screen;
             }
             Machine.prototype.undo = function () {
                 if (this.currentStep < 0 || this.history.length == 0)
@@ -1794,7 +1536,7 @@ var PoseEditor;
                     return;
                 this.history[this.currentStep].redo();
                 this.currentStep++;
-                this.side = 1; // redo side
+                this.side = 1;
                 this.clamp();
                 this.updateUI();
             };
@@ -1820,7 +1562,7 @@ var PoseEditor;
                 this.clamp();
                 this.reachedBottom = false;
                 this.reachedTop = true;
-                this.side = 1; // redo side
+                this.side = 1;
                 this.updateUI();
             };
             Machine.prototype.updateUI = function () {
@@ -1873,21 +1615,16 @@ var PoseEditor;
                 _this.update();
                 _this.render();
             };
-            //
             this.models = [];
             this.modelsIdIndexer = [];
             this.modelIdNum = 0;
             this.logoRenderer = null;
-            //
             this.loadingTasks = 0;
-            //
             this.currentValues = {};
-            // setup screen
             this.screen = new PoseEditor.Screen.ScreenController(parentDomId, config);
             this.screen.targetDom.className = config.theme;
             this.actionController = new PoseEditor.ActionController();
             this.history = new PoseEditor.TimeMachine.Machine(this.screen);
-            // setup screen
             this.screen.addCallback('resize', function () { return _this.onResize(); });
             this.screen.addCallback('onmodeclick', function (m) {
                 _this.actionController.onModeSelect(m, _this.screen);
@@ -1920,16 +1657,12 @@ var PoseEditor;
             this.screen.addCallback('onrestore', function (data) {
                 _this.onRestore(data);
             });
-            // setup
-            this.actionController.onModeSelect(0 /* Camera */, this.screen);
-            //
+            this.actionController.onModeSelect(PoseEditor.Screen.Mode.Camera, this.screen);
             this.modelInfoTable = modelInfoTable;
             this.spritePaths = spritePaths;
-            //
             this.fov = 60;
             this.near = 1;
             this.far = 1000;
-            //
             this.scene = new THREE.Scene();
             this.camera = new THREE.PerspectiveCamera(this.fov, this.screen.aspect, this.near, this.far);
             this.camera.position.copy(defaultCamera.position);
@@ -1947,9 +1680,7 @@ var PoseEditor;
                 var light = new THREE.AmbientLight(0xffffff);
                 _this.scene.add(light);
             })();
-            //
             this.scene2d = new THREE.Scene();
-            //
             var propForRenderer = {
                 preserveDrawingBuffer: true
             };
@@ -1958,16 +1689,13 @@ var PoseEditor;
             this.renderer.setSize(this.screen.width, this.screen.height);
             this.renderer.autoClear = false;
             this.renderer.setClearColor(config.backgroundColorHex, config.backgroundAlpha);
-            //
             this.screen.appendChild(this.renderer.domElement);
-            //
             this.gridHelper = new THREE.GridHelper(50.0, 5.0);
             this.scene.add(this.gridHelper);
             if (config.isDebugging) {
                 this.axisHelper = new THREE.AxisHelper(50.0);
                 this.scene.add(this.axisHelper);
             }
-            //
             this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
             this.controls.target.copy(defaultCamera.lookAt);
             this.controls.update();
@@ -1975,30 +1703,24 @@ var PoseEditor;
             this.controls.addEventListener('change', function () {
                 _this.transformCtrl.update();
             });
-            //
-            this.transformCtrl = new THREE.TransformControls(this.camera, this.renderer.domElement);
+            this.transformCtrl
+                = new THREE.TransformControls(this.camera, this.renderer.domElement);
             this.scene.add(this.transformCtrl);
-            // intersect helper
             this.cursorHelper = new PoseEditor.CursorPositionHelper(this.scene, this.camera, this.controls);
             this.currentValues['bgColorHex'] = config.backgroundColorHex;
             this.currentValues['bgAlpha'] = config.backgroundAlpha;
             this.currentValues['format'] = 'png';
-            //
             this.actionController.setup(this, this.transformCtrl, this.controls, this.renderer.domElement);
-            //
             this.sceneForPicking = new THREE.Scene();
             this.textureForPicking = new THREE.WebGLRenderTarget(this.screen.width, this.screen.height, {
                 minFilter: THREE.LinearFilter,
-                format: THREE.RGBAFormat,
-                generateMipmaps: false
+                format: THREE.RGBAFormat
             });
             if (config.logoConfig) {
                 this.logoRenderer = new PoseEditor.LogoRenderer(this.screen, config.logoConfig);
             }
-            // jump into loop
             this.renderLoop();
         }
-        //
         Editor.prototype.selectModel = function (e, isTouch) {
             e.preventDefault();
             this.sceneForPicking.updateMatrixWorld(true);
@@ -2010,12 +1732,10 @@ var PoseEditor;
             var clientX = clientCur[0];
             var clientY = clientCur[1];
             var pixelBuffer = new Uint8Array(4);
-            // read the pixel under the mouse from the texture(workaround)
             this.renderer.readRenderTargetPixels(this.textureForPicking, clientX, this.textureForPicking.height - clientY, 1.0, 1.0, pixelBuffer);
             var id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | (pixelBuffer[2]);
-            // console.log(id);
             if (id == 0xffffff)
-                return null; // not matched
+                return null;
             var model = this.modelsIdIndexer[id];
             if (!model.isReady())
                 return null;
@@ -2028,12 +1748,10 @@ var PoseEditor;
                 return null;
             return [model, pos];
         };
-        //
         Editor.prototype.selectJointMarker = function (e, isTouch) {
             var _this = this;
             e.preventDefault();
             var pos = this.cursorToWorld(e, isTouch);
-            // calc most nearest sphere
             var l = 9999999999.9;
             var selectedMarker = null;
             var ab = pos.clone().sub(this.camera.position).normalize();
@@ -2046,10 +1764,9 @@ var PoseEditor;
                 var ap = s.position.clone().sub(_this.camera.position);
                 var len = ap.length();
                 var diff_c = len * len / 200.0;
-                var margin = Math.max(0.001, Math.min(1.4, diff_c)); // [0.001, 1.4]
-                //console.log("len: ", len, " / m: ", margin);
+                var margin = Math.max(0.001, Math.min(1.4, diff_c));
                 var d = ab.clone().cross(ap).length();
-                var h = d /* / 1.0 */;
+                var h = d;
                 if (h < margin) {
                     if (h < l) {
                         l = h;
@@ -2057,48 +1774,37 @@ var PoseEditor;
                     }
                 }
             });
-            //console.log(l);
             return selectedMarker;
         };
-        //
         Editor.prototype.setSelectedModel = function (m) {
             var _this = this;
-            // cancel selection
             if (this.selectedModel) {
                 this.selectedModel.selectionState(false);
             }
             this.selectedModel = m;
             if (this.selectedModel) {
-                // select
                 this.selectedModel.selectionState(true);
             }
-            // UI operation
             this.screen.changeUIStatus('deletemodel', function (dom) {
-                // if model is NOT selected, disable
                 dom.disabled = _this.selectedModel == null;
             });
             this.screen.changeUIStatus('initial_pose', function (dom) {
-                // if model is NOT selected, disable
                 dom.disabled = _this.selectedModel == null;
             });
         };
         Editor.prototype.setSelectedBoneAndModel = function (bone, model) {
             var _this = this;
-            // if bone or model are null, regards as NOT selected
             if (bone == null || model == null) {
                 this.selectedBoneAndModel = null;
             }
             else {
                 this.selectedBoneAndModel = [bone, model];
             }
-            // UI operation
             this.screen.changeUIStatus('initial_bone', function (dom) {
-                // if joint is NOT selected, disable
                 dom.disabled = _this.selectedBoneAndModel == null;
             });
         };
         Editor.prototype.cancelAllMarkerSprite = function () {
-            // update marker sprite color (to not selected color)
             this.models.forEach(function (model) {
                 model.cancelMarkerSelection();
             });
@@ -2130,7 +1836,6 @@ var PoseEditor;
         };
         Editor.prototype.loadAndAppendModel = function (name, modelInfo, spritePaths, callback) {
             var _this = this;
-            //
             this.modelsIdIndexer.forEach(function (m, index) {
                 if (m.isDisposed()) {
                     _this.modelsIdIndexer[index] = null;
@@ -2151,7 +1856,6 @@ var PoseEditor;
             this.incTask();
             var model = new PoseEditor.Model(name, modelInfo, spritePaths, this.scene, this.scene2d, modelId, this.sceneForPicking, function (m, e) {
                 _this.decTask();
-                // default IK stopper node indexes
                 var nx = modelInfo.ikInversePropagationJoints;
                 nx.forEach(function (jointIndex) {
                     model.toggleIKPropagation(jointIndex);
@@ -2160,11 +1864,10 @@ var PoseEditor;
                     callback(m, e);
                 }
             });
-            var beforeModelsArray = this.models.concat(); // concat means clone array
+            var beforeModelsArray = this.models.concat();
             this.models.push(model);
             this.modelsIdIndexer[modelId] = model;
             ++this.modelIdNum;
-            //
             this.history.didAction(new PoseEditor.TimeMachine.ChangeModelAppendAction(model, beforeModelsArray, this.models));
         };
         Editor.prototype.resetCtrl = function () {
@@ -2225,8 +1928,6 @@ var PoseEditor;
                 mouseY
             ];
         };
-        // ==================================================
-        // ==================================================
         Editor.prototype.setDownloadTypes = function (f) {
             var order = [
                 {
@@ -2242,7 +1943,7 @@ var PoseEditor;
         Editor.prototype.onDownload = function (data) {
             var type = data['format'];
             if (type == null)
-                return; // TODO: notice error
+                return;
             this.currentValues['format'] = type;
             this.download(type);
         };
@@ -2262,20 +1963,18 @@ var PoseEditor;
         Editor.prototype.download = function (type) {
             if (type === void 0) { type = 'png'; }
             var dataUrl = this.toDataUrl(type);
-            // ???: :(
             var a = document.createElement("a");
-            a.download = "poseeditor." + type; // <any> is workaround for typescript...
+            a.download = "poseeditor." + type;
             a.title = "download snapshot";
             a.href = dataUrl;
             a.click();
-            delete a;
         };
         Editor.prototype.setAddModelTypes = function (f) {
             var value = [];
             var label = [];
             for (var key in this.modelInfoTable) {
                 value.push(key);
-                label.push(key); // TODO: change
+                label.push(key);
             }
             var order = [
                 {
@@ -2291,7 +1990,7 @@ var PoseEditor;
         Editor.prototype.onAddModel = function (data) {
             var name = data['modelName'];
             if (name == null)
-                return; // TODO: notice error
+                return;
             this.currentValues['modelName'] = name;
             this.appendModel(name, function (model, error) {
                 if (error) {
@@ -2322,8 +2021,6 @@ var PoseEditor;
             f(order);
         };
         Editor.prototype.onConfig = function (data) {
-            ///
-            // colors
             var bgColorHex = data['bgColorHex'];
             if (bgColorHex) {
                 this.currentValues['bgColorHex'] = parseInt(bgColorHex, 16);
@@ -2333,7 +2030,6 @@ var PoseEditor;
                 this.currentValues['bgAlpha'] = parseFloat(bgAlpha);
             }
             this.setClearColor(this.currentValues['bgColorHex'], this.currentValues['bgAlpha']);
-            ///
         };
         Editor.prototype.onRestore = function (data) {
             var jsonString = data;
@@ -2371,7 +2067,6 @@ var PoseEditor;
             for (var i = 0; i < models.num; i++) {
                 var l = models.list[i];
                 var name = l.name;
-                // TODO: error check
                 this.appendModel(name, (function (i, ll) {
                     return function (m, error) {
                         if (error) {
@@ -2405,7 +2100,6 @@ var PoseEditor;
         Editor.prototype.initializeCurrentBone = function () {
             if (this.selectedBoneAndModel) {
                 var beforeModelStatus = this.selectedBoneAndModel[1].modelData();
-                // initialize bone...
                 this.selectedBoneAndModel[1].initializePose(this.selectedBoneAndModel[0]);
                 var currentModelStatus = this.selectedBoneAndModel[1].modelData();
                 if (!PoseEditor.isEqualModelStatus(beforeModelStatus, currentModelStatus)) {
@@ -2416,7 +2110,6 @@ var PoseEditor;
         Editor.prototype.initializeCurrentPose = function () {
             if (this.selectedModel) {
                 var beforeModelStatus = this.selectedModel.modelData();
-                // initialize pose...
                 this.selectedModel.initializePose();
                 var currentModelStatus = this.selectedModel.modelData();
                 if (!PoseEditor.isEqualModelStatus(beforeModelStatus, currentModelStatus)) {
@@ -2441,7 +2134,7 @@ var PoseEditor;
         };
         Editor.prototype.removeAllModel = function () {
             this.models.forEach(function (m) {
-                m.deactivate(); // ?
+                m.deactivate();
             });
             this.models = [];
             this.resetCtrl();
@@ -2449,12 +2142,11 @@ var PoseEditor;
         Editor.prototype.removeModelByIndex = function (index) {
             var model = this.models[index];
             model.deactivate();
-            var beforeModelsArray = this.models.concat(); // concat means clone array
+            var beforeModelsArray = this.models.concat();
             this.models.splice(index, 1);
             this.resetCtrl();
             this.setSelectedModel(null);
             this.setSelectedBoneAndModel(null, null);
-            //
             this.history.didAction(new PoseEditor.TimeMachine.ChangeModelRemoveAction(model, beforeModelsArray, this.models));
         };
         Editor.prototype.removeModel = function (model) {
@@ -2464,16 +2156,10 @@ var PoseEditor;
             }
         };
         Editor.prototype.makeDataUrl = function (type) {
-            //
             var markerVis = this.models.map(function (m) { return m.getMarkerVisibility(); });
             this.models.forEach(function (m) { return m.setMarkerVisibility(false); });
             var transVis = this.transformCtrl.visible;
             this.transformCtrl.visible = false;
-            //
-            //if (this.logoRenderer) {
-            //    this.logoRenderer.visible = true;
-            //}
-            //
             var dom = this.renderer.domElement;
             var w = dom.width;
             var h = dom.height;
@@ -2490,12 +2176,7 @@ var PoseEditor;
                 dom.width = w;
                 dom.height = h;
                 this.renderer.setSize(w, h);
-                //
                 this.transformCtrl.visible = transVis;
-                //if (this.logoRenderer) {
-                //    this.logoRenderer.visible = false;
-                //}
-                //
                 this.models.forEach(function (m, i) {
                     m.setMarkerVisibility(markerVis[i]);
                 });
@@ -2516,5 +2197,117 @@ var PoseEditor;
         return Editor;
     })();
     PoseEditor.Editor = Editor;
+})(PoseEditor || (PoseEditor = {}));
+/// <reference path="../typings/threejs/three.d.ts"/>
+/// <reference path="etc.ts"/>
+var PoseEditor;
+(function (PoseEditor) {
+    var LogoRenderer = (function () {
+        function LogoRenderer(screen, logoConfig) {
+            this.screen = screen;
+            this.logoConfig = logoConfig;
+            this.visible = true;
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.OrthographicCamera(-screen.width / 2, screen.width / 2, screen.height / 2, -screen.height / 2, 1, 100);
+            this.camera.position.set(0, 0, 10);
+            var texture = THREE.ImageUtils.loadTexture(logoConfig.path);
+            var material = new THREE.SpriteMaterial({
+                map: texture,
+                color: 0xffffff
+            });
+            this.sprite = new THREE.Sprite(material);
+            this.setSpriteSize();
+            this.setSpritePosition();
+            this.scene.add(this.sprite);
+        }
+        LogoRenderer.prototype.setSpriteSize = function () {
+            var _this = this;
+            this.width = (function () {
+                if (typeof _this.logoConfig.width === 'string') {
+                    return _this.toPercent(_this.logoConfig.width) * _this.screen.width;
+                }
+                else if (typeof _this.logoConfig.width === 'number') {
+                    return _this.logoConfig.width;
+                }
+                else {
+                    console.error("");
+                    return null;
+                }
+            })();
+            this.widthRatio = this.logoConfig.rawWidth / this.screen.width;
+            this.width *= this.widthRatio;
+            this.height = (function () {
+                if (typeof _this.logoConfig.height === 'string') {
+                    return _this.toPercent(_this.logoConfig.height) * _this.screen.height;
+                }
+                else if (typeof _this.logoConfig.height === 'number') {
+                    return _this.logoConfig.height;
+                }
+                else {
+                    console.error("");
+                    return null;
+                }
+            })();
+            this.heightRatio = this.logoConfig.rawHeight / this.screen.height;
+            this.height *= this.heightRatio;
+            this.offsetX = (this.screen.width - this.width) / 2.0;
+            this.offsetY = (this.screen.height - this.height) / 2.0;
+            this.sprite.scale.set(this.width, this.height, 1);
+        };
+        LogoRenderer.prototype.setSpritePosition = function () {
+            switch (this.logoConfig.position) {
+                case PoseEditor.LogoPosition.LeftBottom:
+                    var lpos = this.getLeftPosition(this.logoConfig.left);
+                    var bpos = this.getBottomPosition(this.logoConfig.bottom);
+                    this.sprite.position.set(lpos, bpos, 1);
+                    break;
+                default:
+                    break;
+            }
+        };
+        LogoRenderer.prototype.getLeftPosition = function (s) {
+            if (typeof s === 'string') {
+                return (this.toPercent(s) * this.width) - this.offsetX;
+            }
+            else if (typeof s === 'number') {
+                return s - this.offsetX;
+            }
+            else {
+                console.error("");
+                return null;
+            }
+        };
+        LogoRenderer.prototype.getBottomPosition = function (s) {
+            if (typeof s === 'string') {
+                return (this.toPercent(s) * this.height) - this.offsetY;
+            }
+            else if (typeof s === 'number') {
+                return s - this.offsetY;
+            }
+            else {
+                console.error("");
+                return null;
+            }
+        };
+        LogoRenderer.prototype.toPercent = function (s) {
+            return parseFloat(s) / 100.0;
+        };
+        LogoRenderer.prototype.onResize = function () {
+            this.camera.left = -this.screen.width / 2;
+            this.camera.right = this.screen.width / 2;
+            this.camera.top = this.screen.height / 2;
+            this.camera.bottom = -this.screen.height / 2;
+            this.camera.updateProjectionMatrix();
+            this.setSpriteSize();
+            this.setSpritePosition();
+        };
+        LogoRenderer.prototype.render = function (renderer) {
+            if (this.visible) {
+                renderer.render(this.scene, this.camera);
+            }
+        };
+        return LogoRenderer;
+    })();
+    PoseEditor.LogoRenderer = LogoRenderer;
 })(PoseEditor || (PoseEditor = {}));
 //# sourceMappingURL=poseeditor.unit.js.map
