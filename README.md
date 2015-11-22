@@ -7,12 +7,13 @@
 bower install poseeditor
 ```
 
-Please include these files.
+Please include this file.
 ```
 #{bower_components}/poseeditor/build/poseeditor.js
-#{bower_components}/poseeditor/ext/OrbitControls.js
-#{bower_components}/poseeditor/ext/TransformControls.js
-#{bower_components}/poseeditor/styles/poseeditor.css
+```
+or
+```
+#{bower_components}/poseeditor/build/poseeditor.min.js
 ```
 For detail to `index.html`.
 
@@ -20,22 +21,18 @@ For detail to `index.html`.
 
 ### Requirement
 + bower
++ gulp
 + tsd (TypeScript Definition manager)
-+ tsc >= 1.4(TypeScript Compiler)
++ tsc >= 1.6 (TypeScript Compiler)
 
 ### Setup
 ```
 bower install
 tsd update
-./b.sh  # build sources
+gulp watch
 ./s.sh  # start server
-./t.sh  # build scss to css with Sass(optional)
 ```
 Then, access `http://localhost:30000/`!
-
-
-## Todo
-prepare build tool...
 
 
 ## License

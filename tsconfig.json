@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "out": "./build/poseeditor.unit.js",
+        "sourceMap": true
+    },
+    "files": [
+        "src/action_controller.ts",
+        "src/bone_action.ts",
+        "src/configuration_dialog.ts",
+        "src/cursor_position_helper.ts",
+        "src/etc.ts",
+        "src/loading_dialog.ts",
+        "src/model.ts",
+        "src/poseeditor.ts",
+        "src/time_machine_action.ts",
+        "src/action.ts",
+        "src/camera_action.ts",
+        "src/control_panel.ts",
+        "src/dialog.ts",
+        "src/event_dispatcher.ts",
+        "src/logo_renderer.ts",
+        "src/move_action.ts",
+        "src/screen.ts",
+        "src/time_machine.ts"
+    ]
+}

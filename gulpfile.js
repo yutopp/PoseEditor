@@ -26,7 +26,7 @@ gulp.task('complete-js', function() {
 });
 
 gulp.task('run-tsc', shell.task([
-  'tsc src/*.ts --out build/poseeditor.unit.js --noImplicitAny -sourcemap'
+  'tsc -p .'
 ]));
 
 gulp.task('combine', function() {
@@ -47,5 +47,6 @@ gulp.task('watch', function() {
   gulp.watch('./scss/*.scss', ['build-css']);
 });
 
+gulp.task('build', ['build-css', 'build-ts'], function() {});
 
 gulp.task('default', ['watch', 'build-css', 'build-ts'], function() {});

@@ -164,7 +164,6 @@ module PoseEditor {
                 {
                     minFilter: THREE.LinearFilter,
                     format: THREE.RGBAFormat,
-                    generateMipmaps: false
                 }
             );
 
@@ -278,12 +277,12 @@ module PoseEditor {
             }
 
             // UI operation
-            this.screen.changeUIStatus('deletemodel', (dom: HTMLElement) => {
+            this.screen.changeUIStatus('deletemodel', (dom) => {
                 // if model is NOT selected, disable
                 dom.disabled = this.selectedModel == null;
             });
 
-            this.screen.changeUIStatus('initial_pose', (dom: HTMLElement) => {
+            this.screen.changeUIStatus('initial_pose', (dom) => {
                 // if model is NOT selected, disable
                 dom.disabled = this.selectedModel == null;
             });
@@ -299,7 +298,7 @@ module PoseEditor {
             }
 
             // UI operation
-            this.screen.changeUIStatus('initial_bone', (dom: HTMLElement) => {
+            this.screen.changeUIStatus('initial_bone', (dom) => {
                 // if joint is NOT selected, disable
                 dom.disabled = this.selectedBoneAndModel == null;
             });
@@ -545,8 +544,6 @@ module PoseEditor {
             a.title = "download snapshot";
             a.href = dataUrl;
             a.click();
-
-            delete a;
         }
 
 

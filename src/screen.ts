@@ -51,7 +51,7 @@ module PoseEditor {
                 this.controlPanel.selectModeUI(mode);
             }
 
-            public changeUIStatus(name: string, callback: (dom: HTMLElement) => any) {
+            public changeUIStatus(name: string, callback: (dom: HTMLInputElement) => any) {
                 return this.controlPanel.changeUIStatus(name, callback);
             }
 

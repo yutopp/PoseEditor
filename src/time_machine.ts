@@ -66,11 +66,11 @@ module PoseEditor {
 
             private updateUI() {
                 if (this.screen) {
-                    this.screen.changeUIStatus('undo', (dom: HTMLElement) => {
+                    this.screen.changeUIStatus('undo', (dom) => {
                         dom.disabled = this.reachedBottom;
                     });
 
-                    this.screen.changeUIStatus('redo', (dom: HTMLElement) => {
+                    this.screen.changeUIStatus('redo', (dom) => {
                         dom.disabled = this.reachedTop;
                     });
                 }

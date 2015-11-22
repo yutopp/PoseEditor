@@ -265,7 +265,7 @@ module PoseEditor {
                 this.toggleDom[mode].disabled = true;
             }
 
-            public changeUIStatus(name: string, callback: (dom: HTMLElement) => any) {
+            public changeUIStatus(name: string, callback: (dom: HTMLInputElement) => any) {
                 var dom = this.doms[name];
                 if (dom == null) return false;
 
@@ -280,8 +280,8 @@ module PoseEditor {
             private screen: ScreenController;
             private panelDom: HTMLElement;
 
-            private toggleDom: {[key: string]: HTMLElement} = {};
-            private doms: {[key: string]: HTMLElement} = {};
+            private toggleDom: {[key: string]: HTMLInputElement} = {};
+            private doms: {[key: string]: HTMLInputElement} = {};
             private dialogs: {[key: string]: ConfigurationDialog} = {};
         }
     }
