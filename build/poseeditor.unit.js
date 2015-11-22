@@ -810,7 +810,7 @@ var PoseEditor;
             }
             var loader = new THREE.JSONLoader();
             loader.crossOrigin = '*';
-            loader.load(modelInfo.modelPath, function (geometry, materials) {
+            var f = function (geometry, materials) {
                 var material;
                 if (materials !== undefined) {
                     _this.defaultMat = [];
@@ -861,7 +861,8 @@ var PoseEditor;
                 _this.skeletonHelper.material.linewidth = 2;
                 _this.skeletonHelper.visible = false;
                 _this.scene.add(_this.skeletonHelper);
-            }, modelInfo.textureDir);
+            };
+            loader.load(modelInfo.modelPath, f, modelInfo.textureDir);
         }
         Model.prototype.selectionState = function (isActive) {
             var _this = this;
